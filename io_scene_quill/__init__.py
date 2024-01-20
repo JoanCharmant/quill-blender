@@ -1,8 +1,3 @@
-import bpy
-from bpy.props import StringProperty, BoolProperty, FloatProperty, EnumProperty
-from bpy_extras.io_utils import ExportHelper
-from . import export_quill
-
 
 bl_info = {
     'name': 'Quill',
@@ -12,8 +7,47 @@ bl_info = {
     'location': 'File > Import-Export',
     'description': 'Import-Export Quill scenes',
     'warning': '',
+    'tracker_url': "https://github.com/JoanCharmant/quill-blender/issues/",
     'category': 'Import-Export',
 }
+
+# To support reload properly, try to access a package var, if it's there, reload everything
+if "bpy" in locals():
+    import importlib
+    if "export_quill" in locals():
+        importlib.reload(export_quill)
+    if "import_quill" in locals():
+        importlib.reload(import_quill)
+
+
+import bpy
+from bpy.props import StringProperty, BoolProperty, FloatProperty, EnumProperty
+from bpy_extras.io_utils import ExportHelper
+from bpy_extras.io_utils import ImportHelper
+
+
+class ImportQuill(bpy.types.Operator, ImportHelper):
+    """Load a Quill scene"""
+    bl_idname = "import_quill.json"
+    bl_label = "Import Quill"
+    bl_options = {'UNDO', 'PRESET'}
+
+    filename_ext = ".json"
+    filter_glob: StringProperty(default="*.json", options={"HIDDEN"})
+
+    ignore_leaf_bones: BoolProperty(
+            name="Ignore Leaf Bones",
+            description="Ignore the last bone at the end of each chain (used to mark the length of the previous bone)",
+            default=False,
+            )
+
+    def execute(self, context):
+
+        from . import import_quill
+
+        keywords = self.as_keywords(ignore=("filter_glob", "filepath"))
+
+        return import_quill.load(self, context, filepath=self.filepath, **keywords)
 
 
 class ExportQuill(bpy.types.Operator, ExportHelper):
@@ -59,7 +93,7 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
     )
 
     def execute(self, context):
-        """Begin the export"""
+        from . import export_quill
 
         keywords = self.as_keywords(ignore=(
             "axis_forward",
@@ -73,21 +107,33 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         return export_quill.save(self, **keywords)
 
 
-def menu_func(self, context):
-    """Add to the menu"""
+def menu_func_import(self, context):
+    self.layout.operator(ImportQuill.bl_idname, text="Quill scene")
+
+
+def menu_func_export(self, context):
     self.layout.operator(ExportQuill.bl_idname, text="Quill scene")
 
+classes = (
+    ExportQuill,
+    ImportQuill,
+)
 
 def register():
-    """Add addon to blender"""
-    bpy.utils.register_class(ExportQuill)
-    bpy.types.TOPBAR_MT_file_export.append(menu_func)
+
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
 
 def unregister():
-    """Remove addon from blender"""
-    bpy.utils.unregister_class(ExportQuill)
-    bpy.types.TOPBAR_MT_file_export.remove(menu_func)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
 
 
 if __name__ == "__main__":

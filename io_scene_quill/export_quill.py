@@ -3,11 +3,9 @@ import os
 import bpy
 import json
 import logging
-#from .model.state import quill_state_from_default
-#from .model.sequence import quill_sequence_from_default
 from .model import sequence
 from .model import state
-from .converters import empty, wireframe
+from .exporters import group, paint_wireframe
 
 class QuillExporter:
     """Handles picking what nodes to export and kicks off the export process"""
@@ -133,7 +131,7 @@ class QuillExporter:
 
         elif obj.type == "EMPTY":
 
-            group_layer = empty.convert(obj)
+            group_layer = group.convert(obj)
             parent_layer.implementation.children.append(group_layer)
 
             for child in obj.children:
@@ -141,7 +139,7 @@ class QuillExporter:
 
         elif obj.type == "MESH":
 
-            paint_layer = wireframe.convert(obj, self.config)
+            paint_layer = paint_wireframe.convert(obj, self.config)
             parent_layer.implementation.children.append(paint_layer)
 
 

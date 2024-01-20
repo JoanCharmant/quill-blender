@@ -73,6 +73,42 @@ class Thumbnails:
         return Thumbnails()
 
 
+class PictureMetadata:
+    def __init__(self, ):
+        pass
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        return PictureMetadata()
+
+    def to_dict(self):
+        result = {}
+        return result
+
+
+class Picture:
+    def __init__(self, type, data_file_offset, metadata):
+        self.type = type
+        self.data_file_offset = data_file_offset
+        self.metadata = metadata
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        type = from_str(obj.get("Type"))
+        data_file_offset = from_str(obj.get("DataFileOffset"))
+        metadata = PictureMetadata.from_dict(obj.get("Metadata"))
+        return Picture(type, data_file_offset, metadata)
+
+    def to_dict(self):
+        result = {}
+        result["Type"] = from_str(self.type)
+        result["DataFileOffset"] = from_str(self.data_file_offset)
+        result["Metadata"] = to_class(PictureMetadata, self.metadata)
+        return result
+
+
 class Gallery:
     def __init__(self, pictures, thumbnails):
         self.pictures = pictures
@@ -81,13 +117,14 @@ class Gallery:
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
-        pictures = from_list(from_str, obj.get("Pictures"))
+        pictures = from_union([lambda x: from_list(Picture.from_dict, x), from_none], obj.get("Pictures"))
         thumbnails = Thumbnails.from_dict(obj.get("Thumbnails"))
         return Gallery(pictures, thumbnails)
 
     def to_dict(self):
         result = {}
-        result["Pictures"] = from_list(from_str, self.pictures)
+        if self.pictures is not None:
+            result["Pictures"] = from_union([lambda x: from_list(lambda x: to_class(Picture, x), x), from_none], self.pictures)
         result["Thumbnails"] = to_class(Thumbnails, self.thumbnails)
         return result
 
@@ -108,14 +145,14 @@ class Metadata:
     def from_dict(obj):
         assert isinstance(obj, dict)
         description = from_str(obj.get("Description"))
-        thumbnail_crop_position = from_float(obj.get("ThumbnailCropPosition"))
+        thumbnail_crop_position = from_union([from_float, from_none], obj.get("ThumbnailCropPosition"))
         title = from_str(obj.get("Title"))
         return Metadata(description, thumbnail_crop_position, title)
 
     def to_dict(self):
         result = {}
         result["Description"] = from_str(self.description)
-        result["ThumbnailCropPosition"] = to_float(self.thumbnail_crop_position)
+        result["ThumbnailCropPosition"] = from_union([from_float, from_none], self.thumbnail_crop_position)
         result["Title"] = from_str(self.title)
         return result
 
@@ -184,20 +221,22 @@ class Keys:
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
-        offset = from_list(Keyframe.from_dict, obj.get("Offset"))
+        offset = from_union([lambda x: from_list(Keyframe.from_dict, x), from_none], obj.get("Offset"))
         opacity = from_union([lambda x: from_list(Keyframe.from_dict, x), from_none], obj.get("Opacity"))
         transform = from_union([lambda x: from_list(Keyframe.from_dict, x), from_none], obj.get("Transform"))
-        visibility = from_list(Keyframe.from_dict, obj.get("Visibility"))
+        visibility = from_union([lambda x: from_list(Keyframe.from_dict, x), from_none], obj.get("Visibility"))
         return Keys(offset, opacity, transform, visibility)
 
     def to_dict(self):
         result = {}
-        result["Offset"] = from_list(lambda x: to_class(Keyframe, x), self.offset)
+        if self.offset is not None:
+            result["Offset"] = from_union([lambda x: from_list(lambda x: to_class(Keyframe, x), x), from_none], self.offset)
         if self.opacity is not None:
             result["Opacity"] = from_union([lambda x: from_list(lambda x: to_class(Keyframe, x), x), from_none], self.opacity)
         if self.transform is not None:
             result["Transform"] = from_union([lambda x: from_list(lambda x: to_class(Keyframe, x), x), from_none], self.transform)
-        result["Visibility"] = from_list(lambda x: to_class(Keyframe, x), self.visibility)
+        if self.visibility is not None:
+            result["Visibility"] = from_union([lambda x: from_list(lambda x: to_class(Keyframe, x), x), from_none], self.visibility)
         return result
 
     @staticmethod
@@ -225,7 +264,7 @@ class Animation:
         duration = int(from_str(obj.get("Duration")))
         keys = Keys.from_dict(obj.get("Keys"))
         max_repeat_count = int(from_str(obj.get("MaxRepeatCount")))
-        start_offset = int(from_str(obj.get("StartOffset")))
+        start_offset = from_union([from_str, from_none], obj.get("StartOffset"))
         timeline = from_bool(obj.get("Timeline"))
         return Animation(duration, keys, max_repeat_count, start_offset, timeline)
 
@@ -234,7 +273,7 @@ class Animation:
         result["Duration"] = from_str(str(self.duration))
         result["Keys"] = to_class(Keys, self.keys)
         result["MaxRepeatCount"] = from_str(str(self.max_repeat_count))
-        result["StartOffset"] = from_str(str(self.start_offset))
+        result["StartOffset"] = from_union([from_str, from_none], self.start_offset)
         result["Timeline"] = from_bool(self.timeline)
         return result
 
@@ -333,7 +372,7 @@ class LayerImplementation:
         color = from_union([lambda x: from_list(from_float, x), from_none], obj.get("Color"))
         exporting = from_union([from_bool, from_none], obj.get("Exporting"))
         showing_volume = from_union([from_bool, from_none], obj.get("ShowingVolume"))
-        sphere = from_union([lambda x: from_list(from_int, x), from_none], obj.get("Sphere"))
+        sphere = from_union([lambda x: from_list(from_float, x), from_none], obj.get("Sphere"))
         type_str = from_union([from_str, from_none], obj.get("TypeStr"))
         version = from_union([from_int, from_none], obj.get("Version"))
         return LayerImplementation(children, drawings, framerate, frames, max_repeat_count, allow_translation_x, allow_translation_y, allow_translation_z, color, exporting, showing_volume, sphere, type_str, version)
@@ -363,7 +402,7 @@ class LayerImplementation:
         if self.showing_volume is not None:
             result["ShowingVolume"] = from_union([from_bool, from_none], self.showing_volume)
         if self.sphere is not None:
-            result["Sphere"] = from_union([lambda x: from_list(from_int, x), from_none], self.sphere)
+            result["Sphere"] = from_union([lambda x: from_list(to_float, x), from_none], self.sphere)
         if self.type_str is not None:
             result["TypeStr"] = from_union([from_str, from_none], self.type_str)
         if self.version is not None:
@@ -390,34 +429,34 @@ class Layer:
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
-        animation = Animation.from_dict(obj.get("Animation"))
+        animation = from_union([Animation.from_dict, from_none], obj.get("Animation"))
         b_box_visible = from_bool(obj.get("BBoxVisible"))
         collapsed = from_bool(obj.get("Collapsed"))
         implementation = LayerImplementation.from_dict(obj.get("Implementation"))
-        is_model_top_layer = from_bool(obj.get("IsModelTopLayer"))
-        keep_alive = KeepAlive.from_dict(obj.get("KeepAlive"))
+        is_model_top_layer = from_union([from_bool, from_none], obj.get("IsModelTopLayer"))
+        keep_alive = from_union([KeepAlive.from_dict, from_none], obj.get("KeepAlive"))
         locked = from_bool(obj.get("Locked"))
         name = from_str(obj.get("Name"))
         opacity = from_float(obj.get("Opacity"))
-        pivot = Transform.from_dict(obj.get("Pivot"))
-        transform = Transform.from_dict(obj.get("Transform"))
+        pivot = from_union([Transform.from_dict, from_none], obj.get("Pivot"))
+        transform = from_union([Transform.from_dict, lambda x: from_list(from_float, x)], obj.get("Transform"))
         type = from_str(obj.get("Type"))
         visible = from_bool(obj.get("Visible"))
         return Layer(animation, b_box_visible, collapsed, implementation, is_model_top_layer, keep_alive, locked, name, opacity, pivot, transform, type, visible)
 
     def to_dict(self):
         result = {}
-        result["Animation"] = to_class(Animation, self.animation)
+        result["Animation"] = from_union([lambda x: to_class(Animation, x), from_none], self.animation)
         result["BBoxVisible"] = from_bool(self.b_box_visible)
         result["Collapsed"] = from_bool(self.collapsed)
         result["Implementation"] = to_class(LayerImplementation, self.implementation)
-        result["IsModelTopLayer"] = from_bool(self.is_model_top_layer)
-        result["KeepAlive"] = to_class(KeepAlive, self.keep_alive)
+        result["IsModelTopLayer"] = from_union([from_bool, from_none], self.is_model_top_layer)
+        result["KeepAlive"] = from_union([lambda x: to_class(KeepAlive, x), from_none], self.keep_alive)
         result["Locked"] = from_bool(self.locked)
         result["Name"] = from_str(self.name)
         result["Opacity"] = to_float(self.opacity)
-        result["Pivot"] = to_class(Transform, self.pivot)
-        result["Transform"] = to_class(Transform, self.transform)
+        result["Pivot"] = from_union([lambda x: to_class(Transform, x), from_none], self.pivot)
+        result["Transform"] = from_union([lambda x: to_class(Transform, x), lambda x: from_list(from_float, x)], self.transform)
         result["Type"] = from_str(self.type)
         result["Visible"] = from_bool(self.visible)
         return result
@@ -490,13 +529,13 @@ class Sequence:
     def from_dict(obj):
         assert isinstance(obj, dict)
         background_color = from_list(from_float, obj.get("BackgroundColor"))
-        camera_resolution = from_list(from_int, obj.get("CameraResolution"))
-        default_viewpoint = from_str(obj.get("DefaultViewpoint"))
-        export_end = from_int(obj.get("ExportEnd"))
-        export_start = from_int(obj.get("ExportStart"))
-        framerate = from_int(obj.get("Framerate"))
-        gallery = Gallery.from_dict(obj.get("Gallery"))
-        metadata = Metadata.from_dict(obj.get("Metadata"))
+        camera_resolution = from_union([lambda x: from_list(from_int, x), from_none], obj.get("CameraResolution"))
+        default_viewpoint = from_union([from_str, from_none], obj.get("DefaultViewpoint"))
+        export_end = from_union([from_int, from_none], obj.get("ExportEnd"))
+        export_start = from_union([from_int, from_none], obj.get("ExportStart"))
+        framerate = from_union([from_int, from_none], obj.get("Framerate"))
+        gallery = from_union([Gallery.from_dict, from_none], obj.get("Gallery"))
+        metadata = from_union([Metadata.from_dict, from_none], obj.get("Metadata"))
         root_layer = Layer.from_dict(obj.get("RootLayer"))
         return Sequence(background_color, camera_resolution, default_viewpoint, export_end, export_start, framerate, gallery, metadata, root_layer)
 
@@ -504,12 +543,12 @@ class Sequence:
         result = {}
         result["BackgroundColor"] = from_list(to_float, self.background_color)
         result["CameraResolution"] = from_list(from_int, self.camera_resolution)
-        result["DefaultViewpoint"] = from_str(self.default_viewpoint)
-        result["ExportEnd"] = from_int(self.export_end)
-        result["ExportStart"] = from_int(self.export_start)
-        result["Framerate"] = from_int(self.framerate)
-        result["Gallery"] = to_class(Gallery, self.gallery)
-        result["Metadata"] = to_class(Metadata, self.metadata)
+        result["DefaultViewpoint"] = from_union([from_str, from_none], self.default_viewpoint)
+        result["ExportEnd"] = from_union([from_int, from_none], self.export_end)
+        result["ExportStart"] = from_union([from_int, from_none], self.export_start)
+        result["Framerate"] = from_union([from_int, from_none], self.framerate)
+        result["Gallery"] = from_union([lambda x: to_class(Gallery, x), from_none], self.gallery)
+        result["Metadata"] = from_union([lambda x: to_class(Metadata, x), from_none], self.metadata)
         result["RootLayer"] = to_class(Layer, self.root_layer)
         return result
 
