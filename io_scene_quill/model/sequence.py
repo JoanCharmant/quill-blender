@@ -423,14 +423,13 @@ class Layer:
         return result
 
     @staticmethod
-    def from_default(type, implementation):
+    def from_default(type, implementation, name = ""):
         animation = Animation.from_default()
         b_box_visible = False
         collapsed = False
         is_model_top_layer = False
         keep_alive = KeepAlive.from_default()
         locked = False
-        name = ""
         opacity = 1.0
         pivot = Transform.identity()
         transform = Transform.identity()
@@ -438,15 +437,15 @@ class Layer:
         return Layer(animation, b_box_visible, collapsed, implementation, is_model_top_layer, keep_alive, locked, name, opacity, pivot, transform, type, visible)
 
     @staticmethod
-    def default_group():
+    def create_group_layer(name):
         type = "Group"
         implementation = LayerImplementation.from_dict({
             "Children": []
         })
-        return Layer.from_default(type, implementation)
+        return Layer.from_default(type, implementation, name)
 
     @staticmethod
-    def default_viewpoint():
+    def create_viewpoint_layer(name):
         type = "Viewpoint"
         implementation = LayerImplementation.from_dict({
             "AllowTranslationX": True,
@@ -459,10 +458,10 @@ class Layer:
             "TypeStr": "EyeLevel",
             "Version": 1,
         })
-        return Layer.from_default(type, implementation)
+        return Layer.from_default(type, implementation, name)
 
     @staticmethod
-    def default_paint():
+    def create_paint_layer(name):
         type = "Paint"
         implementation = LayerImplementation.from_dict({
             "Drawings": [],
@@ -472,7 +471,7 @@ class Layer:
             "Timeline": True,
             "Version": 1,
         })
-        return Layer.from_default(type, implementation)
+        return Layer.from_default(type, implementation, name)
 
 
 class Sequence:
@@ -525,11 +524,9 @@ class Sequence:
         gallery = Gallery.from_default()
         metadata = Metadata.from_default()
 
-        root_layer = Layer.default_group()
-        root_layer.name = "Root"
-
-        viewpoint_layer = Layer.default_viewpoint()
-        viewpoint_layer.name = "HomeViewpoint"
+        # Minimal layer hierarchy.
+        viewpoint_layer = Layer.create_viewpoint_layer("HomeViewpoint")
+        root_layer = Layer.create_group_layer("Root")
         root_layer.implementation.children.append(viewpoint_layer)
 
         return Sequence(background_color, camera_resolution, default_viewpoint, export_end, export_start, framerate, gallery, metadata, root_layer)
