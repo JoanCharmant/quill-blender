@@ -1,0 +1,150 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/QuillState",
+    "definitions": {
+        "QuillState": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "Quill": {
+                    "$ref": "#/definitions/Quill"
+                }
+            },
+            "required": [
+                "Quill"
+            ],
+            "title": "QuillState"
+        },
+        "Quill": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "Rulers": {
+                    "$ref": "#/definitions/Rulers"
+                },
+                "DetailRender": {
+                    "$ref": "#/definitions/DetailRender"
+                },
+                "MoveLayer": {
+                    "type": "string"
+                },
+                "PaintLayer": {
+                    "type": "string"
+                },
+                "CameraLayer": {
+                    "type": "string"
+                },
+                "DirectManipulation": {
+                    "type": "integer"
+                },
+                "ToolName": {
+                    "type": "string"
+                },
+                "Tool": {
+                    "$ref": "#/definitions/Tool"
+                },
+                "ColorPalette": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                }
+            },
+            "required": [
+                "CameraLayer",
+                "ColorPalette",
+                "DetailRender",
+                "DirectManipulation",
+                "MoveLayer",
+                "PaintLayer",
+                "Rulers",
+                "Tool",
+                "ToolName"
+            ],
+            "title": "Quill"
+        },
+        "DetailRender": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "Surface": {
+                    "$ref": "#/definitions/Surface"
+                }
+            },
+            "required": [
+                "Surface"
+            ],
+            "title": "DetailRender"
+        },
+        "Surface": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "Texture": {
+                    "type": "string"
+                },
+                "Scale": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "Scale",
+                "Texture"
+            ],
+            "title": "Surface"
+        },
+        "Rulers": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "ShowGrid": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "ShowGrid"
+            ],
+            "title": "Rulers"
+        },
+        "Tool": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "BrushID": {
+                    "type": "integer"
+                },
+                "Color": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "Opacity": {
+                    "type": "number"
+                },
+                "Size": {
+                    "type": "number"
+                },
+                "TransparentTaper": {
+                    "type": "string"
+                },
+                "WidthTaper": {
+                    "type": "string"
+                },
+                "DirectionalStroke": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "BrushID",
+                "Color",
+                "DirectionalStroke",
+                "Opacity",
+                "Size",
+                "TransparentTaper",
+                "WidthTaper"
+            ],
+            "title": "Tool"
+        }
+    }
+}
