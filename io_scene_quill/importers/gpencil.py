@@ -3,17 +3,18 @@ import bpy
 def convert(obj, layer):
     """Convert a Quill paint layer to a Blender grease pencil object."""
 
+    drawings = layer.implementation.drawings
+    if drawings is None or len(drawings) == 0:
+        return
+
     gpencil_data = obj.data
 
-    # When using World space the line width seems to be expressed in millimeters.
+    # Note: when using World space the line width seems to be expressed in millimeters.
     # We’ll lock the line width to 1 meter and use the pressure property to scale it.
-    # The pressure property is limited to 0..1 range, this means we cannot
-    # express strokes wider than 1 meter.
     gpencil_data.stroke_thickness_space = 'WORLDSPACE'
     gpencil_data.stroke_depth_order = '3D'
     gpencil_layer = gpencil_data.layers[0]
 
-    drawings = layer.implementation.drawings
     for drawing in drawings:
         if drawing.data is None:
             continue

@@ -41,6 +41,12 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
             default=True,
             )
 
+    load_viewpoints: BoolProperty(
+            name="Load viewpoints",
+            description="Load viewpoints as cameras.",
+            default=False,
+            )
+
     def execute(self, context):
 
         from . import import_quill

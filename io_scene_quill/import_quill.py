@@ -44,6 +44,8 @@ class QuillImporter:
 
         if not self.config["load_hidden_layers"]:
             self.delete_hidden(root_layer)
+        if not self.config["load_viewpoints"]:
+            self.delete_type(root_layer, "Viewpoint")
 
         # Load the drawing data.
         self.qbin = open(qbin_path, "rb")
@@ -64,6 +66,15 @@ class QuillImporter:
 
             layer.implementation.children = [child for child in layer.implementation.children if child.visible]
 
+    def delete_type(self, layer, type):
+
+        if layer.type == "Group":
+            for child in layer.implementation.children:
+                if child.type == "Group":
+                    self.delete_type(child, type)
+
+            layer.implementation.children = [child for child in layer.implementation.children if child.type != type]
+
     def load_drawing_data(self, layer):
 
         if layer.type == "Group":
@@ -71,6 +82,10 @@ class QuillImporter:
                 self.load_drawing_data(child)
 
         elif layer.type == "Paint":
+            drawings = layer.implementation.drawings
+            if drawings is None or len(drawings) == 0:
+                return
+
             # Only load the first drawing for now.
             #for drawing in layer.implementation.drawings:
             drawing = layer.implementation.drawings[0]

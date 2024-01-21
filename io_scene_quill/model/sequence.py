@@ -381,24 +381,43 @@ class LayerImplementation:
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
+
+        # Root layer implementation
         children = from_union([lambda x: from_list(Layer.from_dict, x), from_none], obj.get("Children"))
-        drawings = from_union([lambda x: from_list(Drawing.from_dict, x), from_none], obj.get("Drawings"))
+
+        # Paint layer implementation
         framerate = from_union([from_float, from_none], obj.get("Framerate"))
+        max_repeat_count = from_union([from_int, from_none], obj.get("MaxRepeatCount"))
+        drawings = from_union([lambda x: from_list(Drawing.from_dict, x), from_none], obj.get("Drawings"))
         frames = from_union([
             lambda x: from_list(lambda x: int(from_str(x)), x),
             lambda x: from_list(from_float, x),
             from_none],
             obj.get("Frames"))
-        max_repeat_count = from_union([from_int, from_none], obj.get("MaxRepeatCount"))
+
+        # Quill 1.3 and earlier did not have animated paint layers.
+        if "DataFileOffset" in obj:
+            drawings = []
+            drawing = Drawing.from_dict({
+                "BoundingBox": obj.get("BoundingBox"),
+                "DataFileOffset": obj.get("DataFileOffset")
+            })
+            drawings.append(drawing)
+            frames = []
+            frames.append("0")
+            obj.pop("DataFileOffset")
+
+        # Viewpoint layer implementation
+        version = from_union([from_int, from_none], obj.get("Version"))
+        color = from_union([lambda x: from_list(from_float, x), from_none], obj.get("Color"))
+        sphere = from_union([lambda x: from_list(from_float, x), from_none], obj.get("Sphere"))
         allow_translation_x = from_union([from_bool, from_none], obj.get("AllowTranslationX"))
         allow_translation_y = from_union([from_bool, from_none], obj.get("AllowTranslationY"))
         allow_translation_z = from_union([from_bool, from_none], obj.get("AllowTranslationZ"))
-        color = from_union([lambda x: from_list(from_float, x), from_none], obj.get("Color"))
         exporting = from_union([from_bool, from_none], obj.get("Exporting"))
         showing_volume = from_union([from_bool, from_none], obj.get("ShowingVolume"))
-        sphere = from_union([lambda x: from_list(from_float, x), from_none], obj.get("Sphere"))
         type_str = from_union([from_str, from_none], obj.get("TypeStr"))
-        version = from_union([from_int, from_none], obj.get("Version"))
+
         return LayerImplementation(children, drawings, framerate, frames, max_repeat_count, allow_translation_x, allow_translation_y, allow_translation_z, color, exporting, showing_volume, sphere, type_str, version)
 
     def to_dict(self):
@@ -462,7 +481,10 @@ class Layer:
         locked = from_bool(obj.get("Locked"))
         name = from_str(obj.get("Name"))
         opacity = from_float(obj.get("Opacity"))
-        pivot = from_union([Transform.from_dict, lambda x: from_list(from_float, x)], obj.get("Pivot"))
+        pivot = from_union([
+            Transform.from_dict,
+            lambda x: from_list(from_float, x),
+            from_none], obj.get("Pivot"))
         transform = from_union([Transform.from_dict, lambda x: from_list(from_float, x)], obj.get("Transform"))
         type = from_str(obj.get("Type"))
         visible = from_bool(obj.get("Visible"))
