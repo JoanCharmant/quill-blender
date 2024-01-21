@@ -250,6 +250,25 @@ class Keys:
         return Keys(offset, opacity, transform, visibility)
 
 
+class AnimationOld:
+    def __init__(self, frames, spans):
+        self.frames = frames
+        self.spans = spans
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        frames = from_list(lambda x: x, obj.get("Frames"))
+        spans = from_list(lambda x: x, obj.get("Spans"))
+        return AnimationOld(frames, spans)
+
+    def to_dict(self):
+        result = {}
+        result["Frames"] = from_list(lambda x: x, self.frames)
+        result["Spans"] = from_list(lambda x: x, self.spans)
+        return result
+
+
 class Animation:
     def __init__(self, duration, keys, max_repeat_count, start_offset, timeline):
         self.duration = duration
@@ -363,8 +382,12 @@ class LayerImplementation:
         assert isinstance(obj, dict)
         children = from_union([lambda x: from_list(Layer.from_dict, x), from_none], obj.get("Children"))
         drawings = from_union([lambda x: from_list(Drawing.from_dict, x), from_none], obj.get("Drawings"))
-        framerate = from_union([from_int, from_none], obj.get("Framerate"))
-        frames = from_union([lambda x: from_list(lambda x: int(from_str(x)), x), from_none], obj.get("Frames"))
+        framerate = from_union([from_float, from_none], obj.get("Framerate"))
+        frames = from_union([
+            lambda x: from_list(lambda x: int(from_str(x)), x),
+            lambda x: from_list(from_float, x),
+            from_none],
+            obj.get("Frames"))
         max_repeat_count = from_union([from_int, from_none], obj.get("MaxRepeatCount"))
         allow_translation_x = from_union([from_bool, from_none], obj.get("AllowTranslationX"))
         allow_translation_y = from_union([from_bool, from_none], obj.get("AllowTranslationY"))
@@ -384,7 +407,7 @@ class LayerImplementation:
         if self.drawings is not None:
             result["Drawings"] = from_union([lambda x: from_list(lambda x: to_class(Drawing, x), x), from_none], self.drawings)
         if self.framerate is not None:
-            result["Framerate"] = from_union([from_int, from_none], self.framerate)
+            result["Framerate"] = from_union([from_float, from_none], self.framerate)
         if self.frames is not None:
             result["Frames"] = from_union([lambda x: from_list(lambda x: from_str((lambda x: str(x))(x)), x), from_none], self.frames)
         if self.max_repeat_count is not None:
@@ -429,7 +452,7 @@ class Layer:
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
-        animation = from_union([Animation.from_dict, from_none], obj.get("Animation"))
+        animation = from_union([Animation.from_dict, AnimationOld.from_dict, from_none], obj.get("Animation"))
         b_box_visible = from_bool(obj.get("BBoxVisible"))
         collapsed = from_bool(obj.get("Collapsed"))
         implementation = LayerImplementation.from_dict(obj.get("Implementation"))
@@ -438,7 +461,7 @@ class Layer:
         locked = from_bool(obj.get("Locked"))
         name = from_str(obj.get("Name"))
         opacity = from_float(obj.get("Opacity"))
-        pivot = from_union([Transform.from_dict, from_none], obj.get("Pivot"))
+        pivot = from_union([Transform.from_dict, lambda x: from_list(from_float, x)], obj.get("Pivot"))
         transform = from_union([Transform.from_dict, lambda x: from_list(from_float, x)], obj.get("Transform"))
         type = from_str(obj.get("Type"))
         visible = from_bool(obj.get("Visible"))
@@ -455,7 +478,7 @@ class Layer:
         result["Locked"] = from_bool(self.locked)
         result["Name"] = from_str(self.name)
         result["Opacity"] = to_float(self.opacity)
-        result["Pivot"] = from_union([lambda x: to_class(Transform, x), from_none], self.pivot)
+        result["Pivot"] = from_union([lambda x: to_class(Transform, x), lambda x: from_list(from_float, x)], self.pivot)
         result["Transform"] = from_union([lambda x: to_class(Transform, x), lambda x: from_list(from_float, x)], self.transform)
         result["Type"] = from_str(self.type)
         result["Visible"] = from_bool(self.visible)
@@ -505,7 +528,7 @@ class Layer:
         implementation = LayerImplementation.from_dict({
             "Drawings": [],
             "Frames": [],
-            "Framerate": 24,
+            "Framerate": 24.0,
             "MaxRepeatCount": 0,
             "Timeline": True,
             "Version": 1,
@@ -533,7 +556,7 @@ class Sequence:
         default_viewpoint = from_union([from_str, from_none], obj.get("DefaultViewpoint"))
         export_end = from_union([from_int, from_none], obj.get("ExportEnd"))
         export_start = from_union([from_int, from_none], obj.get("ExportStart"))
-        framerate = from_union([from_int, from_none], obj.get("Framerate"))
+        framerate = from_union([from_float, from_none], obj.get("Framerate"))
         gallery = from_union([Gallery.from_dict, from_none], obj.get("Gallery"))
         metadata = from_union([Metadata.from_dict, from_none], obj.get("Metadata"))
         root_layer = Layer.from_dict(obj.get("RootLayer"))
@@ -546,7 +569,7 @@ class Sequence:
         result["DefaultViewpoint"] = from_union([from_str, from_none], self.default_viewpoint)
         result["ExportEnd"] = from_union([from_int, from_none], self.export_end)
         result["ExportStart"] = from_union([from_int, from_none], self.export_start)
-        result["Framerate"] = from_union([from_int, from_none], self.framerate)
+        result["Framerate"] = from_union([from_float, from_none], self.framerate)
         result["Gallery"] = from_union([lambda x: to_class(Gallery, x), from_none], self.gallery)
         result["Metadata"] = from_union([lambda x: to_class(Metadata, x), from_none], self.metadata)
         result["RootLayer"] = to_class(Layer, self.root_layer)
@@ -559,7 +582,7 @@ class Sequence:
         default_viewpoint = "Root/HomeViewpoint"
         export_end = 126000
         export_start = 0
-        framerate = 24
+        framerate = 24.0
         gallery = Gallery.from_default()
         metadata = Metadata.from_default()
 
