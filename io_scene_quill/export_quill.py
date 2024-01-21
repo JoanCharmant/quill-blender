@@ -142,6 +142,8 @@ class QuillExporter:
             paint_layer = paint_wireframe.convert(obj, self.config)
             parent_layer.implementation.children.append(paint_layer)
 
+        elif obj.type == "GPENCIL":
+            logging.warning("Grease pencil object not yet supported.")
 
         elif obj.type == "ARMATURE":
             logging.warning("Armature object not yet supported.")

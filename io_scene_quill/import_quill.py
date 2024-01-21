@@ -2,8 +2,7 @@ import os
 import bpy
 import json
 import logging
-from .model import sequence
-from .importers import curves
+from .model import sequence, paint
 
 class QuillImporter:
 
@@ -19,24 +18,47 @@ class QuillImporter:
         pass
 
     def import_scene(self, context):
-        # TODO: support selecting any of: quill.json, state.json, .qbin or .zip.
-        # For now assume the user selected quill.json.
 
-        # Check if the file exists.
-        if not os.path.exists(self.path):
-            raise FileNotFoundError(f"File not found: {self.path}")
+        file_dir = os.path.dirname(self.path)
+        sequence_path = os.path.join(file_dir, "Quill.json")
+        qbin_path = os.path.join(file_dir, "Quill.qbin")
+
+        # Check if the files exist.
+        if not os.path.exists(sequence_path) or not os.path.exists(qbin_path):
+            raise FileNotFoundError(f"File not found.")
 
         # Load the scene graph.
         try:
-            with open(self.path) as f:
+            with open(sequence_path) as f:
                 d = json.load(f)
+                quill_sequence = sequence.QuillSequence.from_dict(d)
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to load JSON: {e}")
+        except:
+            raise ValueError(f"Failed to load Quill sequence: {sequence_path}")
 
-        quill_sequence = sequence.QuillSequence.from_dict(d)
+        root_layer = quill_sequence.sequence.root_layer
 
-        # Convert recursively from the root layer.
-        self.import_layer(quill_sequence.sequence.root_layer)
+        # Load the drawing data.
+        self.qbin = open(qbin_path, "rb")
+        self.load_drawing_data(root_layer)
+        self.qbin.close()
+
+        # Import layers and convert to Blender objects.
+        bpy.ops.object.select_all(action='DESELECT')
+        self.import_layer(root_layer)
+        bpy.context.view_layer.update()
+
+    def load_drawing_data(self, layer):
+
+        if layer.type == "Group":
+            for child in layer.implementation.children:
+                self.load_drawing_data(child)
+
+        elif layer.type == "Paint":
+            for drawing in layer.implementation.drawings:
+                self.qbin.seek(int(drawing.data_file_offset))
+                drawing.data = paint.read_drawing(self.qbin)
 
     def import_layer(self, layer, parent=None):
 
@@ -50,7 +72,7 @@ class QuillImporter:
             obj.hide_set(not layer.visible) # disable in viewport.
             obj.hide_render = not layer.visible
 
-            # TODO: transform.
+            # TODO: setup transform, provision for old type transform.
 
         if layer.type == "Viewpoint":
             bpy.ops.object.camera_add()
@@ -72,6 +94,10 @@ class QuillImporter:
             bpy.ops.object.gpencil_add()
             setup_obj()
 
+            # TODO: Convert quill paint strokes to grease pencil strokes.
+
+
+
         elif layer.type == "Group":
 
             # Create an empty to represent the group layer.
@@ -81,6 +107,9 @@ class QuillImporter:
             obj = bpy.context.object
             for child in layer.implementation.children:
                 self.import_layer(child, obj)
+
+        else:
+            raise logging.warning("Unsupported Quill layer type: %s", layer.type)
 
 
 def load(operator, context, filepath="", **kwargs):

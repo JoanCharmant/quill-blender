@@ -65,11 +65,13 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         items=(
             ("EMPTY", "Empty", ""),
             ("MESH", "Mesh", ""),
+            ("GPENCIL", "Grease Pencil", ""),
             ("ARMATURE", "Armature", ""),
         ),
         default={
             "EMPTY",
             "MESH",
+            "GPENCIL",
             "ARMATURE"
         },
     )

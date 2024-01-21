@@ -168,6 +168,7 @@ class Drawing:
     def __init__(self, bounding_box, data_file_offset):
         self.bounding_box = bounding_box
         self.data_file_offset = data_file_offset
+        self.data = None
 
     @staticmethod
     def from_dict(obj):
