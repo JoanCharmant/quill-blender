@@ -3,6 +3,7 @@ import bpy
 import json
 import logging
 from .model import sequence, paint
+from .importers import gpencil
 
 class QuillImporter:
 
@@ -56,8 +57,13 @@ class QuillImporter:
                 self.load_drawing_data(child)
 
         elif layer.type == "Paint":
-            for drawing in layer.implementation.drawings:
-                self.qbin.seek(int(drawing.data_file_offset))
+            # TODO: check configuration option for loading hidden layers.
+            # Do not load drawings on hidden layers for now.
+            # And only load the first drawing for now.
+            #for drawing in layer.implementation.drawings:
+            if layer.visible:
+                drawing = layer.implementation.drawings[0]
+                self.qbin.seek(int(drawing.data_file_offset, 16))
                 drawing.data = paint.read_drawing(self.qbin)
 
     def import_layer(self, layer, parent=None):
@@ -73,6 +79,7 @@ class QuillImporter:
             obj.hide_render = not layer.visible
 
             # TODO: setup transform, provision for old type transform.
+            # TODO: pivot.
 
         if layer.type == "Viewpoint":
             bpy.ops.object.camera_add()
@@ -93,14 +100,9 @@ class QuillImporter:
         elif layer.type == "Paint":
             bpy.ops.object.gpencil_add()
             setup_obj()
-
-            # TODO: Convert quill paint strokes to grease pencil strokes.
-
-
+            gpencil.convert(bpy.context.object, layer)
 
         elif layer.type == "Group":
-
-            # Create an empty to represent the group layer.
             bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0, 0, 0))
             setup_obj()
 
