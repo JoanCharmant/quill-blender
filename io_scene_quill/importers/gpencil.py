@@ -38,4 +38,19 @@ def convert(obj, layer):
                 gp_point.co = (vertex.position[0], vertex.position[1], vertex.position[2])
                 gp_point.pressure = vertex.width
                 gp_point.strength = vertex.opacity
-                gp_point.vertex_color = (vertex.color[0], vertex.color[1], vertex.color[2], 1)
+                gp_point.vertex_color = (srgb_to_linear(vertex.color[0]),
+                                         srgb_to_linear(vertex.color[1]),
+                                         srgb_to_linear(vertex.color[2]),
+                                         1)
+
+def linear_to_srgb(v):
+    if (v > 0.0031308):
+        return 1.055 * v ** (1./2.4) - 0.055
+    else:
+        return 12.92 * v
+
+def srgb_to_linear(v):
+    if v < 0.04045:
+        return 0.0 if v < 0.0 else v * (1.0 / 12.92)
+    else:
+        return pow((v + 0.055) * (1.0 / 1.055), 2.4)
