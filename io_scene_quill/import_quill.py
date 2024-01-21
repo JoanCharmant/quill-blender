@@ -1,5 +1,4 @@
 import os
-import random
 import bpy
 import json
 import logging
@@ -138,11 +137,15 @@ class QuillImporter:
 
     def get_transform(self, t):
         """Convert a Quill transform to a Blender matrix."""
-        # TODO: support old-style transforms.
-        loc = mathutils.Vector((t.translation[0], t.translation[1], t.translation[2]))
-        quat = mathutils.Quaternion((t.rotation[3], t.rotation[0], t.rotation[1], t.rotation[2]))
-        scale = mathutils.Vector((t.scale, t.scale, t.scale))
-        return mathutils.Matrix.LocRotScale(loc, quat, scale)
+
+        if isinstance(t, list):
+            # Old-style transform from before Quill 1.7 (circa 2018).
+            return mathutils.Matrix((t[0:4], t[4:8], t[8:12], t[12:16]))
+        else:
+            loc = mathutils.Vector((t.translation[0], t.translation[1], t.translation[2]))
+            quat = mathutils.Quaternion((t.rotation[3], t.rotation[0], t.rotation[1], t.rotation[2]))
+            scale = mathutils.Vector((t.scale, t.scale, t.scale))
+            return mathutils.Matrix.LocRotScale(loc, quat, scale)
 
 
 def load(operator, context, filepath="", **kwargs):
