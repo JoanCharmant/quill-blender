@@ -35,10 +35,10 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
     filename_ext = ".json"
     filter_glob: StringProperty(default="*.json", options={"HIDDEN"})
 
-    ignore_leaf_bones: BoolProperty(
-            name="Ignore Leaf Bones",
-            description="Ignore the last bone at the end of each chain (used to mark the length of the previous bone)",
-            default=False,
+    load_hidden_layers: BoolProperty(
+            name="Load hidden layers",
+            description="Load hidden layers from the Quill scene.",
+            default=True,
             )
 
     def execute(self, context):
