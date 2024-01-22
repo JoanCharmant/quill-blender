@@ -23,7 +23,6 @@ def convert(obj, layer):
         gp_frame = gpencil_layer.frames[0]
 
         for stroke in drawing.data.strokes:
-
             gp_stroke = gp_frame.strokes.new()
             gp_stroke.display_mode = '3DSPACE'
             gp_stroke.line_width = 1000
@@ -31,7 +30,6 @@ def convert(obj, layer):
             gp_stroke.end_cap_mode = 'ROUND'
 
             for vertex in stroke.vertices:
-
                 index = len(gp_stroke.points)
                 gp_stroke.points.add(1)
                 gp_point = gp_stroke.points[index]
@@ -39,16 +37,18 @@ def convert(obj, layer):
                 gp_point.co = (vertex.position[0], vertex.position[1], vertex.position[2])
                 gp_point.pressure = vertex.width
                 gp_point.strength = vertex.opacity
-                gp_point.vertex_color = (srgb_to_linear(vertex.color[0]),
-                                         srgb_to_linear(vertex.color[1]),
-                                         srgb_to_linear(vertex.color[2]),
+                gp_point.vertex_color = (vertex.color[0],
+                                         vertex.color[1],
+                                         vertex.color[2],
                                          1)
+
 
 def linear_to_srgb(v):
     if (v > 0.0031308):
         return 1.055 * v ** (1./2.4) - 0.055
     else:
         return 12.92 * v
+
 
 def srgb_to_linear(v):
     if v < 0.04045:
