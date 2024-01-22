@@ -44,6 +44,7 @@ class QuillImporter:
 
         if not self.config["load_hidden_layers"]:
             self.delete_hidden(root_layer)
+
         if not self.config["load_viewpoints"]:
             self.delete_type(root_layer, "Viewpoint")
 
@@ -144,7 +145,8 @@ class QuillImporter:
         # Visibility: in Quill if the parent is hidden the whole subtree is not visible,
         # even if the individual layers are marked as visible.
         # In Blender each object has its own visibility flags independent of the parent.
-        # Force the visibility of the object to match the parent to match Quill behavior.
+        # In order to match Quill behavior we force the visibility of the object
+        # to match that of its parent.
         visible = layer.visible and (parent_obj is None or not parent_obj.hide_render)
         hidden = not visible
         obj.hide_set(hidden) # disable in viewport.
