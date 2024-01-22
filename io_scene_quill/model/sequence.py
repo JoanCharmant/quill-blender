@@ -54,6 +54,10 @@ def from_union(fs, x):
             pass
     assert False
 
+def is_type(t, x):
+    assert isinstance(x, t)
+    return x
+
 
 class Thumbnails:
     def __init__(self, ):
@@ -200,7 +204,7 @@ class Keyframe:
     def from_dict(obj):
         assert isinstance(obj, dict)
         interpolation = from_str(obj.get("Interpolation"))
-        time = int(from_str(obj.get("Time")))
+        time = from_union([from_int, lambda x: int(from_str(x))], obj.get("Time"))
         value = from_union([from_int, from_float, from_bool, Transform.from_dict], obj.get("Value"))
         return Keyframe(interpolation, time, value)
 
@@ -251,25 +255,6 @@ class Keys:
         return Keys(offset, opacity, transform, visibility)
 
 
-class AnimationOld:
-    def __init__(self, frames, spans):
-        self.frames = frames
-        self.spans = spans
-
-    @staticmethod
-    def from_dict(obj):
-        assert isinstance(obj, dict)
-        frames = from_list(lambda x: x, obj.get("Frames"))
-        spans = from_list(lambda x: x, obj.get("Spans"))
-        return AnimationOld(frames, spans)
-
-    def to_dict(self):
-        result = {}
-        result["Frames"] = from_list(lambda x: x, self.frames)
-        result["Spans"] = from_list(lambda x: x, self.spans)
-        return result
-
-
 class Animation:
     def __init__(self, duration, keys, max_repeat_count, start_offset, timeline):
         self.duration = duration
@@ -281,20 +266,26 @@ class Animation:
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
-        duration = int(from_str(obj.get("Duration")))
+
+        # Animation JSON changed quite a lot.
+        # Pipe everything into the latest representation.
+        if "Frames" in obj or "Spans" in obj:
+            return Animation.from_default()
+
+        duration = from_union([from_float, from_int, lambda x: int(from_str(x))], obj.get("Duration"))
         keys = Keys.from_dict(obj.get("Keys"))
-        max_repeat_count = int(from_str(obj.get("MaxRepeatCount")))
-        start_offset = from_union([from_str, from_none], obj.get("StartOffset"))
+        max_repeat_count = from_union([from_float, from_int, lambda x: int(from_str(x))], obj.get("MaxRepeatCount"))
+        start_offset = from_union([from_none, from_float, from_int, lambda x: int(from_str(x))], obj.get("StartOffset"))
         timeline = from_bool(obj.get("Timeline"))
         return Animation(duration, keys, max_repeat_count, start_offset, timeline)
 
     def to_dict(self):
         result = {}
-        result["Duration"] = from_str(str(self.duration))
-        result["Keys"] = to_class(Keys, self.keys)
-        result["MaxRepeatCount"] = from_str(str(self.max_repeat_count))
-        result["StartOffset"] = from_union([from_str, from_none], self.start_offset)
+        result["Duration"] = from_int(self.duration)
         result["Timeline"] = from_bool(self.timeline)
+        result["StartOffset"] = from_union([lambda x: from_none((lambda x: is_type(type(None), x))(x)), lambda x: from_int((lambda x: is_type(int, x))(x))], self.start_offset)
+        result["MaxRepeatCount"] = from_int(self.max_repeat_count)
+        result["Keys"] = to_class(self.keys)
         return result
 
     @staticmethod
@@ -493,7 +484,7 @@ class Layer:
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)
-        animation = from_union([Animation.from_dict, AnimationOld.from_dict, from_none], obj.get("Animation"))
+        animation = Animation.from_default() if "Animation" not in obj else Animation.from_dict(obj.get("Animation"))
         b_box_visible = from_bool(obj.get("BBoxVisible"))
         collapsed = from_bool(obj.get("Collapsed"))
         is_model_top_layer = from_union([from_bool, from_none], obj.get("IsModelTopLayer"))
