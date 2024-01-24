@@ -91,7 +91,7 @@ class QuillImporter:
             #for drawing in layer.implementation.drawings:
             drawing = layer.implementation.drawings[0]
             self.qbin.seek(int(drawing.data_file_offset, 16))
-            drawing.data = paint.read_drawing(self.qbin)
+            drawing.data = paint.read_drawing_data(self.qbin)
 
     def import_layer(self, layer, parent=None):
 

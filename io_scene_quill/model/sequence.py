@@ -6,6 +6,8 @@
 # Note: the binding between layers and their implementation is less strict than
 # in the original format. We should check that the layer type and implementation match.
 
+import logging
+
 def from_list(f, x):
     assert isinstance(x, list)
     return [f(y) for y in x]
@@ -285,7 +287,7 @@ class Animation:
         result["Timeline"] = from_bool(self.timeline)
         result["StartOffset"] = from_union([lambda x: from_none((lambda x: is_type(type(None), x))(x)), lambda x: from_int((lambda x: is_type(int, x))(x))], self.start_offset)
         result["MaxRepeatCount"] = from_int(self.max_repeat_count)
-        result["Keys"] = to_class(self.keys)
+        result["Keys"] = to_class(Keys, self.keys)
         return result
 
     @staticmethod
@@ -360,12 +362,12 @@ class GroupLayerImplementation:
     def from_dict(obj):
         assert isinstance(obj, dict)
         children = from_list(lambda x: Layer.from_dict(x), obj.get("Children"))
-        #children = from_union([lambda x: from_list(Layer.from_dict, x), from_none], obj.get("Children"))
         return GroupLayerImplementation(children)
 
     def to_dict(self):
         result = {}
         result["Children"] = from_list(lambda x: to_class(Layer, x), self.children)
+        return result
 
 
 class ViewpointLayerImplementation:
@@ -527,12 +529,16 @@ class Layer:
         result["Visible"] = from_bool(self.visible)
 
         if self.type == "Group":
+            logging.info("Exporting group layer: %s", self.name)
             result["Implementation"] = to_class(GroupLayerImplementation, self.implementation)
         elif self.type == "Viewpoint":
+            logging.info("Exporting viewpoint layer: %s", self.name)
             result["Implementation"] = to_class(ViewpointLayerImplementation, self.implementation)
         elif self.type == "Paint":
+            logging.info("Exporting paint layer: %s", self.name)
             result["Implementation"] = to_class(PaintLayerImplementation, self.implementation)
         else:
+            logging.warning("Exporting unsupported layer type: %s", self.type)
             result["Implementation"] = to_class(LayerImplementation, self.implementation)
 
         return result
@@ -562,7 +568,7 @@ class Layer:
     @staticmethod
     def create_viewpoint_layer(name):
         type = "Viewpoint"
-        implementation = LayerImplementation.from_dict({
+        implementation = ViewpointLayerImplementation.from_dict({
             "AllowTranslationX": True,
             "AllowTranslationY": True,
             "AllowTranslationZ": True,
@@ -578,7 +584,7 @@ class Layer:
     @staticmethod
     def create_paint_layer(name):
         type = "Paint"
-        implementation = LayerImplementation.from_dict({
+        implementation = PaintLayerImplementation.from_dict({
             "Drawings": [],
             "Frames": [],
             "Framerate": 24.0,

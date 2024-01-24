@@ -1,8 +1,13 @@
 
 import struct
+from enum import Enum
 
 # Core data used by Drawings and read/write functions.
 # These do not depend on any Blender data types.
+
+
+BrushType = Enum('BrushType', ['UNKNOWN', 'RIBBON', 'CYLINDER', 'ELLIPSE', 'CUBE'])
+
 
 class DrawingData:
     def __init__(self):
@@ -10,13 +15,11 @@ class DrawingData:
 
 
 class Stroke:
-    def __init__(self, id, u2, bounding_box, brush_type, disable_rotational_opacity, u3, vertices):
+    def __init__(self, id, bounding_box, brush_type, disable_rotational_opacity, vertices):
         self.id = id
-        self.u2 = u2
         self.bounding_box = bounding_box
         self.brush_type = brush_type
         self.disable_rotational_opacity = disable_rotational_opacity
-        self.u3 = u3
         self.vertices = vertices
 
 
@@ -30,10 +33,10 @@ class Vertex:
         self.width = width
 
 
-def read_drawing(qbin):
+def read_drawing_data(qbin):
     data = DrawingData()
     stroke_count = struct.unpack("<I", qbin.read(4))[0]
-    for i in range(stroke_count):
+    for _ in range(stroke_count):
         data.strokes.append(read_stroke(qbin))
 
     return data
@@ -41,17 +44,17 @@ def read_drawing(qbin):
 
 def read_stroke(qbin):
     id = struct.unpack("<I", qbin.read(4))[0]
-    u2 = struct.unpack("<I", qbin.read(4))[0]
+    _ = struct.unpack("<I", qbin.read(4))[0]
     bounding_box = struct.unpack("<ffffff", qbin.read(4*6))
-    brush_type = struct.unpack("<h", qbin.read(2))[0]
+    brush_type = BrushType(struct.unpack("<h", qbin.read(2))[0])
     disable_rotational_opacity = struct.unpack("<?", qbin.read(1))[0]
-    u3 = struct.unpack("<c", qbin.read(1))[0]
+    _ = struct.unpack("<c", qbin.read(1))[0]
     count = struct.unpack("<I", qbin.read(4))[0]
     vertices = []
-    for i in range(count):
+    for _ in range(count):
         vertices.append(read_vertex(qbin))
 
-    return Stroke(id, u2, bounding_box, brush_type, disable_rotational_opacity, u3, vertices)
+    return Stroke(id, bounding_box, brush_type, disable_rotational_opacity, vertices)
 
 
 def read_vertex(qbin):
@@ -63,5 +66,37 @@ def read_vertex(qbin):
     width = struct.unpack("<f", qbin.read(4))[0]
 
     return Vertex(position, normal, tangent, color, opacity, width)
+
+
+def write_drawing_data(data, qbin):
+    qbin.write(struct.pack("<I", len(data.strokes)))
+    for stroke in data.strokes:
+        write_stroke(stroke, qbin)
+
+
+def write_stroke(stroke, qbin):
+
+    # We don’t know what these two fields are but they are always 0 in files produced by Quill.
+    u2 = 0
+    u3 = b'\x00'
+
+    qbin.write(struct.pack("<I", stroke.id))
+    qbin.write(struct.pack("<I", u2))
+    qbin.write(struct.pack("<ffffff", *stroke.bounding_box))
+    qbin.write(struct.pack("<h", stroke.brush_type.value))
+    qbin.write(struct.pack("<?", stroke.disable_rotational_opacity))
+    qbin.write(struct.pack("<c", u3))
+    qbin.write(struct.pack("<I", len(stroke.vertices)))
+    for vertex in stroke.vertices:
+        write_vertex(vertex, qbin)
+
+
+def write_vertex(vertex, qbin):
+    qbin.write(struct.pack("<fff", *vertex.position))
+    qbin.write(struct.pack("<fff", *vertex.normal))
+    qbin.write(struct.pack("<fff", *vertex.tangent))
+    qbin.write(struct.pack("<fff", *vertex.color))
+    qbin.write(struct.pack("<f", vertex.opacity))
+    qbin.write(struct.pack("<f", vertex.width))
 
 

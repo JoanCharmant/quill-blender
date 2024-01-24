@@ -3,9 +3,8 @@ import os
 import bpy
 import json
 import logging
-from .model import sequence
-from .model import state
-from .exporters import group, paint_wireframe
+from .model import sequence, state, paint
+from .exporters import paint_wireframe, utils
 
 class QuillExporter:
     """Handles picking what nodes to export and kicks off the export process"""
@@ -16,6 +15,10 @@ class QuillExporter:
         self.scene = bpy.context.scene
         self.config = kwargs
         self.config["path"] = path
+
+        # TODO: get from exporter UI panel.
+        self.config["segments_per_unit"] = 10
+        self.config["wireframe_stroke_width"] = 0.01
 
         self.quill_sequence = None
         self.quill_state = None
@@ -46,32 +49,23 @@ class QuillExporter:
         # Convert from Blender model to Quill’s.
         self.export_scene()
 
-        # TODO: create qbin, create paint layers, etc.
-        # TESTING
-        # paint_layer = sequence.Layer.create_paint_layer("Paint")
-        # root_layer.implementation.children.append(paint_layer)
-        # # Create a simple drawing.
-        # # Reference the drawing from the paint layer.
-        # bbox = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        # file_offset = "08"
-        # drawing = sequence.Drawing.from_dict({
-        #     "BoundingBox": bbox,
-        #     "FileOffset": file_offset
-        # })
-        # paint_layer.implementation.drawings.append(drawing)
-        # frame = "0"
-        # paint_layer.implementation.frames.append(frame)
-
-
-        # Write the Quill scene to disk.
         # Create a folder at the target location instead of using the provided filename.
         file_dir = os.path.dirname(self.path)
         file_name = os.path.splitext(os.path.basename(self.path))[0]
         folder_path = os.path.join(file_dir, file_name)
         os.makedirs(folder_path, exist_ok=True)
-        self.write_sequence(folder_path)
-        self.write_state(folder_path)
-        self.write_qbin(folder_path)
+
+        # Write qbin file.
+        # This will also update the data_file_offset fields in the drawing data.
+        qbin_path = os.path.join(folder_path, "Quill.qbin")
+        self.qbin = open(qbin_path, 'wb')
+        self.write_drawing_data(root_layer)
+        self.qbin.close()
+
+        # Write the scene graph and application state files.
+        quill_sequence = self.quill_sequence.to_dict()
+        self.write_json(self.quill_sequence.to_dict(), folder_path, "Quill.json")
+        self.write_json(self.quill_state.to_dict(), folder_path, "State.json")
 
     def export_scene(self):
         logging.info("Exporting scene: %s", self.scene.name)
@@ -101,38 +95,45 @@ class QuillExporter:
             bpy.ops.object.editmode_toggle()
 
     def should_export_object(self, obj):
-        """Checks if a node should be exported:"""
 
         if obj.type not in self.config["object_types"]:
-            logging.info("Skipping object: %s (%s).", obj.name, obj.type)
             return False
 
-        if self.config["use_visible_objects"]:
+        if self.config["use_selection"] and not obj.select_get():
+            return False
+
+        if self.config["use_visible"]:
             view_layer = bpy.context.view_layer
             if obj.name not in view_layer.objects:
                 return False
             if not obj.visible_get():
                 return False
 
-        if self.config["use_export_selected"] and not obj.select_get():
-            return False
-
         return True
 
     def export_object(self, obj, parent_layer):
+
+        if obj not in self.exporting_objects:
+            return
 
         logging.info("Exporting Blender object: %s", obj.name)
 
         memo_active = bpy.context.view_layer.objects.active
         bpy.context.view_layer.objects.active = obj
 
-        if obj not in self.exporting_objects:
-            pass
+        # TODO: handle "apply transform".
 
-        elif obj.type == "EMPTY":
+        # Note: Quill only supports uniform scaling.
+        # If the object has non-uniform scaling the user should have manually applied scale
+        # before export or checked the "Apply transforms" option.
+        # The rest of the code will assume the scale is uniform and use scale[0] as a proxy.
+        if (obj.scale.x != obj.scale.y or obj.scale.y != obj.scale.z):
+            logging.warning("Non-uniform scaling not supported. Please apply scale on %s.", obj.name)
 
-            group_layer = group.convert(obj)
-            parent_layer.implementation.children.append(group_layer)
+        if obj.type == "EMPTY":
+
+            group_layer = sequence.Layer.create_group_layer(obj.name)
+            self.setup_layer(group_layer, obj, parent_layer)
 
             for child in obj.children:
                 self.export_object(child, group_layer)
@@ -140,7 +141,7 @@ class QuillExporter:
         elif obj.type == "MESH":
 
             paint_layer = paint_wireframe.convert(obj, self.config)
-            parent_layer.implementation.children.append(paint_layer)
+            self.setup_layer(paint_layer, obj, parent_layer)
 
         elif obj.type == "GPENCIL":
             logging.warning("Grease pencil object not yet supported.")
@@ -150,30 +151,42 @@ class QuillExporter:
 
         bpy.context.view_layer.objects.active = memo_active
 
-    def write_sequence(self, folder_path):
-        sequence = self.quill_sequence.to_dict()
-        encoded = json.dumps(sequence, indent=4, separators=(',', ': '))
+    def setup_layer(self, layer, obj, parent_layer):
+        """Common code for all layers."""
+        layer.transform = self.get_transform(obj.matrix_local)
+        parent_layer.implementation.children.append(layer)
 
-        file_name = "Quill.json"
+    def write_drawing_data(self, layer):
+
+        if layer.type == "Group":
+            for child in layer.implementation.children:
+                self.write_drawing_data(child)
+
+        elif layer.type == "Paint":
+            for drawing in layer.implementation.drawings:
+                offset = hex(self.qbin.tell())[2:].upper().zfill(8)
+                drawing.data_file_offset = offset
+                paint.write_drawing_data(drawing.data, self.qbin)
+
+    def write_json(self, obj, folder_path, file_name):
+        encoded = json.dumps(obj, indent=4, separators=(',', ': '))
         file_path = os.path.join(folder_path, file_name)
         file = open(file_path, "w", encoding="utf8", newline="\n")
         file.write(encoded)
         file.write("\n")
         file.close()
 
-    def write_state(self, folder_path):
-        state = self.quill_state.to_dict()
-        encoded = json.dumps(state, indent=4, separators=(',', ': '))
+    def get_transform(self, m):
+        """Convert a Blender matrix to a Quill transform."""
+        translation, rotation, scale = m.decompose()
 
-        file_name = "State.json"
-        file_path = os.path.join(folder_path, file_name)
-        file = open(file_path, "w", encoding="utf8", newline="\n")
-        file.write(encoded)
-        file.write("\n")
-        file.close()
+        # Move from Blender to Quill coordinate system.
+        translation = utils.swizzle_yup_location(translation)
+        rotation = utils.swizzle_quaternion(utils.swizzle_yup_rotation(rotation))
+        scale = utils.swizzle_yup_scale(scale)
 
-    def write_qbin(self, folder_path):
-        pass
+        flip = "N"
+        return sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
 
 def save(operator, filepath="", **kwargs):

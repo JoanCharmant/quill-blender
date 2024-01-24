@@ -2,7 +2,7 @@
 bl_info = {
     'name': 'Quill',
     'author': 'Joan Charmant',
-    'version': (0, 0, 1),
+    'version': (0, 0, 2),
     'blender': (2, 80, 0),
     'location': 'File > Import-Export',
     'description': 'Import-Export Quill scenes',
@@ -22,8 +22,7 @@ if "bpy" in locals():
 
 import bpy
 from bpy.props import StringProperty, BoolProperty, FloatProperty, EnumProperty
-from bpy_extras.io_utils import ExportHelper
-from bpy_extras.io_utils import ImportHelper
+from bpy_extras.io_utils import ExportHelper, ImportHelper, orientation_helper, axis_conversion
 
 
 class ImportQuill(bpy.types.Operator, ImportHelper):
@@ -55,42 +54,45 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
 
         return import_quill.load(self, context, filepath=self.filepath, **keywords)
 
-
 class ExportQuill(bpy.types.Operator, ExportHelper):
     """Save a Quill scene"""
-    bl_idname = "export_quill.zip"
-    bl_label = "Export to Quill"
+    bl_idname = "export_scene.quill"
+    bl_label = "Export Quill scene"
+    bl_options = {'PRESET'}
 
     filename_ext = ".zip"
     filter_glob: StringProperty(default="*.zip", options={"HIDDEN"})
 
-    # List of operator properties
+    # List of operator properties.
+
+    use_selection: BoolProperty(
+        name="Selected Objects",
+        description="Export selected and visible objects only",
+        default=False,
+    )
+
+    use_visible: BoolProperty(
+        name="Visible Objects",
+        description="Export visible objects only",
+        default=False,
+    )
+
     object_types: EnumProperty(
         name="Object Types",
-        options={"ENUM_FLAG"},
-        items=(
-            ("EMPTY", "Empty", ""),
-            ("MESH", "Mesh", ""),
-            ("GPENCIL", "Grease Pencil", ""),
-            ("ARMATURE", "Armature", ""),
-        ),
-        default={
-            "EMPTY",
-            "MESH",
-            "GPENCIL",
-            "ARMATURE"
-        },
+        options={'ENUM_FLAG'},
+        items=(('EMPTY', "Empty", ""),
+                ('CAMERA', "Camera", ""),
+                ('GPENCIL', "Grease Pencil", ""),
+                ('MESH', "Mesh", ""),
+                ('ARMATURE', "Armature", ""),
+                ),
+        description="Which kind of object to export",
+        default={'EMPTY', 'CAMERA', 'GPENCIL', 'MESH', 'ARMATURE'},
     )
 
-    use_visible_objects: BoolProperty(
-        name="Only Visible Objects",
-        description="Export only objects that are visible.",
-        default=True,
-    )
-
-    use_export_selected: BoolProperty(
-        name="Only Selected Objects",
-        description="Export only selected objects.",
+    bake_space_transform: BoolProperty(
+        name="Apply Transform",
+        description="Bake object transforms into paint strokes",
         default=False,
     )
 
@@ -100,8 +102,14 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         default=True,
     )
 
+    def draw(self, context):
+        pass
+
     def execute(self, context):
         from . import export_quill
+
+        if not self.filepath:
+            raise Exception("filepath not set")
 
         keywords = self.as_keywords(ignore=(
             "axis_forward",
@@ -115,6 +123,57 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         return export_quill.save(self, **keywords)
 
 
+class QUILL_PT_export_include(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Include"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        return operator.bl_idname == "EXPORT_SCENE_OT_quill"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        sublayout = layout.column(heading="Limit to")
+        sublayout.prop(operator, "use_selection")
+        sublayout.prop(operator, "use_visible")
+        layout.column().prop(operator, "object_types")
+
+
+class QUILL_PT_export_transform(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Transform"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        return operator.bl_idname == "EXPORT_SCENE_OT_quill"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "bake_space_transform")
+
+
 def menu_func_import(self, context):
     self.layout.operator(ImportQuill.bl_idname, text="Quill scene")
 
@@ -123,8 +182,10 @@ def menu_func_export(self, context):
     self.layout.operator(ExportQuill.bl_idname, text="Quill scene")
 
 classes = (
-    ExportQuill,
     ImportQuill,
+    ExportQuill,
+    QUILL_PT_export_include,
+    QUILL_PT_export_transform,
 )
 
 def register():
