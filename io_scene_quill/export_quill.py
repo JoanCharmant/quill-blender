@@ -4,7 +4,7 @@ import bpy
 import json
 import logging
 from .model import sequence, state, paint
-from .exporters import paint_wireframe, utils
+from .exporters import paint_wireframe, paint_armature, utils
 
 class QuillExporter:
     """Handles picking what nodes to export and kicks off the export process"""
@@ -131,7 +131,6 @@ class QuillExporter:
             logging.warning("Non-uniform scaling not supported. Please apply scale on %s.", obj.name)
 
         if obj.type == "EMPTY":
-
             group_layer = sequence.Layer.create_group_layer(obj.name)
             self.setup_layer(group_layer, obj, parent_layer)
 
@@ -139,15 +138,19 @@ class QuillExporter:
                 self.export_object(child, group_layer)
 
         elif obj.type == "MESH":
-
             paint_layer = paint_wireframe.convert(obj, self.config)
             self.setup_layer(paint_layer, obj, parent_layer)
+
+        elif obj.type == "CAMERA":
+            viewpoint_layer = sequence.Layer.create_viewpoint_layer(obj.name)
+            self.setup_layer(viewpoint_layer, obj, parent_layer)
 
         elif obj.type == "GPENCIL":
             logging.warning("Grease pencil object not yet supported.")
 
         elif obj.type == "ARMATURE":
-            logging.warning("Armature object not yet supported.")
+            paint_layer = paint_armature.convert(obj, self.config)
+            self.setup_layer(paint_layer, obj, parent_layer)
 
         bpy.context.view_layer.objects.active = memo_active
 

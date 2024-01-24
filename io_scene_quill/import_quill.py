@@ -54,7 +54,9 @@ class QuillImporter:
         self.qbin.close()
 
         # Import layers and convert to Blender objects.
-        bpy.ops.object.select_all(action='DESELECT')
+        if bpy.context.object and bpy.context.object.mode == "EDIT":
+            bpy.ops.object.editmode_toggle()
+
         self.import_layer(root_layer)
         bpy.context.view_layer.update()
 
