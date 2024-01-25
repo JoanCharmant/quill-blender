@@ -21,13 +21,13 @@ if "bpy" in locals():
 
 
 import bpy
-from bpy.props import StringProperty, BoolProperty, FloatProperty, EnumProperty
+from bpy.props import StringProperty, BoolProperty, FloatProperty, IntProperty, EnumProperty
 from bpy_extras.io_utils import ExportHelper, ImportHelper, orientation_helper, axis_conversion
 
 
 class ImportQuill(bpy.types.Operator, ImportHelper):
     """Load a Quill scene"""
-    bl_idname = "import_quill.json"
+    bl_idname = "import_scene.quill"
     bl_label = "Import Quill"
     bl_options = {'UNDO', 'PRESET'}
 
@@ -35,16 +35,19 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
     filter_glob: StringProperty(default="*.json", options={"HIDDEN"})
 
     load_hidden_layers: BoolProperty(
-            name="Load hidden layers",
-            description="Load hidden layers from the Quill scene.",
+            name="Hidden Layers",
+            description="Load hidden layers from the Quill scene",
             default=True,
             )
 
     load_viewpoints: BoolProperty(
-            name="Load viewpoints",
-            description="Load viewpoints as cameras.",
+            name="Viewpoints",
+            description="Load Quill viewpoints as Blender cameras",
             default=False,
             )
+
+    def draw(self, context):
+        pass
 
     def execute(self, context):
 
@@ -53,6 +56,31 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
         keywords = self.as_keywords(ignore=("filter_glob", "filepath"))
 
         return import_quill.load(self, context, filepath=self.filepath, **keywords)
+
+
+class QUILL_PT_import_include(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Include"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+        return operator.bl_idname == "IMPORT_SCENE_OT_quill"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "load_hidden_layers")
+        layout.prop(operator, "load_viewpoints")
+
 
 class ExportQuill(bpy.types.Operator, ExportHelper):
     """Save a Quill scene"""
@@ -90,16 +118,26 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         default={'EMPTY', 'CAMERA', 'GPENCIL', 'MESH', 'ARMATURE'},
     )
 
-    bake_space_transform: BoolProperty(
-        name="Apply Transform",
-        description="Bake object transforms into paint strokes",
-        default=False,
-    )
-
     use_mesh_modifiers: BoolProperty(
         name="Apply Modifiers",
         description="Apply modifiers to mesh objects.",
         default=True,
+    )
+
+    wireframe_stroke_width: FloatProperty(
+        name="Width",
+        description="Size of paint strokes",
+        min=0.0001, max=1000.0,
+        soft_min=0.001, soft_max=100.0,
+        default=0.01,
+    )
+
+    segments_per_unit: IntProperty(
+        name="Resolution",
+        description="Number of segments per unit",
+        min=1, max=1000,
+        soft_min=1, soft_max=100,
+        default=10,
     )
 
     def draw(self, context):
@@ -150,17 +188,16 @@ class QUILL_PT_export_include(bpy.types.Panel):
         layout.column().prop(operator, "object_types")
 
 
-class QUILL_PT_export_transform(bpy.types.Panel):
+class QUILL_PT_export_wireframe(bpy.types.Panel):
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOL_PROPS'
-    bl_label = "Transform"
+    bl_label = "Mesh Wireframe"
     bl_parent_id = "FILE_PT_operator"
 
     @classmethod
     def poll(cls, context):
         sfile = context.space_data
         operator = sfile.active_operator
-
         return operator.bl_idname == "EXPORT_SCENE_OT_quill"
 
     def draw(self, context):
@@ -171,7 +208,8 @@ class QUILL_PT_export_transform(bpy.types.Panel):
         sfile = context.space_data
         operator = sfile.active_operator
 
-        layout.prop(operator, "bake_space_transform")
+        layout.prop(operator, "wireframe_stroke_width")
+        layout.prop(operator, "segments_per_unit")
 
 
 def menu_func_import(self, context):
@@ -183,9 +221,10 @@ def menu_func_export(self, context):
 
 classes = (
     ImportQuill,
+    QUILL_PT_import_include,
     ExportQuill,
     QUILL_PT_export_include,
-    QUILL_PT_export_transform,
+    QUILL_PT_export_wireframe,
 )
 
 def register():
