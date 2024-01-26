@@ -93,18 +93,6 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
 
     # List of operator properties.
 
-    use_selection: BoolProperty(
-        name="Selected Objects",
-        description="Export selected and visible objects only",
-        default=False,
-    )
-
-    use_visible: BoolProperty(
-        name="Visible Objects",
-        description="Export visible objects only",
-        default=False,
-    )
-
     object_types: EnumProperty(
         name="Object Types",
         options={'ENUM_FLAG'},
@@ -116,6 +104,18 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
                 ),
         description="Which kind of object to export",
         default={'EMPTY', 'GPENCIL', 'CAMERA', 'MESH', 'ARMATURE'},
+    )
+
+    use_selection: BoolProperty(
+        name="Selected Objects",
+        description="Export selected and visible objects only",
+        default=False,
+    )
+
+    use_visible: BoolProperty(
+        name="Visible Objects",
+        description="Export visible objects only",
+        default=False,
     )
 
     use_mesh_modifiers: BoolProperty(
@@ -182,10 +182,10 @@ class QUILL_PT_export_include(bpy.types.Panel):
         sfile = context.space_data
         operator = sfile.active_operator
 
+        layout.column().prop(operator, "object_types")
         sublayout = layout.column(heading="Limit to")
         sublayout.prop(operator, "use_selection")
         sublayout.prop(operator, "use_visible")
-        layout.column().prop(operator, "object_types")
 
 
 class QUILL_PT_export_wireframe(bpy.types.Panel):

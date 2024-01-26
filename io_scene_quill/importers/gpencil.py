@@ -14,6 +14,7 @@ def convert(obj, layer):
     gpencil_data.stroke_thickness_space = 'WORLDSPACE'
     gpencil_data.stroke_depth_order = '3D'
     gpencil_layer = gpencil_data.layers[0]
+    gpencil_layer.opacity = layer.opacity
 
     for drawing in drawings:
         if drawing.data is None:
