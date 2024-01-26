@@ -39,7 +39,7 @@ def convert(obj, config):
             continue
 
         drawing.data.strokes.append(stroke)
-        drawing.bounding_box = utils.update_bounding_box(drawing.bounding_box, stroke.bounding_box)
+        drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
 
     return paint_layer
 
@@ -52,6 +52,9 @@ def make_bone_stroke(head, tail, color, config):
     vertices = []
 
     def add_vertex(p, width):
+        # Fake normal and tangent as if the painter was at the origin.
+        # `normal` controls the orientation of ribbon strokes.
+        # `tangent` controls the incident ray for rotational opacity.
         normal = p.normalized()
         tangent = normal
         opacity = 1.0
@@ -63,7 +66,7 @@ def make_bone_stroke(head, tail, color, config):
     add_vertex(head.lerp(tail, 0.1), length / 4)
     add_vertex(tail, 0)
 
-    bounding_box = utils.make_bounding_box(head, tail)
+    bounding_box = utils.bbox_from_points(head, tail)
 
     id = 0
     stroke = paint.Stroke(id, bounding_box, brush_type, disable_rotational_opacity, vertices)

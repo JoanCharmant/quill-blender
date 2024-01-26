@@ -23,7 +23,7 @@ def convert(obj, config):
         if stroke is None:
             continue
         drawing.data.strokes.append(stroke)
-        drawing.bounding_box = utils.update_bounding_box(drawing.bounding_box, stroke.bounding_box)
+        drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
 
     return paint_layer
 
@@ -50,19 +50,20 @@ def make_edge_stroke(start, end, config):
     vertices = []
     for i in range(len(points)):
 
+        p = points[i]
+
+        # Fake normal and tangent as if the painter was at the origin.
         # `normal` controls the orientation of ribbon strokes.
         # `tangent` controls the incident ray for rotational opacity.
-        # Make up values assuming the virtual painter is at the world origin.
-        normal = points[i].normalized()
+        normal = p.normalized()
         tangent = normal
-
         color = (0, 0, 0)
         opacity = 1.0
         width = min_size if (i == 0 or i == segments) else brush_size
-        vertex = paint.Vertex(points[i], normal, tangent, color, opacity, width)
+        vertex = paint.Vertex(p, normal, tangent, color, opacity, width)
         vertices.append(vertex)
 
-    bounding_box = utils.make_bounding_box(start, end)
+    bounding_box = utils.bbox_from_points(start, end)
 
     id = 0
     stroke = paint.Stroke(id, bounding_box, brush_type, disable_rotational_opacity, vertices)

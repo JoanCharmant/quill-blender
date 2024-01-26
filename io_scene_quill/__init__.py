@@ -109,13 +109,13 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         name="Object Types",
         options={'ENUM_FLAG'},
         items=(('EMPTY', "Empty", ""),
-                ('CAMERA', "Camera", ""),
                 ('GPENCIL', "Grease Pencil", ""),
+                ('CAMERA', "Camera", ""),
                 ('MESH', "Mesh", ""),
                 ('ARMATURE', "Armature", ""),
                 ),
         description="Which kind of object to export",
-        default={'EMPTY', 'CAMERA', 'GPENCIL', 'MESH', 'ARMATURE'},
+        default={'EMPTY', 'GPENCIL', 'CAMERA', 'MESH', 'ARMATURE'},
     )
 
     use_mesh_modifiers: BoolProperty(

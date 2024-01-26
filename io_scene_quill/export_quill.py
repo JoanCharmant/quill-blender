@@ -4,7 +4,7 @@ import bpy
 import json
 import logging
 from .model import sequence, state, paint
-from .exporters import paint_wireframe, paint_armature, utils
+from .exporters import paint_wireframe, paint_armature, paint_gpencil, utils
 
 class QuillExporter:
     """Handles picking what nodes to export and kicks off the export process"""
@@ -121,8 +121,6 @@ class QuillExporter:
         memo_active = bpy.context.view_layer.objects.active
         bpy.context.view_layer.objects.active = obj
 
-        # TODO: handle "apply transform".
-
         # Note: Quill only supports uniform scaling.
         # If the object has non-uniform scaling the user should have manually applied scale
         # before export or checked the "Apply transforms" option.
@@ -131,31 +129,32 @@ class QuillExporter:
             logging.warning("Non-uniform scaling not supported. Please apply scale on %s.", obj.name)
 
         if obj.type == "EMPTY":
-            group_layer = sequence.Layer.create_group_layer(obj.name)
-            self.setup_layer(group_layer, obj, parent_layer)
+            layer = sequence.Layer.create_group_layer(obj.name)
+            self.setup_layer(layer, obj, parent_layer)
 
             for child in obj.children:
-                self.export_object(child, group_layer)
+                self.export_object(child, layer)
 
         elif obj.type == "MESH":
-            paint_layer = paint_wireframe.convert(obj, self.config)
-            self.setup_layer(paint_layer, obj, parent_layer)
+            layer = paint_wireframe.convert(obj, self.config)
+            self.setup_layer(layer, obj, parent_layer)
 
         elif obj.type == "CAMERA":
-            viewpoint_layer = sequence.Layer.create_viewpoint_layer(obj.name)
-            self.setup_layer(viewpoint_layer, obj, parent_layer)
+            layer = sequence.Layer.create_viewpoint_layer(obj.name)
+            self.setup_layer(layer, obj, parent_layer)
 
         elif obj.type == "GPENCIL":
-            logging.warning("Grease pencil object not yet supported.")
+            layer = paint_gpencil.convert(obj, self.config)
+            self.setup_layer(layer, obj, parent_layer)
 
         elif obj.type == "ARMATURE":
-            paint_layer = paint_armature.convert(obj, self.config)
-            self.setup_layer(paint_layer, obj, parent_layer)
+            layer = paint_armature.convert(obj, self.config)
+            self.setup_layer(layer, obj, parent_layer)
 
         bpy.context.view_layer.objects.active = memo_active
 
     def setup_layer(self, layer, obj, parent_layer):
-        """Common code for all layers."""
+        """Common setup for all layers."""
         layer.transform = self.get_transform(obj.matrix_local)
         parent_layer.implementation.children.append(layer)
 
