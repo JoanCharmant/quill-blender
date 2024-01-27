@@ -163,3 +163,4 @@ cython_debug/
 notes/*
 io_scene_quill/sandbox/*
 temp/*
+publish/*

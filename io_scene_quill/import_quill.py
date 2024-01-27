@@ -4,7 +4,7 @@ import json
 import logging
 import mathutils
 from math import radians
-from .model import sequence, paint
+from .model import sequence, sequence_utils, paint
 from .importers import gpencil
 
 class QuillImporter:
@@ -42,41 +42,29 @@ class QuillImporter:
 
         root_layer = quill_sequence.sequence.root_layer
 
+        # Filter out unwanted layers.
         if not self.config["load_hidden_layers"]:
-            self.delete_hidden(root_layer)
+            sequence_utils.delete_hidden(root_layer)
 
         if not self.config["load_viewpoints"]:
-            self.delete_type(root_layer, "Viewpoint")
+            sequence_utils.delete_type(root_layer, "Viewpoint")
 
         # Load the drawing data.
         self.qbin = open(qbin_path, "rb")
         self.load_drawing_data(root_layer)
         self.qbin.close()
 
-        # Import layers and convert to Blender objects.
-        if bpy.context.object and bpy.context.object.mode == "EDIT":
-            bpy.ops.object.editmode_toggle()
+        # Reset the context.
+        # Should we backup and restore afterwards?
+        if bpy.context.object:
+            bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.context.scene.frame_set(1)
+
+        # Import/convert layers to Blender objects.
         self.import_layer(root_layer)
         bpy.context.view_layer.update()
-
-    def delete_hidden(self, layer):
-
-        if layer.type == "Group":
-            for child in layer.implementation.children:
-                if child.type == "Group" and child.visible:
-                    self.delete_hidden(child)
-
-            layer.implementation.children = [child for child in layer.implementation.children if child.visible]
-
-    def delete_type(self, layer, type):
-
-        if layer.type == "Group":
-            for child in layer.implementation.children:
-                if child.type == "Group":
-                    self.delete_type(child, type)
-
-            layer.implementation.children = [child for child in layer.implementation.children if child.type != type]
 
     def load_drawing_data(self, layer):
 
