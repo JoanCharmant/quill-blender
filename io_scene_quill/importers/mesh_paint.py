@@ -17,6 +17,7 @@ def convert(mesh, layer):
     vertices = []
     edges = []
     faces = []
+    vertex_colors = []
 
     tau = 2 * math.pi
 
@@ -72,7 +73,9 @@ def convert(mesh, layer):
 
                 p = basis @ p
                 p = center + p
+
                 vertices.append(p)
+                vertex_colors.append((vertex.color[0], vertex.color[1], vertex.color[2], 1.0))
 
             # Connect the vertices into quad faces.
             if i == 0:
@@ -90,3 +93,32 @@ def convert(mesh, layer):
         base_vertex += resolution * len(stroke.vertices)
 
     mesh.from_pydata(vertices, edges, faces)
+
+    # Vertex colors and smooth shading
+    mesh.vertex_colors.new(name="rgb")
+    for poly in mesh.polygons:
+        poly.use_smooth = True
+        for vert_i_poly, vert_i_mesh in enumerate(poly.vertices):
+            vert_i_loop = poly.loop_indices[vert_i_poly]
+            mesh.vertex_colors["rgb"].data[vert_i_loop].color = vertex_colors[vert_i_mesh]
+
+    # Create a material node tree for vertex colors.
+    mat = bpy.data.materials.new(name=layer.name)
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    nodes.clear()
+
+    node_vc = nodes.new(type="ShaderNodeVertexColor")
+    node_vc.layer_name = "rgb"
+    node_vc.location = 0, 0
+
+    node_bsdf = nodes.new(type="ShaderNodeBsdfDiffuse")
+    node_bsdf.location = 200, 0
+
+    node_output = nodes.new(type="ShaderNodeOutputMaterial")
+    node_output.location = 400, 0
+
+    mat.node_tree.links.new(node_vc.outputs[0], node_bsdf.inputs[0])
+    mat.node_tree.links.new(node_bsdf.outputs[0], node_output.inputs[0])
+
+    mesh.materials.append(mat)
