@@ -2,7 +2,7 @@
 bl_info = {
     'name': 'Quill',
     'author': 'Joan Charmant',
-    'version': (0, 0, 2),
+    'version': (0, 0, 3),
     'blender': (2, 80, 0),
     'location': 'File > Import-Export',
     'description': 'Import-Export Quill scenes',
@@ -46,6 +46,13 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
             default=False,
             )
 
+    convert_paint: EnumProperty(
+        name="Convert to",
+        items=(("MESH", "Mesh", ""),
+               ("GPENCIL", "Grease Pencil", "")),
+        description="How paint layers are converted during import",
+        default="MESH")
+
     def draw(self, context):
         pass
 
@@ -80,6 +87,29 @@ class QUILL_PT_import_include(bpy.types.Panel):
 
         layout.prop(operator, "load_hidden_layers")
         layout.prop(operator, "load_viewpoints")
+
+
+class QUILL_PT_import_paint(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Paint Layers"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+        return operator.bl_idname == "IMPORT_SCENE_OT_quill"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "convert_paint")
 
 
 class ExportQuill(bpy.types.Operator, ExportHelper):
@@ -222,6 +252,7 @@ def menu_func_export(self, context):
 classes = (
     ImportQuill,
     QUILL_PT_import_include,
+    QUILL_PT_import_paint,
     ExportQuill,
     QUILL_PT_export_include,
     QUILL_PT_export_wireframe,

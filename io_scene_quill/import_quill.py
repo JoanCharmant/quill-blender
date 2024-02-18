@@ -5,7 +5,7 @@ import logging
 import mathutils
 from math import radians
 from .model import sequence, sequence_utils, paint
-from .importers import gpencil
+from .importers import gpencil_paint, mesh_paint
 
 class QuillImporter:
 
@@ -101,9 +101,18 @@ class QuillImporter:
                 obj.matrix_local = mat_rot @ obj.matrix_local
 
         elif layer.type == "Paint":
-            bpy.ops.object.gpencil_add()
-            self.setup_obj(layer, parent)
-            gpencil.convert(bpy.context.object, layer)
+            if self.config["convert_paint"] == "MESH":
+                mesh = bpy.data.meshes.new(layer.name)
+                obj = bpy.data.objects.new(mesh.name, mesh)
+                collection = bpy.data.collections["Collection"]
+                collection.objects.link(obj)
+                bpy.context.view_layer.objects.active = obj
+                self.setup_obj(layer, parent)
+                mesh_paint.convert(mesh, layer)
+            elif self.config["convert_paint"] == "GPENCIL":
+                bpy.ops.object.gpencil_add()
+                self.setup_obj(layer, parent)
+                gpencil_paint.convert(bpy.context.object, layer)
 
         elif layer.type == "Viewpoint":
             bpy.ops.object.camera_add()
