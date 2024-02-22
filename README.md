@@ -17,7 +17,7 @@ Philosophy: some things are easier to work on in VR and other things are easier 
 
 The tool can be found in Blender under File > Import > Quill scene and File > Export > Quill scene.
 
-When selected the add-on will present the usual file export window to import or export the Quill scene along with some options on the right side panel.
+When selecting the entry the add-on will present the usual window to import or export the Quill scene with some options on the right side panel.
 
 ## Features
 
@@ -26,19 +26,20 @@ The add-on reads and writes native Quill file format.
 ### Import
 
 - Import Quill layer hierarchy to Blender objects.
-- Import Quill paint layers to Grease pencil.
+- Import Quill paint layers to Mesh or Grease pencil¹.
 - Import Quill viewpoints to Cameras.
-
 
 ### Export
 
-- Export Grease Pencil objects to Quill paint layers.
+- Export Grease Pencil objects to Quill paint layers¹.
 - Export Mesh objects as painted wireframes.
 - Export Armature objects as painted stick figures.
 - Export Cameras to Quill viewpoints.
 
 
 ## Limitations/Roadmap
+
+¹ Quill paint layers and Grease Pencil cannot be mapped 1:1 faithfully as the underlying concepts are not always compatible. Some restrictions apply.
 
 The following features are currently not supported but are on the roadmap:
 - Import and export keyframe animation for transform and visibility.

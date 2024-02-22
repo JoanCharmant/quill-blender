@@ -6,7 +6,12 @@ from enum import Enum
 # These do not depend on any Blender data types.
 
 
-BrushType = Enum('BrushType', ['UNKNOWN', 'RIBBON', 'CYLINDER', 'ELLIPSE', 'CUBE'])
+class BrushType(Enum):
+    UNKNOWN = 0
+    RIBBON = 1
+    CYLINDER = 2
+    ELLIPSE = 3
+    CUBE = 4
 
 
 class DrawingData:
