@@ -30,7 +30,7 @@ def convert(mesh, layer):
         base_vertex += count
 
     mesh.from_pydata(vertices, edges, faces)
-    add_material(mesh, layer, vertex_colors)
+    assign_vertex_colors(mesh, vertex_colors)
 
 
 def convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex):
@@ -127,6 +127,7 @@ def convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex):
             color_linear[3] = quill_vertex.opacity
             vertex_colors.append(color_linear)
 
+
         # Connect the vertices into quad faces.
         if i == 0:
             continue
@@ -144,7 +145,7 @@ def convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex):
     return resolution * len(stroke.vertices)
 
 
-def add_material(mesh, layer, vertex_colors):
+def assign_vertex_colors(mesh, vertex_colors):
     # Vertex colors and smooth shading
     mesh.vertex_colors.new(name="rgba")
     for poly in mesh.polygons:
@@ -152,27 +153,6 @@ def add_material(mesh, layer, vertex_colors):
         for vert_i_poly, vert_i_mesh in enumerate(poly.vertices):
             vert_i_loop = poly.loop_indices[vert_i_poly]
             mesh.vertex_colors["rgba"].data[vert_i_loop].color = vertex_colors[vert_i_mesh]
-
-    # Create a material node tree for vertex colors.
-    mat = bpy.data.materials.new(name=layer.name)
-    mat.use_nodes = True
-    nodes = mat.node_tree.nodes
-    nodes.clear()
-
-    node_vc = nodes.new(type="ShaderNodeVertexColor")
-    node_vc.layer_name = "rgba"
-    node_vc.location = 0, 0
-
-    node_bsdf = nodes.new(type="ShaderNodeBsdfDiffuse")
-    node_bsdf.location = 200, 0
-
-    node_output = nodes.new(type="ShaderNodeOutputMaterial")
-    node_output.location = 400, 0
-
-    mat.node_tree.links.new(node_vc.outputs[0], node_bsdf.inputs[0])
-    mat.node_tree.links.new(node_bsdf.outputs[0], node_output.inputs[0])
-
-    mesh.materials.append(mat)
 
 
 def linear_to_srgb(v):

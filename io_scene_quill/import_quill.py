@@ -5,7 +5,7 @@ import logging
 import mathutils
 from math import radians
 from .model import sequence, sequence_utils, paint
-from .importers import gpencil_paint, mesh_paint
+from .importers import gpencil_paint, mesh_paint, mesh_material
 
 class QuillImporter:
 
@@ -62,6 +62,11 @@ class QuillImporter:
         bpy.ops.object.select_all(action='DESELECT')
         bpy.context.scene.frame_set(1)
 
+        # Create the shared material.
+        self.material = None
+        if self.config["convert_paint"] == "MESH":
+            self.material = mesh_material.create_principled("vertex.colors")
+
         # Import/convert layers to Blender objects.
         self.import_layer(root_layer)
         bpy.context.view_layer.update()
@@ -108,7 +113,10 @@ class QuillImporter:
                 collection.objects.link(obj)
                 bpy.context.view_layer.objects.active = obj
                 self.setup_obj(layer, parent)
+
                 mesh_paint.convert(mesh, layer)
+                mesh.materials.append(self.material)
+
             elif self.config["convert_paint"] == "GPENCIL":
                 bpy.ops.object.gpencil_add()
                 self.setup_obj(layer, parent)
