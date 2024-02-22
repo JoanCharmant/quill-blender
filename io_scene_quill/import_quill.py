@@ -161,7 +161,15 @@ class QuillImporter:
             loc = mathutils.Vector((t.translation[0], t.translation[1], t.translation[2]))
             quat = mathutils.Quaternion((t.rotation[3], t.rotation[0], t.rotation[1], t.rotation[2]))
             scale = mathutils.Vector((t.scale, t.scale, t.scale))
-            return mathutils.Matrix.LocRotScale(loc, quat, scale)
+            mat = mathutils.Matrix.LocRotScale(loc, quat, scale)
+            if t.flip == "X":
+                return mat @ mathutils.Matrix.Scale(-1, 4, (1, 0, 0))
+            elif t.flip == "Y":
+                return mat @ mathutils.Matrix.Scale(-1, 4, (0, 1, 0))
+            elif t.flip == "Z":
+                return mat @ mathutils.Matrix.Scale(-1, 4, (0, 0, 1))
+            else:
+                return mat
 
 
 def load(operator, context, filepath="", **kwargs):
