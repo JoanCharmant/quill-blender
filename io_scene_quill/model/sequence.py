@@ -406,6 +406,22 @@ class ViewpointLayerImplementation:
         return result
 
 
+class CameraLayerImplementation:
+    def __init__(self, fov):
+        self.fov = fov
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        fov = from_float(obj.get("FOV"))
+        return CameraLayerImplementation(fov)
+
+    def to_dict(self):
+        result = {}
+        result["FOV"] = to_float(self.fov)
+        return result
+
+
 class PaintLayerImplementation:
     def __init__(self, drawings, framerate, frames, max_repeat_count):
         self.drawings = drawings
@@ -502,6 +518,8 @@ class Layer:
             implementation = GroupLayerImplementation.from_dict(obj.get("Implementation"))
         elif type == "Viewpoint":
             implementation = ViewpointLayerImplementation.from_dict(obj.get("Implementation"))
+        elif type == "Camera":
+            implementation = CameraLayerImplementation.from_dict(obj.get("Implementation"))
         elif type == "Paint":
             implementation = PaintLayerImplementation.from_dict(obj.get("Implementation"))
         else:
@@ -530,6 +548,9 @@ class Layer:
         elif self.type == "Viewpoint":
             logging.info("Exporting viewpoint layer: %s", self.name)
             result["Implementation"] = to_class(ViewpointLayerImplementation, self.implementation)
+        elif self.type == "Camera":
+            logging.info("Exporting camera layer: %s", self.name)
+            result["Implementation"] = to_class(CameraLayerImplementation, self.implementation)
         elif self.type == "Paint":
             logging.info("Exporting paint layer: %s", self.name)
             result["Implementation"] = to_class(PaintLayerImplementation, self.implementation)

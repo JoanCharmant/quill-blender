@@ -40,10 +40,10 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
             default=True,
             )
 
-    load_viewpoints: BoolProperty(
-            name="Viewpoints",
-            description="Load Quill viewpoints as Blender cameras",
-            default=False,
+    load_cameras: BoolProperty(
+            name="Cameras",
+            description="Load Quill camera layers as Blender cameras",
+            default=True,
             )
 
     convert_paint: EnumProperty(

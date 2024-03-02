@@ -46,8 +46,9 @@ class QuillImporter:
         if not self.config["load_hidden_layers"]:
             sequence_utils.delete_hidden(root_layer)
 
-        if not self.config["load_viewpoints"]:
+        if not self.config["load_cameras"]:
             sequence_utils.delete_type(root_layer, "Viewpoint")
+            sequence_utils.delete_type(root_layer, "Camera")
 
         # Load the drawing data.
         self.qbin = open(qbin_path, "rb")
@@ -125,6 +126,14 @@ class QuillImporter:
         elif layer.type == "Viewpoint":
             bpy.ops.object.camera_add()
             self.setup_obj(layer, parent)
+
+        elif layer.type == "Camera":
+            bpy.ops.object.camera_add()
+            layer.transform.scale = 1.0
+            self.setup_obj(layer, parent)
+            obj = bpy.context.object
+            obj.data.lens_unit = 'FOV'
+            obj.data.angle = radians(layer.implementation.fov)
 
         elif layer.type == "Sound":
             bpy.ops.object.speaker_add()
