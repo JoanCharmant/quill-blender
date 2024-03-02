@@ -73,6 +73,12 @@ def read_vertex(qbin):
     return Vertex(position, normal, tangent, color, opacity, width)
 
 
+def write_header(qbin):
+    # 8-byte header.
+    qbin.write(struct.pack("<I", 0))
+    qbin.write(struct.pack("<I", 0))
+
+
 def write_drawing_data(data, qbin):
     qbin.write(struct.pack("<I", len(data.strokes)))
     for stroke in data.strokes:

@@ -86,7 +86,7 @@ class QUILL_PT_import_include(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "load_hidden_layers")
-        layout.prop(operator, "load_viewpoints")
+        layout.prop(operator, "load_cameras")
 
 
 class QUILL_PT_import_paint(bpy.types.Panel):

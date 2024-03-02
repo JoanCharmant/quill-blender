@@ -589,11 +589,11 @@ class Layer:
             "AllowTranslationX": True,
             "AllowTranslationY": True,
             "AllowTranslationZ": True,
-            "Color": [0.677550, 0.897935, 0.312391],
+            "Color": [0.392336,0.942602,0.580318],
             "Exporting": True,
             "ShowingVolume": False,
             "Sphere": [0, 1, 0, 2],
-            "TypeStr": "EyeLevel",
+            "TypeStr": "FloorLevel",
             "Version": 1,
         })
         return Layer.from_default(type, implementation, name)
@@ -603,9 +603,9 @@ class Layer:
         type = "Paint"
         implementation = PaintLayerImplementation.from_dict({
             "Drawings": [],
-            "Frames": [],
+            "Frames": ["0"],
             "Framerate": 24.0,
-            "MaxRepeatCount": 0,
+            "MaxRepeatCount": 1,
         })
         return Layer.from_default(type, implementation, name)
 
@@ -653,7 +653,7 @@ class Sequence:
     def from_default():
         background_color = [0.8, 0.8, 0.8]
         camera_resolution = [1920, 1080]
-        default_viewpoint = "Root/HomeViewpoint"
+        default_viewpoint = "Root/InitialSpawnArea"
         export_end = 126000
         export_start = 0
         framerate = 24.0
@@ -661,7 +661,7 @@ class Sequence:
         metadata = Metadata.from_default()
 
         # Minimal layer hierarchy.
-        viewpoint_layer = Layer.create_viewpoint_layer("HomeViewpoint")
+        viewpoint_layer = Layer.create_viewpoint_layer("InitialSpawnArea")
         root_layer = Layer.create_group_layer("Root")
         root_layer.implementation.children.append(viewpoint_layer)
 

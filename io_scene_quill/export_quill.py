@@ -59,11 +59,11 @@ class QuillExporter:
         # This will also update the data_file_offset fields in the drawing data.
         qbin_path = os.path.join(folder_path, "Quill.qbin")
         self.qbin = open(qbin_path, 'wb')
+        paint.write_header(self.qbin)
         self.write_drawing_data(root_layer)
         self.qbin.close()
 
         # Write the scene graph and application state files.
-        quill_sequence = self.quill_sequence.to_dict()
         self.write_json(self.quill_sequence.to_dict(), folder_path, "Quill.json")
         self.write_json(self.quill_state.to_dict(), folder_path, "State.json")
 
@@ -157,6 +157,7 @@ class QuillExporter:
         """Common setup for all layers."""
         layer.transform = self.get_transform(obj.matrix_local)
         parent_layer.implementation.children.append(layer)
+
 
     def write_drawing_data(self, layer):
 
