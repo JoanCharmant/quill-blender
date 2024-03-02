@@ -1,6 +1,7 @@
 import bpy
 import math
 import mathutils
+from ..model.paint import BrushType
 
 def convert(mesh, layer):
     """Convert a Quill paint layer to a Blender mesh object."""
@@ -41,31 +42,27 @@ def convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex):
 
     # Brush to mesh conversion parameters
     # resolution is the number of vertices in the cross section.
-    brush_type = stroke.brush_type.value
-    if brush_type == 2:
+    offset = 0
+    aspect = 1.0
+    brush = stroke.brush_type
+    if brush == BrushType.CYLINDER:
         # Cylinder brush: regular heptagon.
         resolution = 7
-        offset = math.pi / resolution
         face_count = resolution
-        aspect = 1.0
-    elif brush_type == 3:
+    elif brush == BrushType.ELLIPSE:
         # Ellipse brush: flattened heptagon.
         resolution = 7
-        offset = math.pi / resolution
         face_count = resolution
         aspect = 0.3
-    elif brush_type == 4:
+    elif brush == BrushType.CUBE:
         # Cube brush: square.
         resolution = 4
-        offset = math.pi / resolution
+        offset = - 0.75 * math.pi
         face_count = resolution
-        aspect = 1.0
     else:
         # Ribbon brush: single face, no wrap around.
         resolution = 2
-        offset = 0
         face_count = 1
-        aspect = 1.0
 
     sector = 2 * math.pi / resolution
 
@@ -78,44 +75,20 @@ def convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex):
 
         # Cubic brush has a wider cross-section corresponding to the
         # circumscribed square around the idealized stroke circle.
-        if brush_type == 4:
+        if brush == BrushType.CUBE:
             radius = math.sqrt(2*radius*radius)
 
-        # Basis to match the stroke rotation along its longitudinal axis.
-        # This must reproduce pretty much exactly what Quill does as the brushes
-        # are not isotropic (ribbon, ellipse, cube).
-        yaxis = mathutils.Vector((0, 1, 0))
-        if i < len(stroke.vertices) - 1 and i > 0:
-            next = mathutils.Vector(stroke.vertices[i + 1].position)
-            prev = mathutils.Vector(stroke.vertices[i - 1].position)
-            to_next = (next - center).normalized()
-            from_prev = (center - prev).normalized()
-            yaxis = (to_next + from_prev).normalized()
-        elif i == 0:
-            next = mathutils.Vector(stroke.vertices[i + 1].position)
-            yaxis = (next - center).normalized()
-        elif i == len(stroke.vertices) - 1:
-            prev = mathutils.Vector(stroke.vertices[i - 1].position)
-            yaxis = (center - prev).normalized()
+        basis = compute_basis(stroke, i, center, quill_vertex.normal)
 
-        zaxis = mathutils.Vector(quill_vertex.normal)
-        xaxis = zaxis.cross(-yaxis)
-        yaxis = zaxis.cross(xaxis)
-        basis = mathutils.Matrix((
-            [xaxis.x, yaxis.x, zaxis.x, 0],
-            [xaxis.y, yaxis.y, zaxis.y, 0],
-            [xaxis.z, yaxis.z, zaxis.z, 0],
-            [0, 0, 0, 1]))
-
-        # Generate the cross section.
+        # Generate the cross section vertices.
         for u in range(resolution):
             # Define the cross section on the XZ plane and then transform it to the drawing space.
             theta = u * sector + offset
             x = radius * math.cos(theta)
             y = 0
-            z = - radius * math.sin(theta) * aspect
-            p = mathutils.Vector((x, y, z))
-            p = basis @ p
+            z = radius * math.sin(theta) * aspect
+
+            p = basis @ mathutils.Vector((x, y, z))
             p = center + p
             vertices.append(p)
             color = (quill_vertex.color[0], quill_vertex.color[1], quill_vertex.color[2], 1.0)
@@ -126,7 +99,6 @@ def convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex):
             color_linear = [linear_to_srgb(c) for c in color]
             color_linear[3] = quill_vertex.opacity
             vertex_colors.append(color_linear)
-
 
         # Connect the vertices into quad faces.
         if i == 0:
@@ -143,6 +115,75 @@ def convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex):
 
     # Return the number of vertices generated.
     return resolution * len(stroke.vertices)
+
+
+def compute_basis(stroke, i, center, normal):
+    # Basis to match the stroke rotation along its longitudinal axis.
+    # This must reproduce exactly what Quill does as the brushes
+    # are not isotropic (ribbon, ellipse, cube).
+    #
+    # This code is adapted from Element::ComputeBasis at
+    # https://github.com/Immersive-Foundation/IMM/blob/main/code/libImmImporter/src/document/layerPaint/element.cpp
+
+    yaxis = compute_tangent(stroke, i, center, normal)
+    epsilon = 0.0000001
+
+    zaxis = mathutils.Vector(normal)
+    xaxis = zaxis.cross(yaxis)
+    if xaxis.length >= epsilon:
+        xaxis = xaxis.normalized()
+    elif abs(yaxis.x) < 0.9:
+         xaxis = mathutils.Vector((0, yaxis.z, yaxis.y))
+    elif abs(yaxis.y) < 0.9:
+         xaxis = mathutils.Vector((-yaxis.z, 0, yaxis.x))
+    else:
+         xaxis = mathutils.Vector((yaxis.y, -yaxis.x, 0))
+
+    zaxis = yaxis.cross(xaxis).normalized()
+
+    basis = mathutils.Matrix((
+        [xaxis.x, yaxis.x, zaxis.x, 0],
+        [xaxis.y, yaxis.y, zaxis.y, 0],
+        [xaxis.z, yaxis.z, zaxis.z, 0],
+        [0, 0, 0, 1]))
+
+    return basis
+
+
+def compute_tangent(stroke, i, point, normal):
+
+    # Compute direction of the stroke at a given point.
+    # This code is adapted from Element::ComputeTangent at
+    # https://github.com/Immersive-Foundation/IMM/blob/main/code/libImmImporter/src/document/layerPaint/element.cpp
+
+    epsilon = 0.0000001
+
+    # Find first valid forward difference.
+    forward = mathutils.Vector((0, 0, 0))
+    for j in range(i + 1, len(stroke.vertices)):
+        delta = mathutils.Vector(stroke.vertices[j].position) - point
+        if delta.length >= epsilon:
+            forward = delta.normalized()
+            break
+
+    # Find first valid backward difference.
+    backward = mathutils.Vector((0, 0, 0))
+    for j in range(i - 1, -1, -1):
+        delta = point - mathutils.Vector(stroke.vertices[j].position)
+        if delta.length >= epsilon:
+            backward = delta.normalized()
+            break
+
+    # Average
+    yaxis = forward + backward
+    if yaxis.length >= epsilon:
+        return yaxis.normalized()
+
+    # If that's still zero, go for a desperate solution - overal stroke direction + noise.
+    last = mathutils.Vector(stroke.vertices[-1].position)
+    first = mathutils.Vector(stroke.vertices[0].position)
+    yaxis = (last - first + mathutils.Vector(0.000001, 0.000002, 0.000003)).normalized()
+    return yaxis
 
 
 def assign_vertex_colors(mesh, vertex_colors):
