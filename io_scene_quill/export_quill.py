@@ -16,10 +16,6 @@ class QuillExporter:
         self.config = kwargs
         self.config["path"] = path
 
-        # TODO: get from exporter UI panel.
-        self.config["segments_per_unit"] = 10
-        self.config["wireframe_stroke_width"] = 0.01
-
         self.quill_sequence = None
         self.quill_state = None
         self.quill_qbin = None

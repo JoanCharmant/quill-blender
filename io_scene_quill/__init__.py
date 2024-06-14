@@ -162,12 +162,20 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         default=0.01,
     )
 
-    segments_per_unit: IntProperty(
+    wireframe_segments_per_unit: IntProperty(
         name="Resolution",
         description="Number of segments per unit",
         min=1, max=1000,
         soft_min=1, soft_max=100,
         default=10,
+    )
+    
+    armature_bone_shape: EnumProperty(
+        name="Bone shape",
+        items=(("OCTAHEDRAL", "Octahedral", ""),
+                ("STICK", "Stick", "")),
+        description="Shape of paint strokes used to represent bones",
+        default="STICK",
     )
 
     def draw(self, context):
@@ -201,7 +209,6 @@ class QUILL_PT_export_include(bpy.types.Panel):
     def poll(cls, context):
         sfile = context.space_data
         operator = sfile.active_operator
-
         return operator.bl_idname == "EXPORT_SCENE_OT_quill"
 
     def draw(self, context):
@@ -239,7 +246,30 @@ class QUILL_PT_export_wireframe(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "wireframe_stroke_width")
-        layout.prop(operator, "segments_per_unit")
+        layout.prop(operator, "wireframe_segments_per_unit")
+        
+
+class QUILL_PT_export_armature(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Armature"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+        return operator.bl_idname == "EXPORT_SCENE_OT_quill"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "armature_bone_shape")
 
 
 def menu_func_import(self, context):
@@ -256,6 +286,7 @@ classes = (
     ExportQuill,
     QUILL_PT_export_include,
     QUILL_PT_export_wireframe,
+    QUILL_PT_export_armature,
 )
 
 def register():

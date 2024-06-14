@@ -39,7 +39,7 @@ def make_edge_stroke(start, end, config):
         return None
 
     brush_size = max(min(config["wireframe_stroke_width"], max_size), min_size)
-    segments = math.ceil(dist * config["segments_per_unit"])
+    segments = math.ceil(dist * config["wireframe_segments_per_unit"])
     segments = max(segments, 3)
 
     points = []

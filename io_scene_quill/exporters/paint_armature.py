@@ -61,17 +61,24 @@ def make_bone_stroke(head, tail, color, config):
         vertex = paint.Vertex(p, normal, tangent, color, opacity, width)
         vertices.append(vertex)
 
-    # Make a stroke that resembles the Blender octahedral bone.
-    # We need a minimum of 4 points to make a quill stroke. 
-    # p1 is the main driver of the shape and p2 is just a support point.
-    add_vertex(head, 0)
-    p1 = head.lerp(tail, 0.1)
-    p1_width = length / 4
-    add_vertex(p1, p1_width)
-    p2 = head.lerp(tail, 0.9)
-    p2_width = ((length * 0.1) * p1_width) / length
-    add_vertex(p2, p2_width)
-    add_vertex(tail, 0)
+    if config["armature_bone_shape"] == "OCTAHEDRAL":
+        # Make a stroke that resembles the Blender octahedral bone.
+        # We need a minimum of 4 points to make a quill stroke. 
+        # p1 is the main driver of the shape and p2 is just a support point.
+        add_vertex(head, 0)
+        p1 = head.lerp(tail, 0.1)
+        p1_width = length / 4
+        add_vertex(p1, p1_width)
+        p2 = head.lerp(tail, 0.9)
+        p2_width = ((length * 0.1) * p1_width) / length
+        add_vertex(p2, p2_width)
+        add_vertex(tail, 0)
+    elif config["armature_bone_shape"] == "STICK":
+        add_vertex(head, 0)
+        segments = 10
+        for i in range(segments-1):
+            add_vertex(head.lerp(tail, (i + 1) / segments), length / 10)
+        add_vertex(tail, 0)
 
     bounding_box = utils.bbox_from_points(head, tail)
 
