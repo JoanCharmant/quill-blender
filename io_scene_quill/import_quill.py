@@ -110,8 +110,7 @@ class QuillImporter:
             if self.config["convert_paint"] == "MESH":
                 mesh = bpy.data.meshes.new(layer.name)
                 obj = bpy.data.objects.new(mesh.name, mesh)
-                collection = bpy.data.collections["Collection"]
-                collection.objects.link(obj)
+                bpy.context.collection.objects.link(obj)
                 bpy.context.view_layer.objects.active = obj
                 self.setup_obj(layer, parent)
 
