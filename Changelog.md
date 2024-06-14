@@ -9,7 +9,9 @@ Importer
 - Fixed importing into non default Collection.
 
 Exporter
+- Export armatures as sticks.
 - Fixed exported files could not be loaded in Quill.
+- Fixed export of armatures.
 
 
 ## 0.0.3
