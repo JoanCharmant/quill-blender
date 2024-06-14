@@ -62,8 +62,15 @@ def make_bone_stroke(head, tail, color, config):
         vertices.append(vertex)
 
     # Make a stroke that resembles the Blender octahedral bone.
+    # We need a minimum of 4 points to make a quill stroke. 
+    # p1 is the main driver of the shape and p2 is just a support point.
     add_vertex(head, 0)
-    add_vertex(head.lerp(tail, 0.1), length / 4)
+    p1 = head.lerp(tail, 0.1)
+    p1_width = length / 4
+    add_vertex(p1, p1_width)
+    p2 = head.lerp(tail, 0.9)
+    p2_width = ((length * 0.1) * p1_width) / length
+    add_vertex(p2, p2_width)
     add_vertex(tail, 0)
 
     bounding_box = utils.bbox_from_points(head, tail)
