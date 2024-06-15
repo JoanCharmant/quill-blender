@@ -53,8 +53,6 @@ def make_edge_stroke(start, end, config):
         p = points[i]
 
         # Fake normal and tangent as if the painter was at the origin.
-        # `normal` controls the orientation of ribbon strokes.
-        # `tangent` controls the incident ray for rotational opacity.
         normal = p.normalized()
         tangent = normal
         color = (0, 0, 0)

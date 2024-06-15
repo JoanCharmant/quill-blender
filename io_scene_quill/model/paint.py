@@ -1,9 +1,8 @@
+# Core data used by Drawings and read/write functions ("Quill.qbin").
+# These do not depend on any Blender data types.
 
 import struct
 from enum import Enum
-
-# Core data used by Drawings and read/write functions.
-# These do not depend on any Blender data types.
 
 
 class BrushType(Enum):
@@ -29,6 +28,9 @@ class Stroke:
 
 
 class Vertex:
+    # normal: orientation of the base polygon making up the stroke.
+    # tangent: direction of the incident ray for the "directional opacity" feature.
+    
     def __init__(self, position, normal, tangent, color, opacity, width):
         self.position = position
         self.normal = normal

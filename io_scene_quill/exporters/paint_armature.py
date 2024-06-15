@@ -53,8 +53,6 @@ def make_bone_stroke(head, tail, color, config):
 
     def add_vertex(p, width):
         # Fake normal and tangent as if the painter was at the origin.
-        # `normal` controls the orientation of ribbon strokes.
-        # `tangent` controls the incident ray for rotational opacity.
         normal = p.normalized()
         tangent = normal
         opacity = 1.0

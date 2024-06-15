@@ -143,8 +143,6 @@ def make_normal_stroke(gpencil_stroke, material, thickness_offset):
         p = utils.swizzle_yup_location(gpencil_point.co)
 
         # Fake normal and tangent as if the painter was at the origin.
-        # `normal` controls the orientation of ribbon strokes.
-        # `tangent` controls the incident ray for rotational opacity.
         normal = p.normalized()
         tangent = normal
 
