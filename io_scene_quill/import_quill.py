@@ -3,7 +3,7 @@ import bpy
 import json
 import logging
 import mathutils
-from math import radians
+from math import radians, floor
 from .model import sequence, sequence_utils, paint
 from .importers import gpencil_paint, mesh_paint, mesh_material
 
@@ -96,6 +96,7 @@ class QuillImporter:
         if layer.type == "Group":
             bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0, 0, 0))
             self.setup_obj(layer, parent)
+            self.setup_animation(layer)
 
             obj = bpy.context.object
             for child in layer.implementation.children:
@@ -113,6 +114,7 @@ class QuillImporter:
                 bpy.context.collection.objects.link(obj)
                 bpy.context.view_layer.objects.active = obj
                 self.setup_obj(layer, parent)
+                self.setup_animation(layer)
 
                 mesh_paint.convert(mesh, layer)
                 mesh.materials.append(self.material)
@@ -120,16 +122,19 @@ class QuillImporter:
             elif self.config["convert_paint"] == "GPENCIL":
                 bpy.ops.object.gpencil_add()
                 self.setup_obj(layer, parent)
+                self.setup_animation(layer)
                 gpencil_paint.convert(bpy.context.object, layer)
 
         elif layer.type == "Viewpoint":
             bpy.ops.object.camera_add()
             self.setup_obj(layer, parent)
+            self.setup_animation(layer, False)
 
         elif layer.type == "Camera":
             bpy.ops.object.camera_add()
             layer.transform.scale = 1.0
             self.setup_obj(layer, parent)
+            self.setup_animation(layer, False)
             obj = bpy.context.object
             obj.data.lens_unit = 'FOV'
             obj.data.angle = radians(layer.implementation.fov)
@@ -137,14 +142,17 @@ class QuillImporter:
         elif layer.type == "Sound":
             bpy.ops.object.speaker_add()
             self.setup_obj(layer, parent)
+            self.setup_animation(layer, False)
 
         elif layer.type == "Model":
             bpy.ops.object.empty_add(type='CUBE')
             self.setup_obj(layer, parent)
+            self.setup_animation(layer, False)
 
         elif layer.type == "Picture":
             bpy.ops.object.empty_add(type='IMAGE')
             self.setup_obj(layer, parent)
+            self.setup_animation(layer, False)
 
         else:
             logging.warning("Unsupported Quill layer type: %s", layer.type)
@@ -186,6 +194,52 @@ class QuillImporter:
                 return mat @ mathutils.Matrix.Scale(-1, 4, (0, 0, 1))
             else:
                 return mat
+    
+    def setup_animation(self, layer, do_scale=True):
+        """Setup the animation of the object."""
+        obj = bpy.context.object
+        fps = bpy.context.scene.render.fps
+
+        # Quill uses a time base of 1/12600 (nicely divisible).
+        time_base = 1/12600
+        
+        # Transform key frames.
+        kktt = layer.animation.keys.transform
+        if kktt:
+            # Create the key frames.
+            for key in kktt:
+                frame = floor(key.time * time_base * fps + 0.5)
+                
+                # Name of the channels is from the F-Curve panel in the Graph Editor.
+                obj.matrix_local = self.get_transform(key.value)
+                obj.keyframe_insert(data_path="location", frame=frame)
+                obj.keyframe_insert(data_path="rotation_euler", frame=frame)
+                if do_scale:
+                    obj.keyframe_insert(data_path="scale", frame=frame)
+                
+            # Go through the key frames we just created and set the interpolation type.
+            # https://docs.blender.org/api/current/bpy.types.Keyframe.html
+            for fcurve in obj.animation_data.action.fcurves:
+                for i in range(len(fcurve.keyframe_points)):
+                    keyframe = fcurve.keyframe_points[i]
+                    interp, easing = self.get_interpolation(kktt[i].interpolation)
+                    keyframe.interpolation = interp
+                    keyframe.easing = easing
+    
+    def get_interpolation(self, interpolation):
+        """Convert Quill interpolation to Blender f-curve interpolation"""
+        if interpolation == "None":
+            return 'CONSTANT', 'AUTO'
+        elif interpolation == "Linear":
+            return 'LINEAR', 'AUTO'
+        elif interpolation == "EaseIn":
+            return 'CUBIC', 'EASE_IN'
+        elif interpolation == "EaseOut":
+            return 'CUBIC', 'EASE_OUT'
+        elif interpolation == "EeaseInOut":
+            return 'CUBIC', 'EASE_IN_OUT'
+        else:
+            return 'LINEAR', 'AUTO'
 
 
 def load(operator, context, filepath="", **kwargs):
