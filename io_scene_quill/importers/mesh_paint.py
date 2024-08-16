@@ -10,6 +10,8 @@ def convert(parent_obj, layer, material):
     if drawings is None or len(drawings) == 0:
         return
 
+    # Load all drawings into mesh objects.
+    # Note: empty frames still have a drawing pointer, just no strokes.
     index = 0
     drawing_to_obj = {}
     for drawing in drawings:
@@ -21,12 +23,12 @@ def convert(parent_obj, layer, material):
         drawing_to_obj[index] = obj
         bpy.context.collection.objects.link(obj)
         bpy.context.view_layer.objects.active = obj
-        
+
+        # Load the drawing data into the mesh.
         vertices = []
         edges = []
         faces = []
         vertex_colors = []
-
         base_vertex = 0
         for stroke in drawing.data.strokes:
             count = convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex)
@@ -39,50 +41,52 @@ def convert(parent_obj, layer, material):
         index += 1
         
     # Animate visibility
-    #layer.implementation.framerate
-    #layer.implementation.max_repeat_count
-    #layer.implementation.frames
     # Ex: "Frames" : [ "0", "1", "2", "3", "4", "5", "6", "6", "6", "6", "7", "8", "9"]
     
-    # Hide all drawings.
+    # Hide all drawings within the blender scene range.
+    scn = bpy.context.scene
     for _, obj in drawing_to_obj.items():
         obj.hide_viewport = True
+        obj.keyframe_insert(data_path="hide_viewport", frame=scn.frame_start)
+        obj.keyframe_insert(data_path="hide_viewport", frame=scn.frame_end)
         obj.hide_render = True
-        obj.keyframe_insert(data_path="hide_render", frame=0)
-        obj.keyframe_insert(data_path="hide_viewport", frame=0)
+        obj.keyframe_insert(data_path="hide_render", frame=scn.frame_start)
+        obj.keyframe_insert(data_path="hide_render", frame=scn.frame_end)
     
-    # Loop through the frame array and show the drawing at the corresponding frame.
-    # Convert frame indices to the target frame rate.
-    source_fps = layer.implementation.framerate
+    # Loop through the Blender output frames and show the corresponding drawing.
     current_drawing_index = -1
-    for i in range(len(layer.implementation.frames)):
-        drawing_index = int(layer.implementation.frames[i])
+    for frame_target in range(scn.frame_start, scn.frame_end + 1):
+        frame_source = frame_target
+        if layer.implementation.framerate != scn.render.fps:
+            time = frame_target / scn.render.fps
+            frame_source = math.floor(time * layer.implementation.framerate + 0.5)
+    
+        looping = layer.implementation.max_repeat_count == 0
+        if not looping and frame_source >= len(layer.implementation.frames):
+            break
+        
+        frame_source = frame_source % len(layer.implementation.frames)
+        drawing_index = int(layer.implementation.frames[frame_source])
+        
         if drawing_index == current_drawing_index:
             continue
-    
-        target_frame = i
-        if source_fps != bpy.context.scene.render.fps:
-            time = i / source_fps
-            target_frame = math.floor(time * bpy.context.scene.render.fps + 0.5)
         
         # Hide previous drawing.
         if current_drawing_index != -1:
             obj = drawing_to_obj[current_drawing_index]
             obj.hide_viewport = True
+            obj.keyframe_insert(data_path="hide_viewport", frame=frame_target)
             obj.hide_render = True
-            obj.keyframe_insert(data_path="hide_render", frame=target_frame)
-            obj.keyframe_insert(data_path="hide_viewport", frame=target_frame)
-
+            obj.keyframe_insert(data_path="hide_render", frame=frame_target)
+            
         current_drawing_index = drawing_index
         
         # Show current drawing.
         obj = drawing_to_obj[current_drawing_index]
         obj.hide_viewport = False
+        obj.keyframe_insert(data_path="hide_viewport", frame=frame_target)
         obj.hide_render = False
-        obj.keyframe_insert(data_path="hide_render", frame=target_frame)
-        obj.keyframe_insert(data_path="hide_viewport", frame=target_frame)
-        
-   # TODO: handle max_repeat_count
+        obj.keyframe_insert(data_path="hide_render", frame=frame_target)
 
 
 def convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex):
