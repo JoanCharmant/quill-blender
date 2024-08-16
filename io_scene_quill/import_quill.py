@@ -69,7 +69,7 @@ class QuillImporter:
             self.material = mesh_material.create_principled("vertex.colors")
 
         # Import/convert layers to Blender objects.
-        self.import_layer(root_layer)
+        self.import_layer(root_layer, 0)
         bpy.context.view_layer.update()
 
     def load_drawing_data(self, layer):
@@ -89,18 +89,24 @@ class QuillImporter:
             self.qbin.seek(int(drawing.data_file_offset, 16))
             drawing.data = paint.read_drawing_data(self.qbin)
 
-    def import_layer(self, layer, parent_layer=None, parent_obj=None):
+    def import_layer(self, layer, offset, parent_layer=None, parent_obj=None):
 
         logging.info("Importing Quill layer: %s (%s).", layer.name, layer.type)
 
         if layer.type == "Group":
             bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0, 0, 0))
             self.setup_obj(layer, parent_layer, parent_obj)
-            self.setup_animation(layer)
+            self.setup_animation(layer, offset)
+            
+            # If we are a sequence the times of children are relative to our start point.
+            if layer.animation.timeline:
+                kkvv = layer.animation.keys.visibility
+                if kkvv and len(kkvv) > 0:
+                    offset += kkvv[0].time
 
             obj = bpy.context.object
             for child in layer.implementation.children:
-                self.import_layer(child, layer, obj)
+                self.import_layer(child, offset, layer, obj)
 
             # Apply a 90° rotation on the root object to match Blender coordinate system.
             if parent_layer is None:
@@ -114,7 +120,7 @@ class QuillImporter:
                 bpy.context.collection.objects.link(obj)
                 bpy.context.view_layer.objects.active = obj
                 self.setup_obj(layer, parent_layer, parent_obj)
-                self.setup_animation(layer)
+                self.setup_animation(layer, offset)
 
                 mesh_paint.convert(mesh, layer)
                 mesh.materials.append(self.material)
@@ -122,19 +128,19 @@ class QuillImporter:
             elif self.config["convert_paint"] == "GPENCIL":
                 bpy.ops.object.gpencil_add()
                 self.setup_obj(layer, parent_layer, parent_obj)
-                self.setup_animation(layer)
+                self.setup_animation(layer, offset)
                 gpencil_paint.convert(bpy.context.object, layer)
 
         elif layer.type == "Viewpoint":
             bpy.ops.object.camera_add()
             self.setup_obj(layer, parent_layer, parent_obj)
-            self.setup_animation(layer, False)
+            self.setup_animation(layer, offset, False)
 
         elif layer.type == "Camera":
             bpy.ops.object.camera_add()
             layer.transform.scale = 1.0
             self.setup_obj(layer, parent_layer, parent_obj)
-            self.setup_animation(layer, False)
+            self.setup_animation(layer, offset, False)
             obj = bpy.context.object
             obj.data.lens_unit = 'FOV'
             obj.data.angle = radians(layer.implementation.fov)
@@ -142,17 +148,17 @@ class QuillImporter:
         elif layer.type == "Sound":
             bpy.ops.object.speaker_add()
             self.setup_obj(layer, parent_layer, parent_obj)
-            self.setup_animation(layer, False)
+            self.setup_animation(layer, offset, False)
 
         elif layer.type == "Model":
             bpy.ops.object.empty_add(type='CUBE')
             self.setup_obj(layer, parent_layer, parent_obj)
-            self.setup_animation(layer, False)
+            self.setup_animation(layer, offset, False)
 
         elif layer.type == "Picture":
             bpy.ops.object.empty_add(type='IMAGE')
             self.setup_obj(layer, parent_layer, parent_obj)
-            self.setup_animation(layer, False)
+            self.setup_animation(layer, offset, False)
 
         else:
             logging.warning("Unsupported Quill layer type: %s", layer.type)
@@ -197,33 +203,31 @@ class QuillImporter:
             else:
                 return mat
     
-    def setup_animation(self, layer, do_scale=True):
+    def setup_animation(self, layer, offset, do_scale=True):
         """Setup the animation of the object."""
         obj = bpy.context.object
         fps = bpy.context.scene.render.fps
 
+        # Key frame times are stored relative to the parent Sequence.
+        # Bare groups do not alter the time of their children.
         # Quill uses a time base of 1/12600 (nicely divisible).
         time_base = 1/12600
         
-        # Key frame times are stored in absolute time, so it looks like we don't 
-        # have to use the special "offset" key frame.
-        
         # Visibility key frames.
-        # Quill layers always have a visibility key frame at time 0 turning the object on.
-        # Blender objects are visible by default, so if there is only one kf 
-        # we ignore it.
         kkvv = layer.animation.keys.visibility
-        if kkvv and len(kkvv) > 1:
-            # If the first key frame is not at time 0 we need to create one
-            # to hide the object before it is visible.
-            if kkvv[0].time > 0:
+        if kkvv and len(kkvv) > 0:
+            # Quill layers are invisible by default and have a first key frame turning visibility on. 
+            # Blender objects are visible by default.
+            # -> If the first key frame is not at time 0 we need to create one to hide the object before it is visible.
+            if kkvv[0].time + offset > 0:
                 obj.hide_viewport = True
                 obj.hide_render = True
                 obj.keyframe_insert(data_path="hide_render", frame=0)
                 obj.keyframe_insert(data_path="hide_viewport", frame=0)
                 
             for key in kkvv:
-                frame = floor(key.time * time_base * fps + 0.5)
+                time = key.time + offset
+                frame = floor(time * time_base * fps + 0.5)
                 hidden = not key.value
                 obj.hide_viewport = hidden
                 obj.hide_render = hidden
@@ -235,7 +239,8 @@ class QuillImporter:
         if kktt:
             # Create the key frames.
             for key in kktt:
-                frame = floor(key.time * time_base * fps + 0.5)
+                time = key.time + offset
+                frame = floor(time * time_base * fps + 0.5)
                 
                 # Name of the channels is from the F-Curve panel in the Graph Editor.
                 obj.matrix_local = self.get_transform(key.value)
