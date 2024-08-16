@@ -3,40 +3,98 @@ import math
 import mathutils
 from ..model.paint import BrushType
 
-def convert(mesh, layer):
+def convert(parent_obj, layer, material):
     """Convert a Quill paint layer to a Blender mesh object."""
 
     drawings = layer.implementation.drawings
     if drawings is None or len(drawings) == 0:
         return
 
-    # Only support the first drawing for now.
-    drawing = drawings[0]
-    if drawing.data is None:
-        return
+    index = 0
+    drawing_to_obj = {}
+    for drawing in drawings:
+        
+        # Create a new mesh object for this drawing.
+        mesh = bpy.data.meshes.new(layer.name + f"_{index}")
+        obj = bpy.data.objects.new(mesh.name, mesh)
+        obj.parent = parent_obj
+        drawing_to_obj[index] = obj
+        bpy.context.collection.objects.link(obj)
+        bpy.context.view_layer.objects.active = obj
+        
+        vertices = []
+        edges = []
+        faces = []
+        vertex_colors = []
 
-    vertices = []
-    edges = []
-    faces = []
-    vertex_colors = []
+        base_vertex = 0
+        for stroke in drawing.data.strokes:
+            count = convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex)
+            base_vertex += count
 
-    # Stroke conversion.
-    # At each quill vertex, generate a cross section based on the brush type,
-    # then connect the cross section vertices into quad faces.
-    # We do this manually instead of using a curve and bevel object to have maximum control
-    # over the resulting shape and match the Quill brush types as closely as possible.
-    base_vertex = 0
-    for stroke in drawing.data.strokes:
-        count = convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex)
-        base_vertex += count
+        mesh.from_pydata(vertices, edges, faces)
+        assign_vertex_colors(mesh, vertex_colors)
+        mesh.materials.append(material)
+        
+        index += 1
+        
+    # Animate visibility
+    #layer.implementation.framerate
+    #layer.implementation.max_repeat_count
+    #layer.implementation.frames
+    # Ex: "Frames" : [ "0", "1", "2", "3", "4", "5", "6", "6", "6", "6", "7", "8", "9"]
+    
+    # Hide all drawings.
+    for _, obj in drawing_to_obj.items():
+        obj.hide_viewport = True
+        obj.hide_render = True
+        obj.keyframe_insert(data_path="hide_render", frame=0)
+        obj.keyframe_insert(data_path="hide_viewport", frame=0)
+    
+    # Loop through the frame array and show the drawing at the corresponding frame.
+    # Convert frame indices to the target frame rate.
+    source_fps = layer.implementation.framerate
+    current_drawing_index = -1
+    for i in range(len(layer.implementation.frames)):
+        drawing_index = int(layer.implementation.frames[i])
+        if drawing_index == current_drawing_index:
+            continue
+    
+        target_frame = i
+        if source_fps != bpy.context.scene.render.fps:
+            time = i / source_fps
+            target_frame = math.floor(time * bpy.context.scene.render.fps + 0.5)
+        
+        # Hide previous drawing.
+        if current_drawing_index != -1:
+            obj = drawing_to_obj[current_drawing_index]
+            obj.hide_viewport = True
+            obj.hide_render = True
+            obj.keyframe_insert(data_path="hide_render", frame=target_frame)
+            obj.keyframe_insert(data_path="hide_viewport", frame=target_frame)
 
-    mesh.from_pydata(vertices, edges, faces)
-    assign_vertex_colors(mesh, vertex_colors)
+        current_drawing_index = drawing_index
+        
+        # Show current drawing.
+        obj = drawing_to_obj[current_drawing_index]
+        obj.hide_viewport = False
+        obj.hide_render = False
+        obj.keyframe_insert(data_path="hide_render", frame=target_frame)
+        obj.keyframe_insert(data_path="hide_viewport", frame=target_frame)
+        
+   # TODO: handle max_repeat_count
 
 
 def convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex):
     """Convert a Quill stroke to connected polygons."""
 
+    # Stroke conversion.
+    # One paint stroke becomes an island of connected polygons.
+    # At each quill vertex, generate a cross section based on the brush type,
+    # then connect the cross section vertices into quad faces.
+    # We do this manually instead of using a curve and bevel object to have maximum control
+    # over the resulting shape and match the Quill brush types as closely as possible.
+    
     # base_vertex is the index of the next vertex to add,
     # this is used to index vertices from face corners.
 

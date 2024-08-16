@@ -83,11 +83,9 @@ class QuillImporter:
             if drawings is None or len(drawings) == 0:
                 return
 
-            # Only load the first drawing for now.
-            #for drawing in layer.implementation.drawings:
-            drawing = layer.implementation.drawings[0]
-            self.qbin.seek(int(drawing.data_file_offset, 16))
-            drawing.data = paint.read_drawing_data(self.qbin)
+            for drawing in layer.implementation.drawings:
+                self.qbin.seek(int(drawing.data_file_offset, 16))
+                drawing.data = paint.read_drawing_data(self.qbin)
 
     def import_layer(self, layer, offset, parent_layer=None, parent_obj=None):
 
@@ -114,16 +112,14 @@ class QuillImporter:
                 obj.matrix_local = mat_rot @ obj.matrix_local
 
         elif layer.type == "Paint":
+            
             if self.config["convert_paint"] == "MESH":
-                mesh = bpy.data.meshes.new(layer.name)
-                obj = bpy.data.objects.new(mesh.name, mesh)
-                bpy.context.collection.objects.link(obj)
-                bpy.context.view_layer.objects.active = obj
+                # Create a container obj and add the drawings to it.
+                bpy.ops.object.empty_add(type='PLAIN_AXES')
                 self.setup_obj(layer, parent_layer, parent_obj)
                 self.setup_animation(layer, offset)
-
-                mesh_paint.convert(mesh, layer)
-                mesh.materials.append(self.material)
+                obj = bpy.context.object
+                mesh_paint.convert(obj, layer, self.material)
 
             elif self.config["convert_paint"] == "GPENCIL":
                 bpy.ops.object.gpencil_add()
