@@ -47,7 +47,7 @@ class QuillExporter:
 
         # Create a folder at the target location instead of using the provided filename.
         file_dir = os.path.dirname(self.path)
-        file_name = os.path.splitext(os.path.basename(self.path))[0]
+        file_name = os.path.splitext(os.path.basename(self.path))[0].strip()
         folder_path = os.path.join(file_dir, file_name)
         os.makedirs(folder_path, exist_ok=True)
 
