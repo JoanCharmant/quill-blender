@@ -43,6 +43,11 @@ def convert(parent_obj, layer, material):
     # Animate visibility
     # Ex: "Frames" : [ "0", "1", "2", "3", "4", "5", "6", "6", "6", "6", "7", "8", "9"]
 
+    # Special case for single frame.
+    # Nothing more to do.
+    if len(drawings) == 1 and len(layer.implementation.frames) == 1 and layer.implementation.max_repeat_count <= 1:
+        return
+
     # Hide all drawings within the blender scene range.
     scn = bpy.context.scene
     for _, obj in drawing_to_obj.items():

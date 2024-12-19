@@ -95,7 +95,7 @@ class QuillImporter:
             bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0, 0, 0))
             self.setup_obj(layer, parent_layer, parent_obj)
             self.setup_animation(layer, offset)
-            
+
             # If we are a sequence the times of children are relative to our start point.
             if layer.animation.timeline:
                 kkvv = layer.animation.keys.visibility
@@ -112,7 +112,7 @@ class QuillImporter:
                 obj.matrix_local = mat_rot @ obj.matrix_local
 
         elif layer.type == "Paint":
-            
+
             if self.config["convert_paint"] == "MESH":
                 # Create a container obj and add the drawings to it.
                 bpy.ops.object.empty_add(type='PLAIN_AXES')
@@ -172,7 +172,7 @@ class QuillImporter:
         # In Blender each object has its own visibility independent of the parent.
         # In order to match Quill behavior we force the visibility of the object
         # to match that of its parent.
-        # However this must use the flag in the parent Quill layer, not the Blender object which 
+        # However this must use the flag in the parent Quill layer, not the Blender object which
         # current visibility value may depend on animation.
         visible = layer.visible and (parent_layer is None or parent_layer.visible)
         hidden = not visible
@@ -198,7 +198,7 @@ class QuillImporter:
                 return mat @ mathutils.Matrix.Scale(-1, 4, (0, 0, 1))
             else:
                 return mat
-    
+
     def setup_animation(self, layer, offset, do_scale=True):
         """Setup the animation of the object."""
         obj = bpy.context.object
@@ -208,19 +208,24 @@ class QuillImporter:
         # Bare groups do not alter the time of their children.
         # Quill uses a time base of 1/12600 (nicely divisible).
         time_base = 1/12600
-        
+
         # Visibility key frames.
         kkvv = layer.animation.keys.visibility
         if kkvv and len(kkvv) > 0:
-            # Quill layers are invisible by default and have a first key frame turning visibility on. 
+            # Quill layers are invisible by default and have a first key frame turning visibility on.
             # Blender objects are visible by default.
-            # -> If the first key frame is not at time 0 we need to create one to hide the object before it is visible.
+            # If the first key frame is not at time 0 we need to create one to hide the object before it is visible.
+
+            # Special case for no animation.
+            if kkvv[0].time == 0 and kkvv[0].value:
+                return
+
             if kkvv[0].time + offset > 0:
                 obj.hide_viewport = True
                 obj.hide_render = True
                 obj.keyframe_insert(data_path="hide_render", frame=0)
                 obj.keyframe_insert(data_path="hide_viewport", frame=0)
-                
+
             for key in kkvv:
                 time = key.time + offset
                 frame = floor(time * time_base * fps + 0.5)
@@ -229,7 +234,7 @@ class QuillImporter:
                 obj.hide_render = hidden
                 obj.keyframe_insert(data_path="hide_render", frame=frame)
                 obj.keyframe_insert(data_path="hide_viewport", frame=frame)
-        
+
         # Transform key frames.
         kktt = layer.animation.keys.transform
         if kktt:
@@ -237,14 +242,14 @@ class QuillImporter:
             for key in kktt:
                 time = key.time + offset
                 frame = floor(time * time_base * fps + 0.5)
-                
+
                 # Name of the channels is from the F-Curve panel in the Graph Editor.
                 obj.matrix_local = self.get_transform(key.value)
                 obj.keyframe_insert(data_path="location", frame=frame)
                 obj.keyframe_insert(data_path="rotation_euler", frame=frame)
                 if do_scale:
                     obj.keyframe_insert(data_path="scale", frame=frame)
-                
+
             # Go through the key frames we just created and set the interpolation type.
             # https://docs.blender.org/api/current/bpy.types.Keyframe.html
             for fcurve in obj.animation_data.action.fcurves:
