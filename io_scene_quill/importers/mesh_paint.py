@@ -15,7 +15,7 @@ def convert(parent_obj, layer, material):
     index = 0
     drawing_to_obj = {}
     for drawing in drawings:
-        
+
         # Create a new mesh object for this drawing.
         mesh = bpy.data.meshes.new(layer.name + f"_{index}")
         obj = bpy.data.objects.new(mesh.name, mesh)
@@ -37,12 +37,12 @@ def convert(parent_obj, layer, material):
         mesh.from_pydata(vertices, edges, faces)
         assign_vertex_colors(mesh, vertex_colors)
         mesh.materials.append(material)
-        
+
         index += 1
-        
+
     # Animate visibility
     # Ex: "Frames" : [ "0", "1", "2", "3", "4", "5", "6", "6", "6", "6", "7", "8", "9"]
-    
+
     # Hide all drawings within the blender scene range.
     scn = bpy.context.scene
     for _, obj in drawing_to_obj.items():
@@ -52,41 +52,50 @@ def convert(parent_obj, layer, material):
         obj.hide_render = True
         obj.keyframe_insert(data_path="hide_render", frame=scn.frame_start)
         obj.keyframe_insert(data_path="hide_render", frame=scn.frame_end)
-    
+
     # Loop through the Blender output frames and show the corresponding drawing.
-    current_drawing_index = -1
+    # Blender default range starts at 1, Quill at 0, so we need to adjust the frame index.
+    # frame_start: first frame in Blender timeline, used as an offset to map to Quill timeline.
+    # frame_target: the index of the frame in the blender timeline we are showing the drawing on.
+    # frame_source: the index of the frame in the Quill timeline we are copying the drawing from.
+    # drawing_index: the actual index of the drawing in the list of drawings (the drawings are in
+    # order but they might be duplicated on the quill timeline so don't map with frames.)
+    prev_drawing_index = -1
+    frame_start = scn.frame_start
     for frame_target in range(scn.frame_start, scn.frame_end + 1):
-        frame_source = frame_target
+        frame_source = frame_target - frame_start
         if layer.implementation.framerate != scn.render.fps:
-            time = frame_target / scn.render.fps
+            time = frame_source / scn.render.fps
             frame_source = math.floor(time * layer.implementation.framerate + 0.5)
-    
+
         looping = layer.implementation.max_repeat_count == 0
         if not looping and frame_source >= len(layer.implementation.frames):
             break
-        
+
+        # Get the source frame index and the drawing index.
         frame_source = frame_source % len(layer.implementation.frames)
         drawing_index = int(layer.implementation.frames[frame_source])
-        
-        if drawing_index == current_drawing_index:
+
+        # If it's the same drawing we keep it visible so nothing more to do.
+        if drawing_index == prev_drawing_index:
             continue
-        
-        # Hide previous drawing.
-        if current_drawing_index != -1:
-            obj = drawing_to_obj[current_drawing_index]
+
+        # Changing drawing: hide the previous one if any.
+        if prev_drawing_index != -1:
+            obj = drawing_to_obj[prev_drawing_index]
             obj.hide_viewport = True
             obj.keyframe_insert(data_path="hide_viewport", frame=frame_target)
             obj.hide_render = True
             obj.keyframe_insert(data_path="hide_render", frame=frame_target)
-            
-        current_drawing_index = drawing_index
-        
+
         # Show current drawing.
-        obj = drawing_to_obj[current_drawing_index]
+        obj = drawing_to_obj[drawing_index]
         obj.hide_viewport = False
         obj.keyframe_insert(data_path="hide_viewport", frame=frame_target)
         obj.hide_render = False
         obj.keyframe_insert(data_path="hide_render", frame=frame_target)
+
+        prev_drawing_index = drawing_index
 
 
 def convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex):
@@ -98,7 +107,7 @@ def convert_stroke(stroke, vertices, edges, faces, vertex_colors, base_vertex):
     # then connect the cross section vertices into quad faces.
     # We do this manually instead of using a curve and bevel object to have maximum control
     # over the resulting shape and match the Quill brush types as closely as possible.
-    
+
     # base_vertex is the index of the next vertex to add,
     # this is used to index vertices from face corners.
 
