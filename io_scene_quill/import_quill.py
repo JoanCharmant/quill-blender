@@ -124,7 +124,7 @@ class QuillImporter:
                 self.setup_obj(layer, parent_layer, parent_obj)
                 self.setup_animation(layer, offset)
                 obj = bpy.context.object
-                mesh_paint.convert(obj, layer, self.material)
+                mesh_paint.convert(self.config, obj, layer, self.material)
 
             elif self.config["convert_paint"] == "GPENCIL":
                 bpy.ops.object.gpencil_add()

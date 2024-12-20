@@ -53,6 +53,12 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
         description="How paint layers are converted during import",
         default="MESH")
 
+    extra_attributes: BoolProperty(
+            name="Extra attributes",
+            description="Create attributes for Quill stroke data",
+            default=False,
+            )
+
     def draw(self, context):
         pass
 
@@ -110,6 +116,7 @@ class QUILL_PT_import_paint(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "convert_paint")
+        layout.prop(operator, "extra_attributes")
 
 
 class ExportQuill(bpy.types.Operator, ExportHelper):
