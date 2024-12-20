@@ -92,6 +92,10 @@ class QuillImporter:
         logging.info("Importing Quill layer: %s (%s).", layer.name, layer.type)
 
         if layer.type == "Group":
+
+            # Group layers are converted to empty objects.
+            # Since Blender doesn't inherit visibility between objects hidden layers will be visible.
+            # The user can choose to not import these layers at all from the importer configuration.
             bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0, 0, 0))
             self.setup_obj(layer, parent_layer, parent_obj)
             self.setup_animation(layer, offset)
@@ -112,6 +116,7 @@ class QuillImporter:
                 obj.matrix_local = mat_rot @ obj.matrix_local
 
         elif layer.type == "Paint":
+            # Quill paint layers are converted to Mesh objects or Grease Pencil objects.
 
             if self.config["convert_paint"] == "MESH":
                 # Create a container obj and add the drawings to it.
@@ -167,17 +172,12 @@ class QuillImporter:
         obj.matrix_local = self.get_transform(layer.transform)
         # TODO: pivot.
 
-        # Visibility: in Quill if the parent is hidden the whole subtree is hidden,
+        # Visibility inheritance.
+        # In Quill if the parent group is hidden the whole subtree is hidden,
         # even if the individual layers are marked as visible.
         # In Blender each object has its own visibility independent of the parent.
-        # In order to match Quill behavior we force the visibility of the object
-        # to match that of its parent.
-        # However this must use the flag in the parent Quill layer, not the Blender object which
-        # current visibility value may depend on animation.
-        visible = layer.visible and (parent_layer is None or parent_layer.visible)
-        hidden = not visible
-        obj.hide_viewport = hidden
-        obj.hide_render = hidden
+        # At the moment we don't have a satisfying way to handle this so we just
+        # ignore visibility for hidden groups and let the user manually fix it.
 
     def get_transform(self, t):
         """Convert a Quill transform to a Blender matrix."""
@@ -211,7 +211,7 @@ class QuillImporter:
 
         # Visibility key frames.
         kkvv = layer.animation.keys.visibility
-        if kkvv and len(kkvv) > 0:
+        if kkvv and len(kkvv) > 0 and layer.type != "Group":
             # Quill layers are invisible by default and have a first key frame turning visibility on.
             # Blender objects are visible by default.
             # If the first key frame is not at time 0 we need to create one to hide the object before it is visible.

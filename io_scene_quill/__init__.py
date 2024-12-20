@@ -37,7 +37,7 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
     load_hidden_layers: BoolProperty(
             name="Hidden Layers",
             description="Load hidden layers from the Quill scene",
-            default=True,
+            default=False,
             )
 
     load_cameras: BoolProperty(
@@ -169,7 +169,7 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         soft_min=1, soft_max=100,
         default=10,
     )
-    
+
     armature_bone_shape: EnumProperty(
         name="Bone shape",
         items=(("OCTAHEDRAL", "Octahedral", ""),
@@ -247,7 +247,7 @@ class QUILL_PT_export_wireframe(bpy.types.Panel):
 
         layout.prop(operator, "wireframe_stroke_width")
         layout.prop(operator, "wireframe_segments_per_unit")
-        
+
 
 class QUILL_PT_export_armature(bpy.types.Panel):
     bl_space_type = 'FILE_BROWSER'

@@ -1,6 +1,10 @@
 # Changelog
 
 
+
+## 1.0.0
+First official release. No changes compared to 0.0.4.
+
 ## 0.0.4
 
 Importer
