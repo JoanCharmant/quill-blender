@@ -16,18 +16,20 @@ def convert(obj, config):
     # Produce a paint stroke for each edge.
     # https://docs.blender.org/api/current/bpy.types.Mesh.html
     mesh = obj.data
+    stroke_id = 0
     for (v1, v2) in mesh.edge_keys:
         p1 = utils.swizzle_yup_location(mesh.vertices[v1].co)
         p2 = utils.swizzle_yup_location(mesh.vertices[v2].co)
-        stroke = make_edge_stroke(p1, p2, config)
+        stroke = make_edge_stroke(p1, p2, stroke_id, config)
         if stroke is None:
             continue
         drawing.data.strokes.append(stroke)
         drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
+        stroke_id += 1
 
     return paint_layer
 
-def make_edge_stroke(start, end, config):
+def make_edge_stroke(start, end, id, config):
 
     brush_type = paint.BrushType.CYLINDER
     disable_rotational_opacity = True
@@ -63,7 +65,6 @@ def make_edge_stroke(start, end, config):
 
     bounding_box = utils.bbox_from_points(start, end)
 
-    id = 0
     stroke = paint.Stroke(id, bounding_box, brush_type, disable_rotational_opacity, vertices)
     return stroke
 
