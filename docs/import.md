@@ -23,7 +23,7 @@ The following layer types are converted to Empty objects with no data
 - Model layer
 - Picture layer
 
-## All layer types
+## Common properties
 
 Properties shared by all layer types
 
@@ -42,7 +42,7 @@ Visibility is imported but the inheritance of the parent group visibility is not
 
 By default hidden layers are not imported. You can force their import by checking Include > Hidden layers in the import dialog. In this case hidden layer groups will be imported and forced visible.
 
-### Key framed animation data
+### Key frame animation data
 
 | Feature |Status|
 | ------------- |:---:|

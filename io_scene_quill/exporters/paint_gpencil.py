@@ -39,11 +39,8 @@ def convert(obj, config):
 
 def make_paint_layer(gpencil_layer, gpencil_materials, config):
 
-    # Create a default paint layer and drawing.
-    paint_layer = sequence.Layer.create_paint_layer(gpencil_layer.info)
-    drawing = sequence.Drawing.from_default()
-    drawing.data = paint.DrawingData()
-    paint_layer.implementation.drawings.append(drawing)
+    if gpencil_layer.frames == 0 or gpencil_layer.is_ruler:
+        return None
 
     # Convert Grease pencil to Quill.
     # The data models are not an exact match.
@@ -66,9 +63,8 @@ def make_paint_layer(gpencil_layer, gpencil_materials, config):
     # https://docs.blender.org/api/current/bpy.types.GPencilStroke.html
     # https://docs.blender.org/api/current/bpy.types.MaterialGPencilStyle.html
 
-    # Layer-level properties.
-    if gpencil_layer.is_ruler:
-        return None
+    # Create a default paint layer and drawing.
+    paint_layer = sequence.Layer.create_paint_layer(gpencil_layer.info)
 
     # Blend (gpencil_layer.blend_mode): Ignore. We only support "Regular".
     # Opacity: supported.
@@ -78,42 +74,74 @@ def make_paint_layer(gpencil_layer, gpencil_materials, config):
     # Thickness change to apply to current strokes.
     thickness_offset = gpencil_layer.line_change
 
+    # Set all layers to the Blender frame rate.
+    paint_layer.implementation.frame_rate = bpy.context.scene.render.fps
+    paint_layer.implementation.max_repeat_count = 1
+
     # (?)
     #gpencil_layer.tint_color
     #gpencil_layer.tint_factor
     #gpencil_layer.vertex_paint_opacity
 
-    #for gpencil_frame in gpencil_layer.frames:
-    # Only support the first frame for now.
-    gpencil_frame = gpencil_layer.frames[0]
+    # Frame by frame animation:
+    # Grease pencil "frames" corresponds to Quill drawings aka key frames.
+    # Blender timeline frames corresponds to Quill frames.
 
-    for gpencil_stroke in gpencil_frame.strokes:
+    # Drawing list
+    for gpencil_frame in gpencil_layer.frames:
+        drawing = sequence.Drawing.from_default()
+        drawing.data = paint.DrawingData()
+        paint_layer.implementation.drawings.append(drawing)
 
-        # Check if the material used by this stroke has "fill" enabled.
-        # If so we’ll have to make a special stroke trying to emulate the fill
-        # and maybe store some sort of metadata for round tripping.
-        material = gpencil_materials[gpencil_stroke.material_index].grease_pencil
-        if not material.show_stroke and not material.show_fill:
-            continue
+        # Convert all Grease Pencil strokes to Quill ones.
+        for gpencil_stroke in gpencil_frame.strokes:
 
-        if material.show_stroke:
-            # This can be represented by a normal Quill stroke.
-            stroke = make_normal_stroke(gpencil_stroke, material, thickness_offset)
-            if stroke is None:
-                continue
-            drawing.data.strokes.append(stroke)
-            drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
+            # Surface component (Stroke, Fill or both).
+            # If neither are enabled or the drawing has no strokes, it is still
+            # a valid drawing, just empty.
+            material = gpencil_materials[gpencil_stroke.material_index].grease_pencil
 
-        if material.show_fill:
-            # This requires special handling.
-            stroke = make_fill_stroke(gpencil_stroke, material)
-            if stroke is None:
-                continue
-            drawing.data.strokes.append(stroke)
-            drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
+            if material.show_stroke:
+                # This can be represented by a normal Quill stroke.
+                stroke = make_normal_stroke(gpencil_stroke, material, thickness_offset)
+                if stroke is None:
+                    continue
+                drawing.data.strokes.append(stroke)
+                drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
+
+            if material.show_fill:
+                # This requires special handling.
+                stroke = make_fill_stroke(gpencil_stroke, material)
+                if stroke is None:
+                    continue
+                drawing.data.strokes.append(stroke)
+                drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
+
+    # Frame list.
+    # Quill stores a fully expanded frame list.
+    # e.g: [0, 1, 1, 1, 2, 2, 3, 3, 3]
+    # Blender stores a map of key frames to frame numbers.
+    # e.g: {0:0, 1:1, 2:4, 3:6]
+    # Unlike Quill, Blender keeps the list ordered.
+    scn = bpy.context.scene
+    frame_start = scn.frame_start
+    frame_end = scn.frame_end
+
+    # Loop through the blender frames and assign the correct drawing.
+    # We know the frame rates are matching at this point.
+    paint_layer.implementation.frames = []
+    current_gp_drawing = 0
+    for blender_frame in range(frame_start, frame_end + 1):
+
+        # Check if we should switch to the next drawing.
+        if current_gp_drawing < len(gpencil_layer.frames) - 1:
+            next_gp_frame_number = gpencil_layer.frames[current_gp_drawing + 1].frame_number
+            if blender_frame >= next_gp_frame_number:
+                current_gp_drawing += 1
+
+        paint_layer.implementation.frames.append(current_gp_drawing)
 
     return paint_layer
-
 
 def make_normal_stroke(gpencil_stroke, material, thickness_offset):
 

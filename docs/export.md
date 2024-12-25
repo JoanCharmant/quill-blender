@@ -45,7 +45,8 @@ Blender has many animation features, none of which are currently supported by th
 | Shape keys | ❌ |
 | Constraints | ❌ |
 | Drivers | ❌ |
-| Mesh caches | ❌ |
+| Mesh caches (Alembic, FBX) | ❌ |
+| Grease Pencil frame by frame | ❌ |
 
 
 ## Mesh
@@ -110,6 +111,11 @@ The final color is a mix between the base color and the vertex color.
 | Width | ✅ |
 | Color | ✅ |
 | Opacity | ✅ |
+
+
+### Grease Pencil frame by frame animation
+
+TODO.
 
 
 ## Armature

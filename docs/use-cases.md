@@ -12,6 +12,7 @@
 
 - Start painting in Grease Pencil and finish in Quill
 - Send Mesh as wireframe for painting reference
+- Write text for a Quill scene with a stylus and on a perfect plane using Grease Pencil.
 
 
 ## Blender > Quill > Blender
