@@ -38,14 +38,15 @@ The add-on reads and writes native Quill file format.
 - Export Armature objects as painted stick figures.
 - Export Cameras to Quill viewpoints.
 
+[Detailed status of supported Blender features during export](docs/export.md)
 
 ## Inherent limitations
 
-Quill and Blender cannot always be converted correctly back and forth as the underlying models are not fully compatible. This impacts both [import](docs/import.md) and export.
+Quill and Blender cannot always be converted correctly back and forth as the underlying models are not fully compatible. This impacts both [import](docs/import.md) and [export](docs/export.md).
 
 Here are the main pain points.
 
-⚠️ Paint strokes. Here is a Venn Diagram of the paint stroke representation between the Quill and Blender's Grease Pencil.
+⚠️ Paint strokes. Here is a Venn Diagram of the paint stroke representation between Quill and Blender's Grease Pencil.
 
 ![](docs/images/venn-paint-strokes.png)
 

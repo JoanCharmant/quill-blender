@@ -12,7 +12,7 @@ The following key is used:
 ## Scene hierarchy
 Blender organizes the scene into hierarchies of parented objects.
 
-The following objects types are supported when exporting Blender scenes:
+The following object types are supported when exporting Blender scenes:
 
 | Feature |Status|
 | ------------- |:---:|
@@ -59,7 +59,7 @@ The options under Grease Pencil object > Data > Strokes are ignored and always m
 - Stroke thickness: `World space`
 
 
-### Layers
+### Grease Pencil layers
 
 Each Grease Pencil object can contain several layers. In this case the exporter creates a Quill Layer Group and converts each GP layer to a Quill paint layer.
 
@@ -76,7 +76,7 @@ Each Grease Pencil object can contain several layers. In this case the exporter 
 
 In Adjustments, Stroke thickness is supported. Tint color and Tint factor are not supported.
 
-### Material
+### Grease Pencil material
 
 Each stroke can use a specific [material](https://docs.blender.org/manual/en/latest/grease_pencil/materials/properties.html). This is what controls the visual aspect of the stroke in Blender.
 
@@ -103,7 +103,7 @@ Line type and line style don't exist in Quill. The paint strokes generated are a
 
 The final color is a mix between the base color and the vertex color.
 
-### Vertex data
+### Grease Pencil vertex data
 
 | Feature |Status|
 | ------------- |:---:|
