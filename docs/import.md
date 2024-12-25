@@ -113,7 +113,7 @@ The following features are supported when importing paint layers as Grease Penci
 | Looping  | ❌ |
 
 #### Grease Pencil material
-Width, color and opacity are assigned to the corresponding fields in the Grease Pencil stroke:  pressure, vertex color and strength respectively.
+Width, color and opacity are assigned to the corresponding fields in the Grease Pencil stroke:  pressure, vertex color and strength, respectively.
 
 The created strokes use the default Grease Pencil material with Line type = Line, Style = Solid.
 
