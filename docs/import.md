@@ -1,56 +1,134 @@
 # Importing Quill files
 
-Quill files represent the scene as a hierarchy of layers.
+This page details the supported features when importing Quill files into Blender using the addon.
+
+The following key is used:
+- ✅: full support
+- ⚠️: partial support
+- ❌: not supported
+
+## Scene hierarchy
+Quill files represent the scene as a hierarchy of layers, this hierarchy is imported as a hierarchy of Blender objects.
 
 The following layer types are converted to Blender objects with matching data
-- Group
-- Paint
-- Viewpoint
-- Camera
+- Group layer
+- Paint layer
+- Camera layer
 
 The following layer types are converted to Empty objects with no data
-- Sound
-- Model
-- Picture
+- Viewpoint layer
+- Sound layer
+- Model layer
+- Picture layer
 
-## Quill layer groups
+## All layer types
 
-Layer groups are more versatile in Quill than the available options in Blender.
+Properties shared by all layer types
 
-Quill layer groups have a transform and a visibility status that is inherited by the children layers and can have animated visibility and transform. Blender objects don't inherit visibility, and Blender collections don't carry transformation data.
+### General properties
 
-Currently Quill layer groups are converted to Empty objects and the children layers are parented to the empty. This respects the transformation chain but not the visibility.
+| Feature |Support|
+| ------------- |:---:|
+| Name    | ✅ |
+| Visible    | ⚠️ |
+| Locked    | ❌ |
+| Collapsed    | ❌ |
+| Transform    | ✅ |
+| Pivot    | ❌ |
 
-By default hidden layers are not imported. You can force their import by checking Include > Hidden layers in the import dialog. In this case hidden layer groups will be imported and forced visible. Visibility animation data is not imported on layer groups.
+Visibility is imported but the inheritance of the parent group visibility is not respected at this point. This is because Blender objects don't natively support visibility inheritance (hiding the parent doesn't hide the children).
+
+By default hidden layers are not imported. You can force their import by checking Include > Hidden layers in the import dialog. In this case hidden layer groups will be imported and forced visible.
+
+### Key framed animation data
+
+| Feature |Support|
+| ------------- |:---:|
+| Visibility key frames    | ⚠️ |
+| Transform  key frames  | ✅ |
+| Offset key frames  | ❌ |
+| Opacity key frames  | ❌ |
+| Key frame interpolation  | ✅ |
+
+
+
+Visibility key frames are not imported on layer groups.
+
+Transform and transform keys are imported and inherited between the parent group and children.
+
+Key frame interpolation (None, Linear, Ease in, Ease out, Ease in/out) is generally supported but may not be an exact mathematical match on the intermediate frames.
 
 ## Quill paint layers
 
-The following features are supported on import:
-- import as Mesh
-- Import as Grease Pencil
-- Quill brush types (import as Mesh only)
-- Stroke width, color and opacity
+Paint layers contain one or more drawings made of paint strokes. On import the drawings are converted to either Mesh objects or Grease pencil objects, this can be configured in the import dialog.
 
-### Material
+### Import as Mesh
 
-A single "Principled BSDF" material is created and shared by all imported objects. This material reads the vertex colors and alpha attributes that were stored in the mesh during import.
+The following features are supported when importing paint layers as Mesh
 
-## Animation
+| Feature |Support|
+| ------------- |:---:|
+| Ribbon brush    | ✅ |
+| Cylinder brush    | ✅ |
+| Ellipse brush    | ✅ |
+| Cube brush  | ✅ |
+| Width  | ✅ |
+| Color  | ✅ |
+| Opacity  | ✅ |
+| Directional opacity  | ❌ |
+| Frame by frame animation  | ⚠️ |
+| Looping  | ⚠️ |
 
-The importer supports the following types of animation:
-- Transform keys (all layer types)
-- Visibility keys (paint layers only)
-- Frame by frame animation of paint layers
+#### Material
+Color is implemented via Vertex colors.
 
-In case of mismatching frame rate the importer will try to convert the Quill time to the closest frame on the Blender timeline.
+A single "Principled BSDF" material is created and shared by all imported meshes. This material reads the vertex colors and alpha attributes that were stored in the mesh during import.
 
-### Frame by frame animation
+#### Animation
+When importing the Quill timeline is currently fit into the Blender frame range and Quill frames outside that range are discarded.
 
-This is currently only supported when using Mesh import.
+Frame by frame animation of Mesh isn't natively supported in Blender. Blender has other ways of animating meshes but for frame by frame animation it relies on "Mesh caches" stored in external files like Alembic or FBX.
 
-The Quill frames are imported as separate objects and their visibility is animated. Looping is supported. The drawings are imported into the frame range of the current Blender scene.
+In order to import frame by frame animation as meshes the addon creates a separate object for each drawing and animate the visibility of these objects so that only one object is visible on each frame.
 
-## Import options
+Infinite loop is generally supported but restricting the number of loops is done in Quill via visibility keyframes on the parent which isn't supported.
+
+### Import as Grease Pencil
+
+The following features are supported when importing paint layers as Grease Pencil
+
+| Feature |Support|
+| ------------- |:---:|
+| Ribbon brush    | ❌ |
+| Cylinder brush    | ✅ |
+| Ellipse brush    | ❌ |
+| Cube brush  | ❌ |
+| Width  | ✅ |
+| Color  | ✅ |
+| Opacity  | ✅ |
+| Directional opacity  | ❌ |
+| Frame by frame animation  | ❌ |
+| Looping  | ❌ |
+
+#### Material
+Color is implemented via Vertex colors. The created strokes use the default Grease Pencil material with Line type = Line, Style = Solid.
+
+#### Animation
+Currently only the first drawing is imported.
+
+
+## Quill camera layers
+
+Quill cameras are imported as Camera objects.
+
+| Feature |Support|
+| ------------- |:---:|
+| Field of view    | ✅ |
+
+
+## Import dialog
+
+The import dialog has the following options
 
 ### Include
 
