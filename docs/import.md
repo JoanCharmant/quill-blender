@@ -27,7 +27,7 @@ Properties shared by all layer types
 
 ### General properties
 
-| Feature |Support|
+| Feature |Status|
 | ------------- |:---:|
 | Name    | ✅ |
 | Visible    | ⚠️ |
@@ -42,7 +42,7 @@ By default hidden layers are not imported. You can force their import by checkin
 
 ### Key framed animation data
 
-| Feature |Support|
+| Feature |Status|
 | ------------- |:---:|
 | Visibility key frames    | ⚠️ |
 | Transform  key frames  | ✅ |
@@ -66,7 +66,7 @@ Paint layers contain one or more drawings made of paint strokes. On import the d
 
 The following features are supported when importing paint layers as Mesh
 
-| Feature |Support|
+| Feature |Status|
 | ------------- |:---:|
 | Ribbon brush    | ✅ |
 | Cylinder brush    | ✅ |
@@ -79,12 +79,12 @@ The following features are supported when importing paint layers as Mesh
 | Frame by frame animation  | ⚠️ |
 | Looping  | ⚠️ |
 
-#### Material
+#### Mesh material
 Color is implemented via Vertex colors.
 
 A single "Principled BSDF" material is created and shared by all imported meshes. This material reads the vertex colors and alpha attributes that were stored in the mesh during import.
 
-#### Animation
+#### Mesh animation
 When importing the Quill timeline is currently fit into the Blender frame range and Quill frames outside that range are discarded.
 
 Frame by frame animation of Mesh isn't natively supported in Blender. Blender has other ways of animating meshes but for frame by frame animation it relies on "Mesh caches" stored in external files like Alembic or FBX.
@@ -97,7 +97,7 @@ Infinite loop is generally supported but restricting the number of loops is done
 
 The following features are supported when importing paint layers as Grease Pencil
 
-| Feature |Support|
+| Feature |Status|
 | ------------- |:---:|
 | Ribbon brush    | ❌ |
 | Cylinder brush    | ✅ |
@@ -110,10 +110,12 @@ The following features are supported when importing paint layers as Grease Penci
 | Frame by frame animation  | ❌ |
 | Looping  | ❌ |
 
-#### Material
-Color is implemented via Vertex colors. The created strokes use the default Grease Pencil material with Line type = Line, Style = Solid.
+#### Grease Pencil material
+Width, color and opacity are assigned to the corresponding fields in the Grease Pencil stroke:  pressure, vertex color and strength respectively.
 
-#### Animation
+The created strokes use the default Grease Pencil material with Line type = Line, Style = Solid.
+
+#### Grease Pencil animation
 Currently only the first drawing is imported.
 
 
@@ -121,7 +123,7 @@ Currently only the first drawing is imported.
 
 Quill cameras are imported as Camera objects.
 
-| Feature |Support|
+| Feature |Status|
 | ------------- |:---:|
 | Field of view    | ✅ |
 
