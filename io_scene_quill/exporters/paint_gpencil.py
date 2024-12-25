@@ -182,7 +182,7 @@ def make_normal_stroke(gpencil_stroke, material, thickness_offset):
             gpencil_point.vertex_color[1] * alpha + base_color[1] * beta,
             gpencil_point.vertex_color[2] * alpha + base_color[2] * beta)
         opacity = gpencil_point.strength
-        width = line_width * gpencil_point.pressure
+        width = line_width * gpencil_point.pressure / 2.0
         vertex = paint.Vertex(p, normal, tangent, color, opacity, width)
         vertices.append(vertex)
         bbox = utils.bbox_add_point(bbox, p)

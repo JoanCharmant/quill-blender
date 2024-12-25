@@ -36,7 +36,7 @@ def convert(obj, layer):
                 gp_point = gp_stroke.points[index]
 
                 gp_point.co = (vertex.position[0], vertex.position[1], vertex.position[2])
-                gp_point.pressure = vertex.width
+                gp_point.pressure = vertex.width * 2
                 gp_point.strength = vertex.opacity
                 gp_point.vertex_color = (vertex.color[0],
                                          vertex.color[1],

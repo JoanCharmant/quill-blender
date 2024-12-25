@@ -52,6 +52,8 @@ Blender has many animation features, none of which are currently supported by th
 ## Mesh
 Mesh are converted to their wire frame representation. Each edge of each polygon is converted to a paint stroke.
 
+Non-uniform scaling isn't supported by Quill. You should apply the scale before exporting. (Menu Object > Apply > Scale).
+
 ## Grease Pencil
 Grease pencil is the closest thing to Quill. The addon tries to convert Grease Pencil objects to Quill paint layers with corresponding data.
 
