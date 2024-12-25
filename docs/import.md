@@ -2,6 +2,8 @@
 
 This page details the supported features when importing Quill files into Blender using the addon.
 
+Features are listed from the point of view of Quill.
+
 The following key is used:
 - ✅: full support
 - ⚠️: partial support
@@ -80,14 +82,14 @@ The following features are supported when importing paint layers as Mesh
 | Looping  | ⚠️ |
 
 #### Mesh material
-Color is implemented via Vertex colors.
+Color and opacity are implemented via vertex attributes.
 
 A single "Principled BSDF" material is created and shared by all imported meshes. This material reads the vertex colors and alpha attributes that were stored in the mesh during import.
 
 #### Mesh animation
 When importing the Quill timeline is currently fit into the Blender frame range and Quill frames outside that range are discarded.
 
-Frame by frame animation of Mesh isn't natively supported in Blender. Blender has other ways of animating meshes but for frame by frame animation it relies on "Mesh caches" stored in external files like Alembic or FBX.
+Frame by frame animation of meshes isn't natively supported in Blender. Blender has other ways of animating meshes but for frame by frame animation it relies on "Mesh caches" stored in external files like Alembic or FBX.
 
 In order to import frame by frame animation as meshes the addon creates a separate object for each drawing and animate the visibility of these objects so that only one object is visible on each frame.
 
