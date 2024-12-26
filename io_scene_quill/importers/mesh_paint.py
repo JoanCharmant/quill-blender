@@ -280,7 +280,7 @@ def compute_tangent(stroke, i, point):
     # If that's still zero, go for a desperate solution - overal stroke direction + noise.
     last = mathutils.Vector(stroke.vertices[-1].position)
     first = mathutils.Vector(stroke.vertices[0].position)
-    yaxis = (last - first + mathutils.Vector(0.000001, 0.000002, 0.000003)).normalized()
+    yaxis = (last - first + mathutils.Vector((0.000001, 0.000002, 0.000003))).normalized()
     return yaxis
 
 
