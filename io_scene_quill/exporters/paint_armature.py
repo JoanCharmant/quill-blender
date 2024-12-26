@@ -1,5 +1,6 @@
 
 import bpy
+import mathutils
 import random
 from ..model import sequence, paint
 from . import utils
@@ -52,8 +53,11 @@ def make_bone_stroke(head, tail, color, config):
     vertices = []
 
     # Location of the blender camera, used to get a normal.
-    camera_position = bpy.context.scene.camera.matrix_world.to_translation()
-    camera_position = utils.swizzle_yup_location(camera_position)
+    camera_position = mathutils.Vector((0, 0, 0))
+    camera = bpy.context.scene.camera
+    if camera is not None:
+        camera_position = bpy.context.scene.camera.matrix_world.to_translation()
+        camera_position = utils.swizzle_yup_location(camera_position)
 
     # The stroke is straight so all points have the same tangent.
     tangent = (tail - head).normalized()

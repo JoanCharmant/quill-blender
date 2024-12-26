@@ -144,17 +144,20 @@ def make_paint_layer(gpencil_layer, gpencil_materials, config):
 
 def make_normal_stroke(gpencil_stroke, material, thickness_offset):
 
-    # TODO:
-    # Check if we made a backup of the Quill brush type in the material property
-    # for round tripping Quill -> Blender -> Quill.
-    brush_type = paint.BrushType.CYLINDER
-    disable_rotational_opacity = True
+    # Convert a Grease pencil stroke to a Quill stroke.
 
     line_width = (gpencil_stroke.line_width + thickness_offset) / 1000
-    #gpencil_stroke.start_cap_mode
-    #gpencil_stroke.end_cap_mode
+    disable_rotational_opacity = True
 
-    # Line type (material.mode): we only support "Line", not "Dots" or "Box"
+    # Always default to Cylinder brush.
+    # Ribbon brush is not appropriate as it has a directional component whereas the
+    # Grease pencil stroke is always facing the viewer.
+    brush_type = paint.BrushType.CYLINDER
+
+    # Ignore cap modes (ROUND, FLAT).
+    # gpencil_stroke.start_cap_mode, gpencil_stroke.end_cap_mode.
+
+    # Line type (material.mode): we only support "Line", not "Dots" or "Square"
     # Line style (material.stroke_style): we only support "Solid", not "Texture".
 
     # Line color (material.color).
@@ -164,12 +167,15 @@ def make_normal_stroke(gpencil_stroke, material, thickness_offset):
     base_color = material.color
 
     # Location of the blender camera, used to get a normal.
-    camera_position = bpy.context.scene.camera.matrix_world.to_translation()
-    camera_position = utils.swizzle_yup_location(camera_position)
+    camera_position = mathutils.Vector((0, 0, 0))
+    camera = bpy.context.scene.camera
+    if camera is not None:
+        camera_position = bpy.context.scene.camera.matrix_world.to_translation()
+        camera_position = utils.swizzle_yup_location(camera_position)
 
     bbox = utils.bbox_empty()
     vertices = []
-    for i in range(len(gpencil_stroke.points) - 1):
+    for i in range(len(gpencil_stroke.points)):
         gpencil_point = gpencil_stroke.points[i]
         p = utils.swizzle_yup_location(gpencil_point.co)
 
