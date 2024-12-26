@@ -112,12 +112,18 @@ The following features are supported when importing paint layers as Grease Penci
 | Frame by frame animation  | ❌ |
 | Looping  | ❌ |
 
+
+#### Grease Pencil Caps type
+
+All strokes are generated using Caps type `Round`. Unlike Quill, Blender doesn't have a concept of strokes without caps. Note that the exporter always adds caps vertices to visually match Blender strokes so Quill strokes without caps cannot be round-tripped correctly, they will be closed.
+
+
 #### Grease Pencil material
 Width, color and opacity are assigned to the corresponding fields in the Grease Pencil stroke:  pressure, vertex color and strength, respectively.
 
 The created strokes use the default Grease Pencil material with Line type = Line, Style = Solid.
 
-#### Grease Pencil animation
+#### Grease Pencil frame by frame animation
 Currently only the first drawing is imported.
 
 

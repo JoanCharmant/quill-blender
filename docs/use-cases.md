@@ -11,9 +11,10 @@
 ## Blender > Quill
 
 - Start painting in Grease Pencil and finish in Quill
-- Send Mesh as wireframe for painting reference
+- Send a mesh as wireframe to Quill for a painting reference
 - Write text for a Quill scene with a stylus and on a perfect plane using Grease Pencil.
-
+- Use Grease Pencil in Surface mode to stick the paint strokes to other scene objects.
+- Create perfect spheres for Quill by using single-point strokes with round cap in Grease Pencil.
 
 ## Blender > Quill > Blender
 
