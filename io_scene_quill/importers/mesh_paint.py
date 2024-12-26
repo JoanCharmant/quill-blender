@@ -223,7 +223,7 @@ def compute_basis(stroke, i, center, normal):
     # This code is adapted from Element::ComputeBasis at
     # https://github.com/Immersive-Foundation/IMM/blob/main/code/libImmImporter/src/document/layerPaint/element.cpp
 
-    yaxis = compute_tangent(stroke, i, center, normal)
+    yaxis = compute_tangent(stroke, i, center)
     epsilon = 0.0000001
 
     zaxis = mathutils.Vector(normal)
@@ -248,7 +248,7 @@ def compute_basis(stroke, i, center, normal):
     return basis
 
 
-def compute_tangent(stroke, i, point, normal):
+def compute_tangent(stroke, i, point):
 
     # Compute direction of the stroke at a given point.
     # This code is adapted from Element::ComputeTangent at

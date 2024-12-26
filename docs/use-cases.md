@@ -29,6 +29,8 @@
     - What can be modified in Blender
         - Adding and deleting paint layers
         - Adding and deleting paint strokes on a layer
-        - Changing the position, width or color of any vertex of any paint stroke
+        - Change existing strokes
+            - To change color use the Tint tool in Draw mode.
+            - To change width and opacity use the Thickness tool and the Strength tool in Sculpt mode.
 
 

@@ -1,7 +1,6 @@
-
 import bpy
 import logging
-import random
+import mathutils
 from ..model import sequence, paint
 from . import utils
 
@@ -164,15 +163,19 @@ def make_normal_stroke(gpencil_stroke, material, thickness_offset):
     # We compute the rendered color and bake it in the Quill stroke point.
     base_color = material.color
 
+    # Location of the blender camera, used to get a normal.
+    camera_position = bpy.context.scene.camera.matrix_world.to_translation()
+    camera_position = utils.swizzle_yup_location(camera_position)
+
     bbox = utils.bbox_empty()
     vertices = []
-    for gpencil_point in gpencil_stroke.points:
-
+    for i in range(len(gpencil_stroke.points) - 1):
+        gpencil_point = gpencil_stroke.points[i]
         p = utils.swizzle_yup_location(gpencil_point.co)
 
-        # Fake normal and tangent as if the painter was at the origin.
-        normal = p.normalized()
-        tangent = normal
+        # Set the normal to be in the direction of the camera.
+        normal = (camera_position - p).normalized()
+        tangent = compute_tangent(gpencil_stroke, i, p)
 
         # Mix between the vertex color and the base color.
         alpha = gpencil_point.vertex_color[3]
@@ -183,6 +186,7 @@ def make_normal_stroke(gpencil_stroke, material, thickness_offset):
             gpencil_point.vertex_color[2] * alpha + base_color[2] * beta)
         opacity = gpencil_point.strength
         width = line_width * gpencil_point.pressure / 2.0
+
         vertex = paint.Vertex(p, normal, tangent, color, opacity, width)
         vertices.append(vertex)
         bbox = utils.bbox_add_point(bbox, p)
@@ -190,6 +194,39 @@ def make_normal_stroke(gpencil_stroke, material, thickness_offset):
     id = 0
     return paint.Stroke(id, bbox, brush_type, disable_rotational_opacity, vertices)
 
+def compute_tangent(gpencil_stroke, i, p):
+
+    # Compute the direction of the stroke at point i.
+    epsilon = 0.0000001
+
+    # First valid forward difference.
+    forward = mathutils.Vector((0, 0, 0))
+    for j in range(i + 1, len(gpencil_stroke.points)):
+        p2 = utils.swizzle_yup_location(gpencil_stroke.points[j].co)
+        delta = p2 - p
+        if delta.length >= epsilon:
+            forward = delta.normalized()
+            break
+
+    # First valid backward difference.
+    backward = mathutils.Vector((0, 0, 0))
+    for j in range(i - 1, -1, -1):
+        p2 = utils.swizzle_yup_location(gpencil_stroke.points[j].co)
+        delta = p - p2
+        if delta.length >= epsilon:
+            backward = delta.normalized()
+            break
+
+    # Average
+    yaxis = forward + backward
+    if yaxis.length >= epsilon:
+        return yaxis.normalized()
+
+    # If that's still zero, go for a desperate solution - overal stroke direction + noise.
+    last = utils.swizzle_yup_location(gpencil_stroke.points[-1].co)
+    first = utils.swizzle_yup_location(gpencil_stroke.points[0].co)
+    yaxis = (last - first + mathutils.Vector(0.000001, 0.000002, 0.000003)).normalized()
+    return yaxis
 
 def make_fill_stroke(gpencil_stroke, material):
 
