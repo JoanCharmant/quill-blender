@@ -17,6 +17,8 @@ def convert(obj, layer):
     gpencil_layer.opacity = layer.opacity
 
     for drawing in drawings:
+
+        # Convert a Quill drawing to a GP frame.
         if drawing.data is None:
             continue
 

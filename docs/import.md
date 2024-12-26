@@ -53,7 +53,6 @@ By default hidden layers are not imported. You can force their import by checkin
 | Key frame interpolation  | ✅ |
 
 
-
 Visibility key frames are not imported on layer groups.
 
 Transform and transform keys are imported and inherited between the parent group and children.
@@ -112,18 +111,22 @@ The following features are supported when importing paint layers as Grease Penci
 | Frame by frame animation  | ❌ |
 | Looping  | ❌ |
 
+All brushes are converted to the Grease Pencil line.
+
+⚠️ Warning: if your Quill artwork uses the Ribbon brush a lot it will look completely broken when imported, because Grease Pencil is like a billboard always facing the viewer. It will not respect the orientation of the Ribbon, or of any other Quill brush. This is why the Cylinder brush, with its radial symmetry, is the only visually compatible brush.
 
 #### Grease Pencil Caps type
 
-All strokes are generated using Caps type `Round`. Unlike Quill, Blender doesn't have a concept of strokes without caps. Note that the exporter always adds caps vertices to visually match Blender strokes so Quill strokes without caps cannot be round-tripped correctly, they will be closed.
+All strokes are created with Caps type `Round`. Unlike Quill, Blender doesn't have a concept of strokes without caps. Note that the exporter always adds caps vertices to visually match the ending of Grease Pencil strokes so Quill strokes without caps cannot be round-tripped correctly, they will be closed during export.
 
 
 #### Grease Pencil material
-Width, color and opacity are assigned to the corresponding fields in the Grease Pencil stroke:  pressure, vertex color and strength, respectively.
+Width, color and opacity are assigned to the corresponding fields in the Grease Pencil stroke: pressure, vertex color and strength, respectively.
 
 The created strokes use the default Grease Pencil material with Line type = Line, Style = Solid.
 
 #### Grease Pencil frame by frame animation
+
 Currently only the first drawing is imported.
 
 

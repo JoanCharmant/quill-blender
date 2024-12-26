@@ -10,7 +10,7 @@ The following key is used:
 - ❌: not supported
 
 ## Scene hierarchy
-Blender organizes the scene into hierarchies of parented objects.
+Blender organizes the scene into hierarchies of objects.
 
 The following object types are supported when exporting Blender scenes:
 
@@ -36,12 +36,14 @@ The following object types are supported when exporting Blender scenes:
 
 ## Animation
 
-Blender has many animation features, most of which are currently supported by the exporter.
+Blender has many animation features, most of which are not currently supported by the exporter.
 
 | Feature |Status|
 | ------------- |:---:|
-| Transform key frames | ❌ |
-| Armature parenting | ❌ |
+| Animated transform | ❌ |
+| Parenting to animated object | ❌ |
+| Parenting to armature bones| ❌ |
+| Deformation from armature (weight painting) | ❌ |
 | Shape keys | ❌ |
 | Constraints | ❌ |
 | Drivers | ❌ |
