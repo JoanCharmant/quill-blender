@@ -51,17 +51,25 @@ def make_bone_stroke(head, tail, color, config):
     length = (tail - head).length
     vertices = []
 
+    # Location of the blender camera, used to get a normal.
+    camera_position = bpy.context.scene.camera.matrix_world.to_translation()
+    camera_position = utils.swizzle_yup_location(camera_position)
+
+    # The stroke is straight so all points have the same tangent.
+    tangent = (tail - head).normalized()
+
     def add_vertex(p, width):
-        # Fake normal and tangent as if the painter was at the origin.
-        normal = p.normalized()
-        tangent = normal
+
+        # Set the normal to be in the direction of the camera.
+        normal = (camera_position - p).normalized()
+
         opacity = 1.0
         vertex = paint.Vertex(p, normal, tangent, color, opacity, width)
         vertices.append(vertex)
 
     if config["armature_bone_shape"] == "OCTAHEDRAL":
         # Make a stroke that resembles the Blender octahedral bone.
-        # We need a minimum of 4 points to make a quill stroke. 
+        # We need a minimum of 4 points to make a quill stroke.
         # p1 is the main driver of the shape and p2 is just a support point.
         add_vertex(head, 0)
         p1 = head.lerp(tail, 0.1)

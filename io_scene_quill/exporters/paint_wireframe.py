@@ -49,14 +49,20 @@ def make_edge_stroke(start, end, id, config):
         points.append(start.lerp(end, i / segments))
     points.append(end)
 
+    # Location of the blender camera, used to get a normal.
+    camera_position = bpy.context.scene.camera.matrix_world.to_translation()
+    camera_position = utils.swizzle_yup_location(camera_position)
+
+    # The stroke is straight so all points have the same tangent.
+    tangent = (end - start).normalized()
+
     vertices = []
     for i in range(len(points)):
 
         p = points[i]
 
-        # Fake normal and tangent as if the painter was at the origin.
-        normal = p.normalized()
-        tangent = normal
+        # Set the normal to be in the direction of the camera.
+        normal = (camera_position - p).normalized()
         color = (0, 0, 0)
         opacity = 1.0
         width = min_size if (i == 0 or i == segments) else brush_size
