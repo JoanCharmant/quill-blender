@@ -51,68 +51,7 @@ def convert(config, parent_obj, layer, material):
 
         index += 1
 
-    # Animate visibility
-    # Quill requires a fully expanded frame list.
-    # Ex: "Frames" : [ "0", "1", "2", "3", "4", "5", "6", "6", "6", "6", "7", "8", "9"]
-
-    # Special case for single frame.
-    # Nothing more to do.
-    if len(drawings) == 1 and len(layer.implementation.frames) == 1 and layer.implementation.max_repeat_count <= 1:
-        return
-
-    # Hide all drawings within the blender scene range.
-    scn = bpy.context.scene
-    for _, obj in drawing_to_obj.items():
-        obj.hide_viewport = True
-        obj.keyframe_insert(data_path="hide_viewport", frame=scn.frame_start)
-        obj.keyframe_insert(data_path="hide_viewport", frame=scn.frame_end)
-        obj.hide_render = True
-        obj.keyframe_insert(data_path="hide_render", frame=scn.frame_start)
-        obj.keyframe_insert(data_path="hide_render", frame=scn.frame_end)
-
-    # Loop through the Blender output frames and show the corresponding drawing.
-    # Blender default range starts at 1, Quill at 0, so we need to adjust the frame index.
-    # frame_start: first frame in Blender timeline, used as an offset to map to Quill timeline.
-    # frame_target: the index of the frame in the blender timeline we are showing the drawing on.
-    # frame_source: the index of the frame in the Quill timeline we are copying the drawing from.
-    # drawing_index: the actual index of the drawing in the list of drawings (the drawings are in
-    # order but they might be duplicated on the quill timeline so don't map with frames.)
-    prev_drawing_index = -1
-    frame_start = scn.frame_start
-    for frame_target in range(scn.frame_start, scn.frame_end + 1):
-        frame_source = frame_target - frame_start
-        if layer.implementation.framerate != scn.render.fps:
-            time = frame_source / scn.render.fps
-            frame_source = math.floor(time * layer.implementation.framerate + 0.5)
-
-        looping = layer.implementation.max_repeat_count == 0
-        if not looping and frame_source >= len(layer.implementation.frames):
-            break
-
-        # Get the source frame index and the drawing index.
-        frame_source = frame_source % len(layer.implementation.frames)
-        drawing_index = int(layer.implementation.frames[frame_source])
-
-        # If it's the same drawing we keep it visible so nothing more to do.
-        if drawing_index == prev_drawing_index:
-            continue
-
-        # Changing drawing: hide the previous one if any.
-        if prev_drawing_index != -1:
-            obj = drawing_to_obj[prev_drawing_index]
-            obj.hide_viewport = True
-            obj.keyframe_insert(data_path="hide_viewport", frame=frame_target)
-            obj.hide_render = True
-            obj.keyframe_insert(data_path="hide_render", frame=frame_target)
-
-        # Show current drawing.
-        obj = drawing_to_obj[drawing_index]
-        obj.hide_viewport = False
-        obj.keyframe_insert(data_path="hide_viewport", frame=frame_target)
-        obj.hide_render = False
-        obj.keyframe_insert(data_path="hide_render", frame=frame_target)
-
-        prev_drawing_index = drawing_index
+    animate(drawing_to_obj, layer)
 
 
 def convert_stroke(stroke, vertices, edges, faces, attributes, base_vertex):
@@ -318,6 +257,198 @@ def assign_attributes(config, mesh, attributes):
             mesh.attributes["q_w"].data[vert_i].value = attributes["w"][vert_i]
 
 
+def animate(drawing_to_obj, layer):
+    # drawing_to_obj: maps the index of the drawing in Quill to the corresponding Blender object.
+    # layer: the Quill paint layer.
+
+    #--------------------------------------------------------------
+    # Animation of the paint layer.
+    # This covers multiple concepts:
+    # - Frame by frame animation (multi-drawing layer)
+    # - Looping (max_repeat_count)
+    # - Spans (in and out points)
+    # - Left-trimming a span (offset)
+    # - Spans and offset of the parent groups, recursively all the way to the root.
+    # - Sequences vs Groups, and sequence looping.
+    # - Frame rate
+    # - Frame range
+    # We treat everything here because Blender empty objects aren't a good match for Quill groups,
+    # as they don't inherit visibility and there is no concept of offsetting.
+    # So all the visibility information from parent groups is baked into the children.
+    #--------------------------------------------------------------
+
+    # We are more or less assuming that the import is done on a blank scene.
+    # It should still work as an append but some scene settings will be overwritten.
+
+    # Make sure the Blender timeline starts at zero
+    # (this is not destructive, if the user had stuff before zero they can still expand back manually).
+    scn = bpy.context.scene
+    scn.frame_start = 0
+
+    # Force frame rate to match Quill scene.
+    if layer.implementation.framerate != scn.render.fps:
+        scn.render.fps = layer.implementation.framerate
+
+    # Start by hiding all drawings.
+    for i in range(len(drawing_to_obj)):
+        hide_drawing(i, scn.frame_start, drawing_to_obj)
+
+    # 1. The lowest level is the basic sequence of drawings, for frame by frame animation. 
+    # Quill format uses a fully expanded frame list pointing to the drawing indices.
+    # The drawings are not necessarily stored in order of apparition in the timeline.
+    # Framelist: [2, 2, 2, 0, 1, 2, 3, 3, 0]
+    # This basic sequence of frames can be looped.
+
+    # 2. The second level is a concept of "spans".
+    # These define sections of the timeline where the layer is visible or not.
+    # This is controlled by in and out points, the [ and ] icons in Quill.
+    # https://www.youtube.com/watch?v=1w0wk2Sjih0
+    # In the file format each in and out point becomes a visibility key frame.
+    # Importantly, when we restart a visibility span it restarts at the first drawing
+    # of the basic sequence, not where it would be from looping.
+
+    # 3. The third concept is offsetting.
+    # To control where in the basic sequence the span starts at, that is, which drawing is
+    # shown on the first frame of a new span, we left-trim the block of frames.
+    # In the format this results in an offset key frame.
+    # In theory there should be one offset key frame for each in-point.
+    # The value of the offset key frame is a time, not a frame index.
+
+    # 4. The fourth concept is the visibility of the parent groups.
+    # Normal groups can have spans.
+    # Sequence groups can have spans, offsets, and looping.
+    # Sequence groups have the "timeline" property to True, other than that the format is the same.
+    # The parent groups can also have their "world visibility" on or off (the eye icon in Quill).
+
+    # None of these concepts exist as such in Blender.
+    # We must bake all the visibility information into the drawings themselves.
+    # This is done by keyframing the hide_viewport and hide_render properties.
+    # We also need to expand the Blender timeline to encompass the Quill timeline.
+
+    # Points unclear:
+    # - StartOffset property. This seems redundant with the first offset key frame.
+    # - Layers with "Timeline" : false, and MaxRepeatCount: "0", and offsets.
+
+    # There are three cases:
+    # - single drawing layer: treated as an infinite loop.
+    # - multi-drawing layer without loop.
+    # - multi-drawing layer with loop.
+
+    # Approaches.
+    # We can either loop through the frames in the Blender timeline and show the
+    # corresponding drawing, or loop through Quill key frames and set things up in Blender.
+    # The first option seems simpler and more robust. Because we can have nested timelines
+    # and groups, with optional looping, but with spans that restart at the beginning or at an offset,
+    # it seems very complicated to handle this with keyframing in blender.
+    # The drawback is that it's not clear how to find the last frame of the animation.
+
+    # For any given frame in the Blender timeline, we do:
+    # blender frame -> global time -> relative time -> local time -> quill frame -> quill drawing -> blender obj.
+    # - relative time is the time since the start of the span.
+    # - local time is the time within the drawing sequence taking offset and looping into account.
+
+    # Loop through the Blender frames and show the corresponding drawing.
+    is_visible = False
+    kkvv = layer.animation.keys.visibility
+    kkoo = layer.animation.keys.offset
+    ticks_per_second = 12600
+    fps = scn.render.fps
+    active_drawing_index = -1
+    for frame_target in range(scn.frame_start, scn.frame_end + 1):
+        print("processing:", frame_target)
+
+        # Convert time to Quill ticks for easier comparison with key frames.
+        global_time = (frame_target / fps) * ticks_per_second
+        print("global_time:", global_time)
+
+        # TODO: find the current active key in the parent hierarchy,
+        # update start time, update timeline time: the time relative
+        # to the span start in the parent.
+        # This must handle looping of any parent timeline here?
+        timeline_time = global_time
+
+        # Time relative to current span start.
+        # Find the visibility key frame right before the current frame, at the layer level.
+        last_key = None
+        for i in range(len(kkvv)):
+            if kkvv[i].time > timeline_time:
+                break
+
+            last_key = kkvv[i]
+
+        # Bail out if we are before the first key frame.
+        if last_key is None:
+            continue
+
+        if last_key.value == True:
+
+            # We are within an active span.
+            # A drawing must be visible, find which one.
+            is_visible = True
+            print("\twithin span")
+
+            # Check if there is an offset key matching the in-point.
+            local_start_offset = 0
+            for i in range(len(kkoo)):
+                if kkoo[i].time == last_key.time:
+                    local_start_offset = kkoo[i].value
+                    break
+
+            # Time within the lower level frame animation sequence.
+            local_time = timeline_time - last_key.time + local_start_offset
+
+            # Convert back to a frame index
+            frame_source = math.floor(local_time / ticks_per_second * fps + 0.5)
+
+            # Take layer-level looping into account.
+            looping = layer.implementation.max_repeat_count == 0
+            if looping:
+                frame_source = frame_source % len(layer.implementation.frames)
+            else:
+                frame_source = min(frame_source, len(layer.implementation.frames) - 1)
+
+            # Get the actual drawing that should be visible.
+            drawing_index = int(layer.implementation.frames[frame_source])
+
+            # Bail out if we are still on the same drawing.
+            # We have already set a key frame to show it during a previous iteration.
+            # This happens for frame holds.
+            if drawing_index == active_drawing_index:
+                continue
+
+            # Change active drawing.
+            hide_drawing(active_drawing_index, frame_target, drawing_to_obj)
+            print("\thidden drawing:", active_drawing_index)
+            show_drawing(drawing_index, frame_target, drawing_to_obj)
+            active_drawing_index = drawing_index
+            print("\tshowing drawing:", active_drawing_index)
+
+        else:
+            print("\tbetween spans")
+            # We are between spans, all drawings must be hidden.
+            if not is_visible:
+                continue
+
+            hide_drawing(active_drawing_index, frame_target, drawing_to_obj, True)
+            print("\thidden drawing:", active_drawing_index)
+            active_drawing_index = -1
+            is_visible = False
+
+
+def hide_drawing(drawing_index, frame, drawing_to_obj, hide=True):
+
+    if drawing_index == -1:
+        return
+
+    obj = drawing_to_obj[drawing_index]
+    obj.hide_viewport = hide
+    obj.keyframe_insert(data_path="hide_viewport", frame=frame)
+    obj.hide_render = hide
+    obj.keyframe_insert(data_path="hide_render", frame=frame)
+
+
+def show_drawing(drawing_index, frame, drawing_to_obj):
+    hide_drawing(drawing_index, frame, drawing_to_obj, False)
 
 
 def linear_to_srgb(v):
