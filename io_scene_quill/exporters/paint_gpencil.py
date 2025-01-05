@@ -93,6 +93,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
     # Frame by frame animation:
     # Grease pencil "frames" corresponds to Quill drawings aka key frames.
     # Blender timeline frames corresponds to Quill frames.
+    ticks_per_second = 12600
 
     # Drawing list
     for gpencil_frame in gpencil_layer.frames:
@@ -131,29 +132,41 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
                 drawing.data.strokes.append(stroke)
                 drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
 
-    # Frame list.
-    # Quill stores a fully expanded frame list.
-    # e.g: [0, 1, 1, 1, 2, 2, 3, 3, 3]
-    # Blender stores a map of key frames to frame numbers.
-    # e.g: {0:0, 1:1, 2:4, 3:6]
-    # Unlike Quill, Blender keeps the list ordered.
-    scn = bpy.context.scene
-    frame_start = scn.frame_start
-    frame_end = scn.frame_end
+    # Animation frame list.
+    if len(gpencil_layer.frames) == 1:
+        # If there is a single frame don't create an animation.
+        paint_layer.implementation.frames = [0]
 
-    # Loop through the blender frames and assign the correct drawing.
-    # We know the frame rates are matching at this point.
-    paint_layer.implementation.frames = []
-    current_gp_drawing = 0
-    for blender_frame in range(frame_start, frame_end + 1):
+    else:
+        # If there is a frame by frame animation bake the blender timeline to the frame list.
+        # Quill stores a fully expanded frame list.
+        # e.g: [0, 1, 1, 1, 2, 2, 3, 3, 3]
+        # Blender stores a map of key frames to frame numbers.
+        # e.g: {0:0, 1:1, 2:4, 3:6]
+        # Unlike Quill, Blender keeps the list ordered.
+        scn = bpy.context.scene
+        frame_start = scn.frame_start
+        frame_end = scn.frame_end
 
-        # Check if we should switch to the next drawing.
-        if current_gp_drawing < len(gpencil_layer.frames) - 1:
-            next_gp_frame_number = gpencil_layer.frames[current_gp_drawing + 1].frame_number
-            if blender_frame >= next_gp_frame_number:
-                current_gp_drawing += 1
+        # Loop through the blender frames and assign the correct drawing.
+        # We know the frame rates are matching at this point.
+        paint_layer.implementation.frames = []
+        current_gp_drawing = 0
+        for blender_frame in range(frame_start, frame_end + 1):
 
-        paint_layer.implementation.frames.append(current_gp_drawing)
+            # Check if we should switch to the next drawing.
+            if current_gp_drawing < len(gpencil_layer.frames) - 1:
+                next_gp_frame_number = gpencil_layer.frames[current_gp_drawing + 1].frame_number
+                if blender_frame >= next_gp_frame_number:
+                    current_gp_drawing += 1
+
+            paint_layer.implementation.frames.append(current_gp_drawing)
+
+    # Handle the case where the first key frame is not at the start of the timeline.
+    # Modify the first visibility key frame.
+    in_frame = gpencil_layer.frames[0].frame_number
+    in_ticks = in_frame / bpy.context.scene.render.fps * ticks_per_second
+    paint_layer.animation.keys.visibility[0].time = int(in_ticks)
 
     return paint_layer
 
