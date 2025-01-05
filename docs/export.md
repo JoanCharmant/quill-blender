@@ -79,7 +79,7 @@ Each Grease Pencil object can contain several layers. In this case the exporter 
 | Blend mode | ❌ |
 | Opacity | ✅ |
 | Masks | ❌ |
-| Transform | ❌ |
+| Transform | ✅ |
 | Adjustments | ⚠️ |
 | Relations | ❌ |
 

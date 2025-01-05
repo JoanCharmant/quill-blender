@@ -30,19 +30,16 @@ def convert(obj, config):
     if len(gpencil_materials) < 1:
         return None
 
-    # If the grease pencil object has several layers create a group with multiple
-    # paint layers inside, otherwise create a single paint layer.
-    if count_layers == 1:
-        return make_paint_layer(gpencil_layers[0], gpencil_materials, gpencil_stroke_thickness_scale)
-    else:
-        group_layer = sequence.Layer.create_group_layer(obj.name)
-        for gpencil_layer in gpencil_layers:
-            paint_layer = make_paint_layer(gpencil_layer, gpencil_materials, gpencil_stroke_thickness_scale)
-            if paint_layer is None:
-                continue
-            group_layer.implementation.children.append(paint_layer)
+    # Always create a group with one or more paint layers inside.
+    # This is necessary to support the layer-level transform that can be different from the object level one.
+    group_layer = sequence.Layer.create_group_layer(obj.name)
+    for gpencil_layer in gpencil_layers:
+        paint_layer = make_paint_layer(gpencil_layer, gpencil_materials, gpencil_stroke_thickness_scale)
+        if paint_layer is None:
+            continue
+        group_layer.implementation.children.append(paint_layer)
 
-        return group_layer
+    return group_layer
 
 
 def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
@@ -75,6 +72,10 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
     # Blend (gpencil_layer.blend_mode): Ignore. We only support "Regular".
     # Opacity: supported.
     paint_layer.opacity = gpencil_layer.opacity
+
+    # Layer-level transform
+    translation, rotation, scale, flip = utils.convert_transform(gpencil_layer.matrix_layer)
+    paint_layer.transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
     # Ajustments > Stroke thickness
     # Thickness change to apply to current strokes, this may be zero or negative.

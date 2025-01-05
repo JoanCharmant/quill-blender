@@ -2,7 +2,7 @@ import bpy
 from mathutils import Matrix, Vector, Quaternion, Euler
 
 # Functions to convert from Blender coordinate system to Quill’s.
-# Functions taken from the glTF addon.
+# Some functions taken from the glTF addon.
 
 def swizzle_yup_location(loc: Vector) -> Vector:
     return Vector((loc[0], loc[2], -loc[1]))
@@ -19,6 +19,19 @@ def swizzle_yup_scale(scale: Vector) -> Vector:
 def swizzle_quaternion(rot: Quaternion) -> Quaternion:
     # Blender quaternions is stored as WXYZ, Quill uses XYZW.
     return Quaternion((rot[1], rot[2], rot[3], rot[0]))
+
+
+def convert_transform(m: Matrix):
+    """Convert a Blender matrix to a Quill transform."""
+    translation, rotation, scale = m.decompose()
+
+    translation = swizzle_yup_location(translation)
+    rotation = swizzle_quaternion(swizzle_yup_rotation(rotation))
+    scale = swizzle_yup_scale(scale)
+    flip = "N"
+
+    return translation, rotation, scale, flip
+
 
 # Functions to work with bounding boxes.
 # TODO: move this to a class.

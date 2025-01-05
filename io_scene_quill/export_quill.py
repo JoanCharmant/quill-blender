@@ -151,9 +151,9 @@ class QuillExporter:
 
     def setup_layer(self, layer, obj, parent_layer):
         """Common setup for all layers."""
-        layer.transform = self.get_transform(obj.matrix_local)
+        translation, rotation, scale, flip = utils.convert_transform(obj.matrix_local)
+        layer.transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
         parent_layer.implementation.children.append(layer)
-
 
     def write_drawing_data(self, layer):
 
@@ -174,18 +174,6 @@ class QuillExporter:
         file.write(encoded)
         file.write("\n")
         file.close()
-
-    def get_transform(self, m):
-        """Convert a Blender matrix to a Quill transform."""
-        translation, rotation, scale = m.decompose()
-
-        # Move from Blender to Quill coordinate system.
-        translation = utils.swizzle_yup_location(translation)
-        rotation = utils.swizzle_quaternion(utils.swizzle_yup_rotation(rotation))
-        scale = utils.swizzle_yup_scale(scale)
-
-        flip = "N"
-        return sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
 
 def save(operator, filepath="", **kwargs):
