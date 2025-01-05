@@ -34,19 +34,22 @@ The following object types are supported when exporting Blender scenes:
 | Force field  | ❌ |
 | Collection instance  | ❌ |
 
+Note: some object types can be converted to Grease Pencil objects within Blender and then exported.
+
 ## Animation
 
 Blender has many animation features, most of which are not currently supported by the exporter.
 
 | Feature |Status|
 | ------------- |:---:|
-| Animated transform | ❌ |
+| Animated transform (key frames) | ❌ |
 | Parenting to animated object | ❌ |
 | Parenting to armature bones| ❌ |
 | Deformation from armature (weight painting) | ❌ |
-| Shape keys | ❌ |
+| Lattice | ❌ |
 | Constraints | ❌ |
 | Drivers | ❌ |
+| Shape keys | ❌ |
 | Mesh caches (Alembic, FBX) | ❌ |
 | Grease Pencil frame by frame | ✅ |
 
@@ -59,10 +62,11 @@ Non-uniform scaling is not supported in Quill. You should apply the scale before
 ## Grease Pencil
 Grease pencil is the closest thing to Quill. The addon tries to convert Grease Pencil objects to Quill paint layers with corresponding data.
 
-The options under Grease Pencil object > Data > Strokes are ignored and always match Quill model which corresponds to:
-- Stroke depth order: `3D`
-- Stroke thickness: `World space`
+The options under GPencil > Data > Strokes are ignored and always match Quill model which corresponds to:
+- Stroke Depth Order: `3D location`
+- Stroke Thickness: `World space`
 
+Thickness Scale applies a multiplier to all strokes in all layers. This is supported.
 
 ### Grease Pencil layers
 
@@ -79,11 +83,13 @@ Each Grease Pencil object can contain several layers. In this case the exporter 
 | Adjustments | ⚠️ |
 | Relations | ❌ |
 
-In Adjustments, Stroke thickness is supported. Tint color and Tint factor are not supported.
+In Adjustments, Stroke Thickness is supported, it applies an offset to the thickness of all strokes of the layer. Tint color and Tint factor are not supported.
 
 ### Grease Pencil material
 
 Each stroke can use a specific [material](https://docs.blender.org/manual/en/latest/grease_pencil/materials/properties.html). This is what controls the visual aspect of the stroke in Blender.
+
+Exporting Grease Pencil objects that don't have any material is not supported. Such objects may be created when converting from other Blender object types like Text for example. You must add a default material prior to exporting.
 
 #### Surface component types
 
@@ -92,14 +98,17 @@ Each stroke can use a specific [material](https://docs.blender.org/manual/en/lat
 | Stroke | ⚠️ |
 | Fill | ❌ |
 
-Fill are not supported as such in Quill.
+Fills don't exist as such in Quill.
 
 #### Stroke component
 
 | Feature |Status|
 | ------------- |:---:|
-| Line type (`Line`, `Dot`, `Square`) | ❌ |
-| Line style (`Solid`, `Texture`) | ❌ |
+| Line type: Line | ✅ |
+| Line type: Dots | ❌  |
+| Line type: Square | ❌ |
+| Line style: Solid | ✅ |
+| Line style: Texture | ❌ |
 | Base color | ✅ |
 | Hold out | ❌ |
 | Self overlap | ❌ |
@@ -117,9 +126,9 @@ The final color is a mix between the base color and the vertex color.
 
 Stroke caps data is handled differently between Blender and Quill. In Blender the caps type information is a property of the stroke. On the other hand Quill doesn't store cap information separately, caps are created with an extra vertex of zero width. This difference is problematic for round tripping.
 
-To emulate Grease Pencil caps the exporter adds extra vertices at each end of the stroke. It only does this if the first vertex doesn't already have a zero width to handle round tripping. Note: The importer always configure imported Quill strokes using `Round` cap mode.
+To emulate Grease Pencil caps the exporter adds extra vertices at each end of the stroke. It only does this if the first vertex doesn't already have a zero width to try to detect round tripping. Note: The importer always configure imported Quill strokes using `Round` cap mode.
 
-These heuristics result in the following compatibility table:
+These heuristics result in the following compatibility table during export:
 
 | Source |Status|
 | ------------- |:---:|
@@ -128,7 +137,7 @@ These heuristics result in the following compatibility table:
 | Grease Pencil stroke imported from Quill stroke with cap  | ✅ |
 | Grease Pencil stroke imported from Quill stroke without cap  | ❌ |
 
-In the last case the stroke is imported into Blender Grease Pencil with Round cap since Blender doesn't have a concept of strokes without caps, and it is "closed" during the export.
+In the last case the stroke is imported into Blender Grease Pencil with Round cap since Blender doesn't have a concept of strokes without caps, and during the export it is "closed".
 
 Single-point stroke with Round caps will generate a sphere in Quill.
 

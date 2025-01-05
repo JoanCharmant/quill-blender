@@ -19,17 +19,25 @@ def convert(obj, config):
     if gpencil_data.stroke_depth_order != '3D' or gpencil_data.stroke_thickness_space != 'WORLDSPACE':
         logging.warning("Unsupported stroke depth order or thickness space will be ignored.")
 
+    gpencil_stroke_thickness_scale = gpencil_data.pixel_factor
+
     gpencil_layers = gpencil_data.layers
     gpencil_materials = gpencil_data.materials
+
+    # Bail out if there is no material (which defines the stroke configuration).
+    # This may happen when converting from Text object to Grease Pencil for example.
+    # The user should add at least a default material.
+    if len(gpencil_materials) < 1:
+        return None
 
     # If the grease pencil object has several layers create a group with multiple
     # paint layers inside, otherwise create a single paint layer.
     if count_layers == 1:
-        return make_paint_layer(gpencil_layers[0], gpencil_materials, config)
+        return make_paint_layer(gpencil_layers[0], gpencil_materials, gpencil_stroke_thickness_scale)
     else:
         group_layer = sequence.Layer.create_group_layer(obj.name)
         for gpencil_layer in gpencil_layers:
-            paint_layer = make_paint_layer(gpencil_layer, gpencil_materials, config)
+            paint_layer = make_paint_layer(gpencil_layer, gpencil_materials, gpencil_stroke_thickness_scale)
             if paint_layer is None:
                 continue
             group_layer.implementation.children.append(paint_layer)
@@ -37,7 +45,7 @@ def convert(obj, config):
         return group_layer
 
 
-def make_paint_layer(gpencil_layer, gpencil_materials, config):
+def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
 
     if gpencil_layer.frames == 0 or gpencil_layer.is_ruler:
         return None
@@ -47,15 +55,13 @@ def make_paint_layer(gpencil_layer, gpencil_materials, config):
     #
     # 1. In Grease pencil but not in Quill:
     # - fills
-    # - textured brushes, more complex color model.
+    # - textured brushes.
     # - masking.
-    # - display mode (screen, 3D space, 2D space)
-    # - stroke thickness model (world space v screen space), depth order.
+    # - layer stack blending modes.
     #
     # 2. In Quill but not in Grease pencil:
     # - brush type defines the shape of the stroke cross section (round, square, flat).
-    # - strokes on a given layer can have a different brush type.
-    # - orientation-dependent opacity.
+    # - directional opacity.
     #
     # References
     # https://docs.blender.org/api/current/bpy.types.GreasePencil.html
@@ -71,7 +77,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, config):
     paint_layer.opacity = gpencil_layer.opacity
 
     # Ajustments > Stroke thickness
-    # Thickness change to apply to current strokes.
+    # Thickness change to apply to current strokes, this may be zero or negative.
     thickness_offset = gpencil_layer.line_change
 
     # Set all layers to the Blender frame rate.
@@ -97,7 +103,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, config):
         for gpencil_stroke in gpencil_frame.strokes:
 
             # Ignore single-point GPencil strokes using flat cap as they can't really be represented in Quill.
-            # For round cap this will create a perfect sphere.
+            # For round cap we will generate a perfect sphere.
             if len(gpencil_stroke.points) < 2 and gpencil_stroke.start_cap_mode == 'FLAT':
                 continue
 
@@ -110,7 +116,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, config):
 
             if material.show_stroke:
                 # This can be represented by a normal Quill stroke.
-                stroke = make_normal_stroke(gpencil_stroke, material, thickness_offset)
+                stroke = make_normal_stroke(gpencil_stroke, material, thickness_scale, thickness_offset)
                 if stroke is None:
                     continue
                 drawing.data.strokes.append(stroke)
@@ -150,11 +156,11 @@ def make_paint_layer(gpencil_layer, gpencil_materials, config):
 
     return paint_layer
 
-def make_normal_stroke(gpencil_stroke, material, thickness_offset):
+def make_normal_stroke(gpencil_stroke, material, thickness_scale, thickness_offset):
 
     # Convert a Grease pencil stroke to a Quill stroke.
-
-    line_width = (gpencil_stroke.line_width + thickness_offset) / 1000
+    stroke_thickness = max(gpencil_stroke.line_width + thickness_offset, 1)
+    line_width = (stroke_thickness * thickness_scale) / 1000
     disable_rotational_opacity = True
 
     # Always default to Cylinder brush.
@@ -172,6 +178,8 @@ def make_normal_stroke(gpencil_stroke, material, thickness_offset):
     # Color model: in Grease pencil the final color of the point is a mix between
     # the vertex color and the material color, in Quill there is only one color.
     # We compute the rendered color and bake it in the Quill stroke point.
+    # TODO: the color of all strokes on a layer can also be tinted via
+    # GPencil > Layers > Adjustments > Tint Color + Factor.
     base_color = material.color
 
     # Location of the blender camera, used to get a normal.

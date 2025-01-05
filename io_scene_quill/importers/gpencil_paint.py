@@ -9,10 +9,16 @@ def convert(obj, layer):
 
     gpencil_data = obj.data
 
-    # Note: when using World space the line width seems to be expressed in millimeters.
+    # GPencil data tab > Strokes group.
+    # Stroke depth order: '3D' may create an undesirable self overlap effect on strokes,
+    # but it's the only way to get the correct stroke order, if we set to 2D the strokes
+    # will be drawn in the order they were created ignoring 3D location.
+    # Stroke thickness space: when using World space the line width seems to be expressed in millimeters.
     # We’ll lock the line width to 1 meter and use the pressure property to scale it.
-    gpencil_data.stroke_thickness_space = 'WORLDSPACE'
     gpencil_data.stroke_depth_order = '3D'
+    gpencil_data.stroke_thickness_space = 'WORLDSPACE'
+
+    # Put everything on a single GPencil layer.
     gpencil_layer = gpencil_data.layers[0]
     gpencil_layer.opacity = layer.opacity
 
