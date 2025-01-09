@@ -34,7 +34,11 @@ The following object types are supported when exporting Blender scenes:
 | Force field  | ❌ |
 | Collection instance  | ❌ |
 
-Note: some object types can be converted to Grease Pencil objects within Blender and then exported.
+Note: the following object types can be converted to Grease Pencil objects using Blender built-in converter and then exported to Quill:
+- Mesh
+- Curve
+- Text
+
 
 ## Animation
 
@@ -53,11 +57,6 @@ Blender has many animation features, most of which are not currently supported b
 | Mesh caches (Alembic, FBX) | ❌ |
 | Grease Pencil frame by frame | ✅ |
 
-
-## Mesh
-Mesh are converted to their wire frame representation. Each edge of each polygon is converted to a paint stroke.
-
-Non-uniform scaling is not supported in Quill. You should apply the scale before exporting. (Menu Object > Apply > Scale).
 
 ## Grease Pencil
 Grease pencil is the closest thing to Quill. The addon tries to convert Grease Pencil objects to Quill paint layers with corresponding data.
@@ -165,6 +164,13 @@ Each Grease Pencil layer can have multiple key frames with independent drawings 
 | Key frames | ✅ |
 | Frame hold | ✅ |
 | Empty key frame | ✅ |
+
+## Mesh
+Meshes are automatically converted to a wireframe representation. Each edge of each polygon is converted to a paint stroke.
+
+Non-uniform scaling is not supported in Quill. You should apply the scale before exporting. (Menu Object > Apply > Scale).
+
+Tip: Another way to export mesh wireframes is to use Blender built-in converter: with the mesh object selected, menu Object > Convert > Grease Pencil. This way you can tweak the grease pencil stroke width and color before the actual export. The Fill layer will not be exported.
 
 
 ## Armature

@@ -151,6 +151,10 @@ class QuillExporter:
 
     def setup_layer(self, layer, obj, parent_layer):
         """Common setup for all layers."""
+
+        if layer is None:
+            return
+
         translation, rotation, scale, flip = utils.convert_transform(obj.matrix_local)
         layer.transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
         parent_layer.implementation.children.append(layer)

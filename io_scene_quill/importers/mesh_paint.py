@@ -297,10 +297,12 @@ def animate(drawing_to_obj, layer):
     # Quill format uses a fully expanded frame list pointing to the drawing indices.
     # The drawings are not necessarily stored in order of apparition in the timeline.
     # Framelist: [2, 2, 2, 0, 1, 2, 3, 3, 0]
-    # This basic sequence of frames can be looped.
+    # This basic animated sequence is what gets exported by Quill Alembic/FBX exporter.
+    # The sequence can be looped.
 
     # 2. The second level is a concept of "spans".
-    # These define sections of the timeline where the layer is visible or not.
+    # These let us stop and restart the animated sequence on the same layer.
+    # The length of a span may be a fractional number of loops.
     # This is controlled by in and out points, the [ and ] icons in Quill.
     # https://www.youtube.com/watch?v=1w0wk2Sjih0
     # In the file format each in and out point becomes a visibility key frame.
