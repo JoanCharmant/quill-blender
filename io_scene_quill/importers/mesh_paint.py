@@ -144,9 +144,9 @@ def convert_stroke(stroke, vertices, edges, faces, attributes, base_vertex):
         for u in range(face_count):
             # Clockwise winding starting bottom left.
             v0 = (i - 1) * resolution + u
-            v1 = i * resolution + u
+            v1 = (i - 1) * resolution + (u + 1) % resolution
             v2 = i * resolution + (u + 1) % resolution
-            v3 = (i - 1) * resolution + (u + 1) % resolution
+            v3 = i * resolution + u
             face = [v0 + base_vertex, v1 + base_vertex, v2 + base_vertex, v3 + base_vertex]
             faces.append(face)
 
