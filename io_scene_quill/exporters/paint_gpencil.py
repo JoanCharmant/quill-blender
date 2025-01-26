@@ -28,6 +28,7 @@ def convert(obj, config):
     # This may happen when converting from Text object to Grease Pencil for example.
     # The user should add at least a default material.
     if len(gpencil_materials) < 1:
+        logging.warning("Grease Pencil object has no material.")
         return None
 
     # Always create a group with one or more paint layers inside.
@@ -164,7 +165,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
 
     # Handle the case where the first key frame is not at the start of the timeline.
     # Modify the first visibility key frame.
-    in_frame = gpencil_layer.frames[0].frame_number
+    in_frame = gpencil_layer.frames[0].frame_number - bpy.context.scene.frame_start
     in_ticks = in_frame / bpy.context.scene.render.fps * ticks_per_second
     paint_layer.animation.keys.visibility[0].time = int(in_ticks)
 
