@@ -1,6 +1,25 @@
 # Changelog
 
+## 1.1.0
 
+Importer
+- Support transform keyframes.
+- Support visibility keyframes.
+- Basic support for animated paint layers, import all drawings and keyframe visibility.
+- Basic support for spans, offsets and looping at the paint layer level.
+- Mesh: fix normals orientation.
+
+Exporter
+- Grease Pencil: export frame by frame animations to Quill.
+- Grease Pencil: support layer-level transform.
+- Grease Pencil: generate round and square caps.
+- Grease Pencil: support single-point round cap strokes.
+- Grease Pencil: fixed Grease Pencil width.
+- Grease Pencil: support thickness scale.
+- Grease Pencil: fixed last vertex was not exported.
+- Grease Pencil: fixed exception on GP objects with no material.
+- Fixed stroke Id in exported qbin.
+- Fixed normals and tangent when exporting.
 
 ## 1.0.0
 First official release. No changes compared to 0.0.4.
