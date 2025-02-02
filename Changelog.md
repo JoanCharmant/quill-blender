@@ -21,8 +21,10 @@ Exporter
 - Fixed stroke Id in exported qbin.
 - Fixed normals and tangent when exporting.
 
+
 ## 1.0.0
 First official release. No changes compared to 0.0.4.
+
 
 ## 0.0.4
 
