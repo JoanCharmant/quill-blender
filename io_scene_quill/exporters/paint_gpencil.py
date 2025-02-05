@@ -68,7 +68,12 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
     # https://docs.blender.org/api/current/bpy.types.MaterialGPencilStyle.html
 
     # Create a default paint layer and drawing.
-    paint_layer = sequence.Layer.create_paint_layer(gpencil_layer.info)
+    name = ''
+    if bpy.app.version < (4, 3, 0):
+        name = gpencil_layer.info
+    else:
+        name = gpencil_layer.name
+    paint_layer = sequence.Layer.create_paint_layer(name)
 
     # Blend (gpencil_layer.blend_mode): Ignore. We only support "Regular".
     # Opacity: supported.
