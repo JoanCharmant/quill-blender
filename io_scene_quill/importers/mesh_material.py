@@ -56,8 +56,16 @@ def create_principled(name):
     material.node_tree.links.new(node_bsdf.outputs["BSDF"], node_output.inputs["Surface"])
     material.node_tree.links.new(node_normal.outputs["Normal"], node_bsdf.inputs["Normal"])
 
-    # Set Alpha Blend mode to "Alpha Hashed" instead of "Opaque".
-    material.blend_method = "HASHED"
-    material.shadow_method = "HASHED"
+    # Transparency
+    # Note: using "Blended" (old: "Alpha Blended") looks better on singular surfaces
+    # but it breaks everything with multiple objects in front of each other.
+    if bpy.app.version < (4, 2, 0):
+        # Material > Settings > Blend Mode = "Alpha Hashed".
+        # Material > Settings > Shadow Mode = "Alpha Hashed".
+        material.blend_method = "HASHED"
+        material.shadow_method = "HASHED"
+    else:
+        # Material > Settings > Render method > Dithered.
+        material.surface_render_method = "DITHERED"
 
     return material
