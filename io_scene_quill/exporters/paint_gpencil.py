@@ -238,7 +238,16 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset):
             gp_point.vertex_color[1] * alpha + base_color[1] * beta,
             gp_point.vertex_color[2] * alpha + base_color[2] * beta)
         opacity = gp_point.opacity if gpv3 else gp_point.strength
-        width = (gp_point.radius * 2) if gpv3 else (line_width * gp_point.pressure / 2.0)
+
+        # Failure case:
+        # Creating a file in Blender 4.2 and setting thickness scale at the layer level
+        # (Grease pencil > Data > Strokes > Thickness scale, and data: "pixel_factor").
+        # When opening the file in Blender 4.3, this info is somehow retained and causes strokes
+        # to be thicker or thinner than expected even with regards to the UI (brush circle is wrong).
+        # When exporting we would need to apply that thickness scale as well but it's nowhere to be found.
+        # Consequence: files created in 4.2 and imported in 4.3 and then exported to Quill will have a
+        # wrong thickness if the original file used thickness scale.
+        width = (gp_point.radius) if gpv3 else (line_width * gp_point.pressure / 2.0)
 
         vertex = paint.Vertex(p, normal, tangent, color, opacity, width)
         vertices.append(vertex)
