@@ -14,12 +14,12 @@ def convert(obj, config):
     if count_layers == 0:
         return None
 
-    # We only support depth order = "3D" and thickness space = "WORLDSPACE"
-    # as that’s what Quill will be using.
-    if gpencil_data.stroke_depth_order != '3D' or gpencil_data.stroke_thickness_space != 'WORLDSPACE':
-        logging.warning("Unsupported stroke depth order or thickness space will be ignored.")
+    # We only support depth order = "3D" and thickness space = "WORLDSPACE",
+    # as that’s what corresponds to Quill model.
 
-    gpencil_stroke_thickness_scale = gpencil_data.pixel_factor
+    gpencil_stroke_thickness_scale = 1
+    if bpy.app.version < (4, 3, 0):
+        gpencil_stroke_thickness_scale = gpencil_data.pixel_factor
 
     gpencil_layers = gpencil_data.layers
     gpencil_materials = gpencil_data.materials
@@ -45,7 +45,12 @@ def convert(obj, config):
 
 def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
 
-    if gpencil_layer.frames == 0 or gpencil_layer.is_ruler:
+    gpv3 = bpy.app.version >= (4, 3, 0)
+
+    if gpencil_layer.frames == 0:
+        return None
+
+    if not gpv3 and gpencil_layer.is_ruler:
         return None
 
     # Convert Grease pencil to Quill.
@@ -54,7 +59,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
     # 1. In Grease pencil but not in Quill:
     # - fills
     # - textured brushes.
-    # - masking.
+    # - masking, holdout.
     # - layer stack blending modes.
     #
     # 2. In Quill but not in Grease pencil:
@@ -68,24 +73,20 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
     # https://docs.blender.org/api/current/bpy.types.MaterialGPencilStyle.html
 
     # Create a default paint layer and drawing.
-    name = ''
-    if bpy.app.version < (4, 3, 0):
-        name = gpencil_layer.info
-    else:
-        name = gpencil_layer.name
-    paint_layer = sequence.Layer.create_paint_layer(name)
+    paint_layer = sequence.Layer.create_paint_layer(gpencil_layer.name if gpv3 else gpencil_layer.info)
 
     # Blend (gpencil_layer.blend_mode): Ignore. We only support "Regular".
-    # Opacity: supported.
+    # Opacity.
     paint_layer.opacity = gpencil_layer.opacity
 
     # Layer-level transform
-    translation, rotation, scale, flip = utils.convert_transform(gpencil_layer.matrix_layer)
+    gp_layer_transform = gpencil_layer.matrix_local if gpv3 else gpencil_layer.matrix_layer
+    translation, rotation, scale, flip = utils.convert_transform(gp_layer_transform)
     paint_layer.transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
     # Ajustments > Stroke thickness
     # Thickness change to apply to current strokes, this may be zero or negative.
-    thickness_offset = gpencil_layer.line_change
+    thickness_offset = gpencil_layer.radius_offset if gpv3 else gpencil_layer.line_change
 
     # Set all layers to the Blender frame rate.
     paint_layer.implementation.frame_rate = bpy.context.scene.render.fps
@@ -102,21 +103,24 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
     ticks_per_second = 12600
 
     # Drawing list
-    for gpencil_frame in gpencil_layer.frames:
+    for gp_frame in gpencil_layer.frames:
         drawing = sequence.Drawing.from_default()
         drawing.data = paint.DrawingData()
         paint_layer.implementation.drawings.append(drawing)
 
+        gp_strokes = gp_frame.drawing.strokes if gpv3 else gp_frame.strokes
+
         # Convert all Grease Pencil strokes to Quill ones.
-        for gpencil_stroke in gpencil_frame.strokes:
+        for gp_stroke in gp_strokes:
 
             # Ignore single-point GPencil strokes using flat cap as they can't really be represented in Quill.
             # For round cap we will generate a perfect sphere.
-            if len(gpencil_stroke.points) < 2 and gpencil_stroke.start_cap_mode == 'FLAT':
+            flat_cap = (gp_stroke.start_cap == 1) if gpv3 else (gp_stroke.start_cap_mode == 'FLAT')
+            if len(gp_stroke.points) < 2 and flat_cap:
                 continue
 
             # Surface component (Stroke, Fill or both).
-            material = gpencil_materials[gpencil_stroke.material_index].grease_pencil
+            material = gpencil_materials[gp_stroke.material_index].grease_pencil
 
             # Bypass if neither are enabled.
             if not material.show_stroke and not material.show_fill:
@@ -124,7 +128,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
 
             if material.show_stroke:
                 # This can be represented by a normal Quill stroke.
-                stroke = make_normal_stroke(gpencil_stroke, material, thickness_scale, thickness_offset)
+                stroke = make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset)
                 if stroke is None:
                     continue
                 drawing.data.strokes.append(stroke)
@@ -132,7 +136,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
 
             if material.show_fill:
                 # This requires special handling.
-                stroke = make_fill_stroke(gpencil_stroke, material)
+                stroke = make_fill_stroke(gp_stroke, material)
                 if stroke is None:
                     continue
                 drawing.data.strokes.append(stroke)
@@ -157,16 +161,16 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
         # Loop through the blender frames and assign the correct drawing.
         # We know the frame rates are matching at this point.
         paint_layer.implementation.frames = []
-        current_gp_drawing = 0
+        current_gp_frame = 0
         for blender_frame in range(frame_start, frame_end + 1):
 
             # Check if we should switch to the next drawing.
-            if current_gp_drawing < len(gpencil_layer.frames) - 1:
-                next_gp_frame_number = gpencil_layer.frames[current_gp_drawing + 1].frame_number
+            if current_gp_frame < len(gpencil_layer.frames) - 1:
+                next_gp_frame_number = gpencil_layer.frames[current_gp_frame + 1].frame_number
                 if blender_frame >= next_gp_frame_number:
-                    current_gp_drawing += 1
+                    current_gp_frame += 1
 
-            paint_layer.implementation.frames.append(current_gp_drawing)
+            paint_layer.implementation.frames.append(current_gp_frame)
 
     # Handle the case where the first key frame is not at the start of the timeline.
     # Modify the first visibility key frame.
@@ -176,11 +180,16 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
 
     return paint_layer
 
-def make_normal_stroke(gpencil_stroke, material, thickness_scale, thickness_offset):
+def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset):
+
+    gpv3 = bpy.app.version >= (4, 3, 0)
 
     # Convert a Grease pencil stroke to a Quill stroke.
-    stroke_thickness = max(gpencil_stroke.line_width + thickness_offset, 1)
-    line_width = (stroke_thickness * thickness_scale) / 1000
+    line_width = 1
+    if not gpv3:
+        stroke_thickness = max(gp_stroke.line_width + thickness_offset, 1)
+        line_width = (stroke_thickness * thickness_scale) / 1000
+
     disable_rotational_opacity = True
 
     # Always default to Cylinder brush.
@@ -211,48 +220,60 @@ def make_normal_stroke(gpencil_stroke, material, thickness_scale, thickness_offs
 
     bbox = utils.bbox_empty()
     vertices = []
-    for i in range(len(gpencil_stroke.points)):
+    for i in range(len(gp_stroke.points)):
 
-        gpencil_point = gpencil_stroke.points[i]
-        p = utils.swizzle_yup_location(gpencil_point.co)
+        gp_point = gp_stroke.points[i]
+        location = gp_point.position if gpv3 else gp_point.co
+        p = utils.swizzle_yup_location(location)
 
         # Set the normal to be in the direction of the camera.
         normal = (camera_position - p).normalized()
-        tangent = compute_tangent(gpencil_stroke, i, p)
+        tangent = compute_tangent(gp_stroke, i, p)
 
         # Mix between the vertex color and the base color.
-        alpha = gpencil_point.vertex_color[3]
+        alpha = gp_point.vertex_color[3]
         beta = 1.0 - alpha
         color = (
-            gpencil_point.vertex_color[0] * alpha + base_color[0] * beta,
-            gpencil_point.vertex_color[1] * alpha + base_color[1] * beta,
-            gpencil_point.vertex_color[2] * alpha + base_color[2] * beta)
-        opacity = gpencil_point.strength
-        width = line_width * gpencil_point.pressure / 2.0
+            gp_point.vertex_color[0] * alpha + base_color[0] * beta,
+            gp_point.vertex_color[1] * alpha + base_color[1] * beta,
+            gp_point.vertex_color[2] * alpha + base_color[2] * beta)
+        opacity = gp_point.opacity if gpv3 else gp_point.strength
+        width = (gp_point.radius * 2) if gpv3 else (line_width * gp_point.pressure / 2.0)
 
         vertex = paint.Vertex(p, normal, tangent, color, opacity, width)
         vertices.append(vertex)
         bbox = utils.bbox_add_point(bbox, p)
 
+    # TODO: add an extra vertex at the start if the stroke is marked "cyclic".
+    # This happens for the rectangle and circle tools.
+
     # Add extra vertices for caps.
     # We only do this if the first point has a width. This is used to detect if the GPencil
     # stroke is already imported from Quill and we don't need to add caps.
     # This means we don't quite support round-trip of Quill strokes with no caps.
+    # There is only ROUND and FLAT for now so we only care about these.
+    caps_type = "ROUND"
+    if (gpv3 and gp_stroke.start_cap == 1) or (not gpv3 and gp_stroke.start_cap_mode == 'FLAT'):
+        caps_type = "FLAT"
+
     if vertices[0].width > 0:
-        add_caps(vertices, gpencil_stroke.start_cap_mode, bbox)
+        add_caps(vertices, caps_type, bbox)
 
     id = 0
     return paint.Stroke(id, bbox, brush_type, disable_rotational_opacity, vertices)
 
-def compute_tangent(gpencil_stroke, i, p):
+def compute_tangent(gp_stroke, i, p):
+
+    gpv3 = bpy.app.version >= (4, 3, 0)
 
     # Compute the direction of the stroke at point i.
     epsilon = 0.0000001
 
     # First valid forward difference.
     forward = mathutils.Vector((0, 0, 0))
-    for j in range(i + 1, len(gpencil_stroke.points)):
-        p2 = utils.swizzle_yup_location(gpencil_stroke.points[j].co)
+    for j in range(i + 1, len(gp_stroke.points)):
+        location = gp_stroke.points[j].position if gpv3 else gp_stroke.points[j].co
+        p2 = utils.swizzle_yup_location(location)
         delta = p2 - p
         if delta.length >= epsilon:
             forward = delta.normalized()
@@ -261,7 +282,8 @@ def compute_tangent(gpencil_stroke, i, p):
     # First valid backward difference.
     backward = mathutils.Vector((0, 0, 0))
     for j in range(i - 1, -1, -1):
-        p2 = utils.swizzle_yup_location(gpencil_stroke.points[j].co)
+        location = gp_stroke.points[j].position if gpv3 else gp_stroke.points[j].co
+        p2 = utils.swizzle_yup_location(location)
         delta = p - p2
         if delta.length >= epsilon:
             backward = delta.normalized()
@@ -273,8 +295,10 @@ def compute_tangent(gpencil_stroke, i, p):
         return yaxis.normalized()
 
     # If that's still zero, go for a desperate solution - overal stroke direction + noise.
-    last = utils.swizzle_yup_location(gpencil_stroke.points[-1].co)
-    first = utils.swizzle_yup_location(gpencil_stroke.points[0].co)
+    last_location = gp_stroke.points[-1].position if gpv3 else gp_stroke.points[-1].co
+    first_location = gp_stroke.points[0].position if gpv3 else gp_stroke.points[0].co
+    last = utils.swizzle_yup_location(last_location)
+    first = utils.swizzle_yup_location(first_location)
     yaxis = (last - first + mathutils.Vector((0.000001, 0.000002, 0.000003))).normalized()
     return yaxis
 
@@ -371,15 +395,14 @@ def add_caps(vertices, caps_type, bbox):
             bbox = utils.bbox_add_point(bbox, extra_vertices[i].position)
             vertices.insert(len(vertices) - 1, extra_vertices[i])
 
-
-def make_fill_stroke(gpencil_stroke, material):
+def make_fill_stroke(gp_stroke, material):
 
     # TODO: make some sort of Quill stroke that emulates the fill.
     # Store some metadata somewhere (in the layer title?) to be able to round trip.
     brush_type = paint.BrushType.RIBBON
     disable_rotational_opacity = True
 
-    triangles = gpencil_stroke.triangles
+    triangles = gp_stroke.triangles
     #is_nofill_stroke = gpencil_stroke.is_nofill_stroke
     #vertex_color_fill = gpencil_stroke.vertex_color_fill
 

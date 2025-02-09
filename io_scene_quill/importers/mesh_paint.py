@@ -287,7 +287,7 @@ def animate(drawing_to_obj, layer):
 
     # Force frame rate to match Quill scene.
     if layer.implementation.framerate != scn.render.fps:
-        scn.render.fps = layer.implementation.framerate
+        scn.render.fps = int(layer.implementation.framerate)
 
     # Start by hiding all drawings.
     for i in range(len(drawing_to_obj)):

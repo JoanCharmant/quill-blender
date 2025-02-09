@@ -126,7 +126,7 @@ class QuillImporter:
                 obj = bpy.context.object
                 mesh_paint.convert(self.config, obj, layer, self.material)
 
-            elif self.config["convert_paint"] == "GPENCIL":
+            elif self.config["convert_paint"] == "GPENCIL" or self.config["convert_paint"] == "GREASEPENCIL":
 
                 if bpy.app.version < (4, 3, 0):
                     bpy.ops.object.gpencil_add()

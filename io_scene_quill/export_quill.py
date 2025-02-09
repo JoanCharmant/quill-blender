@@ -139,7 +139,7 @@ class QuillExporter:
             layer = sequence.Layer.create_viewpoint_layer(obj.name)
             self.setup_layer(layer, obj, parent_layer)
 
-        elif obj.type == "GPENCIL":
+        elif obj.type == "GPENCIL" or obj.type == "GREASEPENCIL":
             layer = paint_gpencil.convert(obj, self.config)
             self.setup_layer(layer, obj, parent_layer)
 

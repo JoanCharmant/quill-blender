@@ -24,6 +24,7 @@ import bpy
 from bpy.props import StringProperty, BoolProperty, FloatProperty, IntProperty, EnumProperty
 from bpy_extras.io_utils import ExportHelper, ImportHelper, orientation_helper, axis_conversion
 
+gp = 'GPENCIL' if bpy.app.version < (4, 3, 0) else 'GREASEPENCIL'
 
 class ImportQuill(bpy.types.Operator, ImportHelper):
     """Load a Quill scene"""
@@ -49,7 +50,7 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
     convert_paint: EnumProperty(
         name="Convert to",
         items=(("MESH", "Mesh", ""),
-               ("GPENCIL", "Grease Pencil", "")),
+            (gp, "Grease Pencil", "")),
         description="How paint layers are converted during import",
         default="MESH")
 
@@ -129,18 +130,17 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
     filter_glob: StringProperty(default="*.zip", options={"HIDDEN"})
 
     # List of operator properties.
-
     object_types: EnumProperty(
         name="Object Types",
         options={'ENUM_FLAG'},
         items=(('EMPTY', "Empty", ""),
-                ('GPENCIL', "Grease Pencil", ""),
+                (gp, "Grease Pencil", ""),
                 ('CAMERA', "Camera", ""),
                 ('MESH', "Mesh", ""),
                 ('ARMATURE', "Armature", ""),
                 ),
         description="Which kind of object to export",
-        default={'EMPTY', 'GPENCIL', 'CAMERA', 'MESH', 'ARMATURE'},
+        default={'EMPTY', gp, 'CAMERA', 'MESH', 'ARMATURE'},
     )
 
     use_selection: BoolProperty(
