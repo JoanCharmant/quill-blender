@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1
+- Fixes for Grease Pencil v3
+- Fix crash when importing as mesh in Blender 4.3
+
 ## 1.1.0
 
 Importer
