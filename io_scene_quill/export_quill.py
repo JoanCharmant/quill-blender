@@ -3,6 +3,8 @@ import os
 import bpy
 import json
 import logging
+import mathutils
+from math import degrees, radians
 from .model import sequence, state, paint
 from .exporters import paint_wireframe, paint_armature, paint_gpencil, utils
 
@@ -136,8 +138,18 @@ class QuillExporter:
             self.setup_layer(layer, obj, parent_layer)
 
         elif obj.type == "CAMERA":
-            layer = sequence.Layer.create_viewpoint_layer(obj.name)
-            self.setup_layer(layer, obj, parent_layer)
+            layer = sequence.Layer.create_camera_layer(obj.name)
+
+            # FIXME the FOV to focal length conversion is not the same between the programs.
+            layer.implementation.fov = degrees(obj.data.angle)
+
+            # Special setup.
+            # Blender camera identity pose looks down the negative Z axis.
+            # Rotate by 90° around X axis to match Quill.
+            mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
+            translation, rotation, scale, flip = utils.convert_transform(mat)
+            layer.transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+            parent_layer.implementation.children.append(layer)
 
         elif obj.type == "GPENCIL" or obj.type == "GREASEPENCIL":
             layer = paint_gpencil.convert(obj, self.config)

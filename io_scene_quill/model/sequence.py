@@ -600,6 +600,14 @@ class Layer:
         return Layer.from_default(type, implementation, name)
 
     @staticmethod
+    def create_camera_layer(name):
+        type = "Camera"
+        implementation = CameraLayerImplementation.from_dict({
+            "FOV": 45,
+        })
+        return Layer.from_default(type, implementation, name)
+
+    @staticmethod
     def create_paint_layer(name):
         type = "Paint"
         implementation = PaintLayerImplementation.from_dict({
