@@ -2,7 +2,7 @@ import bpy
 import logging
 import math
 import mathutils
-from ..model import paint, sequence, sequence_utils
+from ..model import paint, quill_utils, sequence
 from . import utils
 
 def convert(obj, config):
@@ -33,7 +33,7 @@ def convert(obj, config):
 
     # Always create a group with one or more paint layers inside.
     # This is necessary to support the layer-level transform that can be different from the object level one.
-    group_layer = sequence_utils.create_group_layer(obj.name)
+    group_layer = quill_utils.create_group_layer(obj.name)
     for gpencil_layer in gpencil_layers:
         paint_layer = make_paint_layer(gpencil_layer, gpencil_materials, gpencil_stroke_thickness_scale)
         if paint_layer is None:
@@ -73,7 +73,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
     # https://docs.blender.org/api/current/bpy.types.MaterialGPencilStyle.html
 
     # Create a default paint layer and drawing.
-    paint_layer = sequence_utils.create_paint_layer(gpencil_layer.name if gpv3 else gpencil_layer.info)
+    paint_layer = quill_utils.create_paint_layer(gpencil_layer.name if gpv3 else gpencil_layer.info)
 
     # Blend (gpencil_layer.blend_mode): Ignore. We only support "Regular".
     # Opacity.

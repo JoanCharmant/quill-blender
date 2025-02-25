@@ -5,7 +5,7 @@ import logging
 import mathutils
 from math import floor, radians
 from .importers import gpencil_paint, mesh_material, mesh_paint
-from .model import paint, sequence, sequence_utils
+from .model import paint, quill_utils, sequence
 
 class QuillImporter:
 
@@ -30,30 +30,9 @@ class QuillImporter:
         if not os.path.exists(scene_path) or not os.path.exists(qbin_path):
             raise FileNotFoundError(f"File not found.")
 
-        # Load the scene graph.
-        try:
-            with open(scene_path) as f:
-                d = json.load(f)
-                quill_scene = sequence.QuillScene.from_dict(d)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to load JSON: {e}")
-        except:
-            raise ValueError(f"Failed to load Quill scene: {scene_path}")
-
-        root_layer = quill_scene.sequence.root_layer
-
-        # Filter out unwanted layers.
-        if not self.config["load_hidden_layers"]:
-            sequence_utils.delete_hidden(root_layer)
-
-        if not self.config["load_cameras"]:
-            sequence_utils.delete_type(root_layer, "Viewpoint")
-            sequence_utils.delete_type(root_layer, "Camera")
-
-        # Load the drawing data.
-        self.qbin = open(qbin_path, "rb")
-        self.load_drawing_data(root_layer)
-        self.qbin.close()
+        include_hidden = self.config["load_hidden_layers"]
+        include_cameras = self.config["load_cameras"]
+        quill_scene = quill_utils.import_scene(scene_path, qbin_path, include_hidden, include_cameras)
 
         # Reset the context.
         # Should we backup and restore afterwards?
@@ -69,23 +48,9 @@ class QuillImporter:
             self.material = mesh_material.create_principled("vertex.colors")
 
         # Import/convert layers to Blender objects.
+        root_layer = quill_scene.sequence.root_layer
         self.import_layer(root_layer, 0)
         bpy.context.view_layer.update()
-
-    def load_drawing_data(self, layer):
-
-        if layer.type == "Group":
-            for child in layer.implementation.children:
-                self.load_drawing_data(child)
-
-        elif layer.type == "Paint":
-            drawings = layer.implementation.drawings
-            if drawings is None or len(drawings) == 0:
-                return
-
-            for drawing in layer.implementation.drawings:
-                self.qbin.seek(int(drawing.data_file_offset, 16))
-                drawing.data = paint.read_drawing_data(self.qbin)
 
     def import_layer(self, layer, offset, parent_layer=None, parent_obj=None):
 

@@ -43,7 +43,7 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
 
     load_cameras: BoolProperty(
             name="Cameras",
-            description="Load Quill camera layers as Blender cameras",
+            description="Load Quill cameras and viewpoints as Blender cameras",
             default=True,
             )
 

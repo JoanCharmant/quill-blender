@@ -5,7 +5,7 @@ import json
 import logging
 import mathutils
 from math import degrees, radians
-from .model import paint, state, sequence, sequence_utils
+from .model import paint, quill_utils, state, sequence
 from .exporters import paint_armature, paint_gpencil, paint_wireframe, utils
 
 class QuillExporter:
@@ -18,7 +18,7 @@ class QuillExporter:
         self.config = kwargs
         self.config["path"] = path
 
-        self.quill_sequence = None
+        self.quill_scene = None
         self.quill_state = None
         self.quill_qbin = None
 
@@ -34,15 +34,15 @@ class QuillExporter:
         """Begin the export"""
 
         # Create a default scene with a viewpoint and no paint layer.
-        seq = sequence_utils.create_scene()
-        root_layer = seq.sequence.root_layer
+        scene = quill_utils.create_scene()
+        root_layer = scene.sequence.root_layer
         viewpoint_layer = root_layer.implementation.children[0]
         viewpoint_layer.visible = False
-        self.quill_sequence = seq
+        self.quill_scene = scene
 
         # Create a default application state.
         # Note: this references a "Root/Paint" layer that doesn't exist yet.
-        self.quill_state = state.quill_state_from_default()
+        self.quill_state = quill_utils.create_state()
 
         # Convert from Blender model to Quill’s.
         self.export_scene()
@@ -53,17 +53,7 @@ class QuillExporter:
         folder_path = os.path.join(file_dir, file_name)
         os.makedirs(folder_path, exist_ok=True)
 
-        # Write qbin file.
-        # This will also update the data_file_offset fields in the drawing data.
-        qbin_path = os.path.join(folder_path, "Quill.qbin")
-        self.qbin = open(qbin_path, 'wb')
-        paint.write_header(self.qbin)
-        self.write_drawing_data(root_layer)
-        self.qbin.close()
-
-        # Write the scene graph and application state files.
-        self.write_json(self.quill_sequence.to_dict(), folder_path, "Quill.json")
-        self.write_json(self.quill_state.to_dict(), folder_path, "State.json")
+        quill_utils.export_scene(folder_path, self.quill_scene, self.quill_state)
 
     def export_scene(self):
         logging.info("Exporting scene: %s", self.scene.name)
@@ -84,14 +74,14 @@ class QuillExporter:
         logging.info("Exporting %d objects", len(self.exporting_objects))
 
         # Loop over all objects in the scene and export them.
-        root_layer = self.quill_sequence.sequence.root_layer
+        root_layer = self.quill_scene.sequence.root_layer
         for obj in self.scene.objects:
             if obj in self.exporting_objects and obj.parent is None:
                 self.export_object(obj, root_layer)
 
         # Remove empty hierarchies if needed.
         if self.config["use_non_empty"]:
-            sequence_utils.delete_empty_groups(root_layer)
+            quill_utils.delete_empty_groups(root_layer)
 
         if memo_edit_mode:
             bpy.ops.object.editmode_toggle()
@@ -133,7 +123,7 @@ class QuillExporter:
             logging.warning("Non-uniform scaling not supported. Please apply scale on %s.", obj.name)
 
         if obj.type == "EMPTY":
-            layer = sequence_utils.create_group_layer(obj.name)
+            layer = quill_utils.create_group_layer(obj.name)
             self.setup_layer(layer, obj, parent_layer)
             self.animate_layer(layer, obj)
 
@@ -146,7 +136,7 @@ class QuillExporter:
             self.animate_layer(layer, obj)
 
         elif obj.type == "CAMERA":
-            layer = sequence_utils.create_camera_layer(obj.name)
+            layer = quill_utils.create_camera_layer(obj.name)
 
             # FOV.
             # FIXME: FOV is not quite right.
@@ -233,25 +223,6 @@ class QuillExporter:
 
         return transform
 
-    def write_drawing_data(self, layer):
-
-        if layer.type == "Group":
-            for child in layer.implementation.children:
-                self.write_drawing_data(child)
-
-        elif layer.type == "Paint":
-            for drawing in layer.implementation.drawings:
-                offset = hex(self.qbin.tell())[2:].upper().zfill(8)
-                drawing.data_file_offset = offset
-                paint.write_drawing_data(drawing.data, self.qbin)
-
-    def write_json(self, obj, folder_path, file_name):
-        encoded = json.dumps(obj, indent=4, separators=(',', ': '))
-        file_path = os.path.join(folder_path, file_name)
-        file = open(file_path, "w", encoding="utf8", newline="\n")
-        file.write(encoded)
-        file.write("\n")
-        file.close()
 
 
 def save(operator, filepath="", **kwargs):
