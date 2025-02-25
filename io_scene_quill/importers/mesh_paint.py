@@ -277,21 +277,45 @@ def animate(drawing_to_obj, layer):
     # So all the visibility information from parent groups is baked into the children.
     #--------------------------------------------------------------
 
-    # We are more or less assuming that the import is done on a blank scene.
-    # It should still work as an append but some scene settings will be overwritten.
-
-    # Make sure the Blender timeline starts at zero
-    # (this is not destructive, if the user had stuff before zero they can still expand back manually).
+    #--------------------------------------------------------------
+    # Blender frame range vs Quill animation range.
+    # We will loop through Blender frames and show the corresponding drawing.
+    # Heuristic:
+    # - if the scene starts before 0, we import from 0 until the end.
+    # - if the scene starts at 0, we import from 0 until the end.
+    # - if the scene starts at 1 (blender default), we change it to start at 0, then import from 0 to the end.
+    # - if the scene starts after 1, we change it to start at 0, import from 0 to how many frames the original range was,
+    # and change the end to match the number of frames.
+    # We do this to cope with Blender scenes set up between say 1000 and 1249, which is done to create a buffer for simulations.
+    # Instead of importing from 0 to 1249 we import from 0 to 249. We don't try to import from 1000 to 1249.
+    # Bottom line: if a buffer is needed for simulation, start the frame range in the negative instead of 1000.
+    #--------------------------------------------------------------
     scn = bpy.context.scene
-    scn.frame_start = 0
+    import_end = scn.frame_end
+    if scn.frame_start <= 0:
+        import_start = 0
+    elif scn.frame_start == 1:
+        scn.frame_start = 0
+        import_start = 0
+    else:
+        count_frames = scn.frame_end - scn.frame_start
+        scn.frame_start = 0
+        import_start = 0
+        import_end = count_frames
+        scn.frame_end = count_frames
 
     # Force frame rate to match Quill scene.
     if layer.implementation.framerate != scn.render.fps:
         scn.render.fps = int(layer.implementation.framerate)
 
-    # Start by hiding all drawings.
+    # Start by hiding all drawings from the very beginning.
+    # We revisit this at the end to remove that keyframe if not really necessary
+    # in case of a single, always visible drawing.
     for i in range(len(drawing_to_obj)):
-        hide_drawing(i, scn.frame_start, drawing_to_obj)
+        hide_drawing(i, min(scn.frame_start, import_start), drawing_to_obj)
+
+
+    # Quill animation features.
 
     # 1. The lowest level is the basic sequence of drawings, for frame by frame animation. 
     # Quill format uses a fully expanded frame list pointing to the drawing indices.
@@ -337,7 +361,7 @@ def animate(drawing_to_obj, layer):
     # - multi-drawing layer with loop.
 
     # Approaches.
-    # We can either loop through the frames in the Blender timeline and show the
+    # We can either loop through the frames of the Blender timeline and show the
     # corresponding drawing, or loop through Quill key frames and set things up in Blender.
     # The first option seems simpler and more robust. Because we can have nested timelines
     # and groups, with optional looping, but with spans that restart at the beginning or at an offset,
@@ -356,10 +380,11 @@ def animate(drawing_to_obj, layer):
     ticks_per_second = 12600
     fps = scn.render.fps
     active_drawing_index = -1
-    for frame_target in range(scn.frame_start, scn.frame_end + 1):
+    for frame_target in range(import_start, import_end + 1):
         print("processing:", frame_target)
 
         # Convert time to Quill ticks for easier comparison with key frames.
+        # Everything after this point is in Quill time.
         global_time = (frame_target / fps) * ticks_per_second
         print("global_time:", global_time)
 

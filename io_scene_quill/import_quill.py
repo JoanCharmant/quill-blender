@@ -94,7 +94,7 @@ class QuillImporter:
         if layer.type == "Group":
 
             # Group layers are converted to empty objects.
-            # Since Blender doesn't inherit visibility between objects hidden layers will be visible.
+            # Since Blender doesn't inherit visibility, hidden layers will be visible.
             # The user can choose to not import these layers at all from the importer configuration.
             bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0, 0, 0))
             self.setup_obj(layer, parent_layer, parent_obj)
@@ -148,6 +148,7 @@ class QuillImporter:
             self.setup_obj(layer, parent_layer, parent_obj)
             self.setup_animation(layer, offset, False)
             obj = bpy.context.object
+            # FIXME FOV isn't an exact match between Quill and Blender.
             obj.data.lens_unit = 'FOV'
             obj.data.angle = radians(layer.implementation.fov)
 
