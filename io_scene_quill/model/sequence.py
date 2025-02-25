@@ -214,6 +214,14 @@ class Keyframe:
         result["Value"] = from_union([from_int, to_float, from_bool, lambda x: to_class(Transform, x)], self.value)
         return result
 
+    @staticmethod
+    def from_default():
+        interpolation = "Linear"
+        time = 0
+        value = 0
+
+        return Keyframe(interpolation, time, value)
+
 
 class Keys:
     def __init__(self, offset, opacity, transform, visibility):

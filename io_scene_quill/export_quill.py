@@ -120,8 +120,7 @@ class QuillExporter:
         bpy.context.view_layer.objects.active = obj
 
         # Note: Quill only supports uniform scaling.
-        # If the object has non-uniform scaling the user should have manually applied scale
-        # before export or checked the "Apply transforms" option.
+        # If the object has non-uniform scaling the user should have manually applied scale before export.
         # The rest of the code will assume the scale is uniform and use scale[0] as a proxy.
         if (obj.scale.x != obj.scale.y or obj.scale.y != obj.scale.z):
             logging.warning("Non-uniform scaling not supported. Please apply scale on %s.", obj.name)
@@ -129,6 +128,7 @@ class QuillExporter:
         if obj.type == "EMPTY":
             layer = sequence.Layer.create_group_layer(obj.name)
             self.setup_layer(layer, obj, parent_layer)
+            self.animate_layer(layer, obj)
 
             for child in obj.children:
                 self.export_object(child, layer)
@@ -136,20 +136,20 @@ class QuillExporter:
         elif obj.type == "MESH":
             layer = paint_wireframe.convert(obj, self.config)
             self.setup_layer(layer, obj, parent_layer)
+            self.animate_layer(layer, obj)
 
         elif obj.type == "CAMERA":
             layer = sequence.Layer.create_camera_layer(obj.name)
 
-            # FIXME the FOV to focal length conversion is not the same between the programs.
-            layer.implementation.fov = degrees(obj.data.angle)
-
-            # Special setup.
-            # Blender camera identity pose looks down the negative Z axis.
-            # Rotate by 90° around X axis to match Quill.
-            mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
-            translation, rotation, scale, flip = utils.convert_transform(mat)
-            layer.transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
-            parent_layer.implementation.children.append(layer)
+            # FOV.
+            # FIXME: FOV is not quite right.
+            # Blender uses a customisable sensor size and sensor fit system.
+            # Quill is based on a fixed sensor size of 24mm and only stores the FOV (in degrees),
+            # and is independent of the image aspect ratio.
+            fov = obj.data.angle * (24/36)
+            layer.implementation.fov = degrees(fov)
+            self.setup_layer(layer, obj, parent_layer, is_camera=True)
+            self.animate_layer(layer, obj, is_camera=True)
 
         elif obj.type == "GPENCIL" or obj.type == "GREASEPENCIL":
             layer = paint_gpencil.convert(obj, self.config)
@@ -161,15 +161,63 @@ class QuillExporter:
 
         bpy.context.view_layer.objects.active = memo_active
 
-    def setup_layer(self, layer, obj, parent_layer):
+    def setup_layer(self, layer, obj, parent_layer, is_camera=False):
         """Common setup for all layers."""
 
         if layer is None:
             return
 
-        translation, rotation, scale, flip = utils.convert_transform(obj.matrix_local)
-        layer.transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+        transform = None
+        if is_camera:
+            # Special setup.
+            # Blender camera identity pose looks down (negative Z axis).
+            # Rotate by 90° around X axis to match Quill.
+            mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
+            translation, rotation, scale, flip = utils.convert_transform(mat)
+            # Apply extra scale based on the "display size" of the camera
+            # Camera > Viewport Display > Size (cm).
+            scale *= obj.data.display_size
+            transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+        else:
+            translation, rotation, scale, flip = utils.convert_transform(obj.matrix_local)
+            transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+
+        layer.transform = transform
         parent_layer.implementation.children.append(layer)
+
+    def animate_layer(self, layer, obj, is_camera=False):
+        """Layer level animation key frames."""
+
+        if layer is None:
+            return
+
+        # Approach: loop through blender frames and create a key frame at each frame.
+        # This way we get all the drivers, modifiers and interpolation baked in
+        # without having to drill down the F-curves channels and interpret everything.
+        scn = bpy.context.scene
+        fps = scn.render.fps
+        frame_start = max(scn.frame_start, 0)
+        frame_end = max(scn.frame_end, 0)
+        time_base = 12600
+
+        # Transform key frames.
+        kktt = layer.animation.keys.transform
+        for frame in range(frame_start, frame_end + 1):
+            scn.frame_set(frame)
+            transform = None
+            if is_camera:
+                # Special treatment for cameras. See comment in setup_layer.
+                mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
+                translation, rotation, scale, flip = utils.convert_transform(mat)
+                scale *= obj.data.display_size
+                transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+            else:
+                translation, rotation, scale, flip = utils.convert_transform(obj.matrix_local)
+                transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+
+            time = int((frame / fps) * time_base)
+            keyframe = sequence.Keyframe("Linear", time, transform)
+            kktt.append(keyframe)
 
     def write_drawing_data(self, layer):
 
