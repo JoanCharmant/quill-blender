@@ -333,6 +333,14 @@ class Transform:
         self.scale = scale
         self.translation = translation
 
+    def __eq__(self, other):
+        if not isinstance(other, Transform):
+            return NotImplemented
+
+        return self.flip == other.flip and self.rotation == other.rotation and self.scale == other.scale and self.translation == other.translation
+
+
+
     @staticmethod
     def from_dict(obj):
         assert isinstance(obj, dict)

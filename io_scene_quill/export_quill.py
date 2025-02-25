@@ -116,6 +116,7 @@ class QuillExporter:
         return True
 
     def export_object(self, obj, parent_layer):
+        """Export one object and its children."""
 
         if obj not in self.exporting_objects:
             return
@@ -173,7 +174,50 @@ class QuillExporter:
         if layer is None:
             return
 
-        transform = None
+        layer.transform = self.get_transform(obj, is_camera)
+        parent_layer.implementation.children.append(layer)
+
+    def animate_layer(self, layer, obj, is_camera=False):
+        """Layer level animation with transform key frames."""
+
+        if layer is None:
+            return
+
+        # Approach: loop through blender frames and create a key frame at each frame.
+        # This way we get all the drivers, modifiers and interpolation baked in
+        # without having to drill down the F-curves channels and interpret everything.
+        scn = bpy.context.scene
+        fps = scn.render.fps
+        frame_start = max(scn.frame_start, 0)
+        frame_end = max(scn.frame_end, 0)
+        time_base = 12600
+
+        memo_current_frame = scn.frame_current
+        previous_transform = layer.transform
+
+        # Transform key frames.
+        kktt = layer.animation.keys.transform
+        for frame in range(frame_start, frame_end + 1):
+
+            scn.frame_set(frame)
+            transform = self.get_transform(obj, is_camera)
+
+            # Don't create a kf if we are still on the same tranform.
+            if transform != previous_transform:
+                # If we do create it, create it with constant interpolation:
+                # any interpolation on blender side is already accounted for from the
+                # fact that we test every frame for changes. The only remaning case is a frame-hold.
+                time = int((frame / fps) * time_base)
+                keyframe = sequence.Keyframe("None", time, transform)
+                kktt.append(keyframe)
+                previous_transform = transform
+
+        # Restore the active frame
+        scn.frame_set(memo_current_frame)
+
+
+    def get_transform(self, obj, is_camera):
+        """Get the object's transform at the current frame, in Quill space."""
         if is_camera:
             # Special setup.
             # Blender camera identity pose looks down (negative Z axis).
@@ -188,42 +232,7 @@ class QuillExporter:
             translation, rotation, scale, flip = utils.convert_transform(obj.matrix_local)
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
-        layer.transform = transform
-        parent_layer.implementation.children.append(layer)
-
-    def animate_layer(self, layer, obj, is_camera=False):
-        """Layer level animation key frames."""
-
-        if layer is None:
-            return
-
-        # Approach: loop through blender frames and create a key frame at each frame.
-        # This way we get all the drivers, modifiers and interpolation baked in
-        # without having to drill down the F-curves channels and interpret everything.
-        scn = bpy.context.scene
-        fps = scn.render.fps
-        frame_start = max(scn.frame_start, 0)
-        frame_end = max(scn.frame_end, 0)
-        time_base = 12600
-
-        # Transform key frames.
-        kktt = layer.animation.keys.transform
-        for frame in range(frame_start, frame_end + 1):
-            scn.frame_set(frame)
-            transform = None
-            if is_camera:
-                # Special treatment for cameras. See comment in setup_layer.
-                mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
-                translation, rotation, scale, flip = utils.convert_transform(mat)
-                scale *= obj.data.display_size
-                transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
-            else:
-                translation, rotation, scale, flip = utils.convert_transform(obj.matrix_local)
-                transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
-
-            time = int((frame / fps) * time_base)
-            keyframe = sequence.Keyframe("Linear", time, transform)
-            kktt.append(keyframe)
+        return transform
 
     def write_drawing_data(self, layer):
 
