@@ -5,8 +5,8 @@ import json
 import logging
 import mathutils
 from math import degrees, radians
-from .model import sequence, state, paint, sequence_utils
-from .exporters import paint_wireframe, paint_armature, paint_gpencil, utils
+from .model import paint, state, sequence, sequence_utils
+from .exporters import paint_armature, paint_gpencil, paint_wireframe, utils
 
 class QuillExporter:
     """Handles picking what nodes to export and kicks off the export process"""
@@ -34,7 +34,7 @@ class QuillExporter:
         """Begin the export"""
 
         # Create a default scene with a viewpoint and no paint layer.
-        seq = sequence.quill_sequence_from_default()
+        seq = sequence_utils.create_scene()
         root_layer = seq.sequence.root_layer
         viewpoint_layer = root_layer.implementation.children[0]
         viewpoint_layer.visible = False
@@ -133,7 +133,7 @@ class QuillExporter:
             logging.warning("Non-uniform scaling not supported. Please apply scale on %s.", obj.name)
 
         if obj.type == "EMPTY":
-            layer = sequence.Layer.create_group_layer(obj.name)
+            layer = sequence_utils.create_group_layer(obj.name)
             self.setup_layer(layer, obj, parent_layer)
             self.animate_layer(layer, obj)
 
@@ -146,7 +146,7 @@ class QuillExporter:
             self.animate_layer(layer, obj)
 
         elif obj.type == "CAMERA":
-            layer = sequence.Layer.create_camera_layer(obj.name)
+            layer = sequence_utils.create_camera_layer(obj.name)
 
             # FOV.
             # FIXME: FOV is not quite right.
@@ -214,7 +214,6 @@ class QuillExporter:
 
         # Restore the active frame
         scn.frame_set(memo_current_frame)
-
 
     def get_transform(self, obj, is_camera):
         """Get the object's transform at the current frame, in Quill space."""

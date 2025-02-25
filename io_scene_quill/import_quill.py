@@ -3,9 +3,9 @@ import bpy
 import json
 import logging
 import mathutils
-from math import radians, floor
-from .model import sequence, sequence_utils, paint
-from .importers import gpencil_paint, mesh_paint, mesh_material
+from math import floor, radians
+from .importers import gpencil_paint, mesh_material, mesh_paint
+from .model import paint, sequence, sequence_utils
 
 class QuillImporter:
 
@@ -23,24 +23,24 @@ class QuillImporter:
     def import_scene(self, context):
 
         file_dir = os.path.dirname(self.path)
-        sequence_path = os.path.join(file_dir, "Quill.json")
+        scene_path = os.path.join(file_dir, "Quill.json")
         qbin_path = os.path.join(file_dir, "Quill.qbin")
 
         # Check if the files exist.
-        if not os.path.exists(sequence_path) or not os.path.exists(qbin_path):
+        if not os.path.exists(scene_path) or not os.path.exists(qbin_path):
             raise FileNotFoundError(f"File not found.")
 
         # Load the scene graph.
         try:
-            with open(sequence_path) as f:
+            with open(scene_path) as f:
                 d = json.load(f)
-                quill_sequence = sequence.QuillSequence.from_dict(d)
+                quill_scene = sequence.QuillScene.from_dict(d)
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to load JSON: {e}")
         except:
-            raise ValueError(f"Failed to load Quill sequence: {sequence_path}")
+            raise ValueError(f"Failed to load Quill scene: {scene_path}")
 
-        root_layer = quill_sequence.sequence.root_layer
+        root_layer = quill_scene.sequence.root_layer
 
         # Filter out unwanted layers.
         if not self.config["load_hidden_layers"]:

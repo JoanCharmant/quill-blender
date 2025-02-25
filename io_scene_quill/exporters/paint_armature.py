@@ -2,14 +2,14 @@
 import bpy
 import mathutils
 import random
-from ..model import sequence, paint
+from ..model import paint, sequence, sequence_utils
 from . import utils
 
 def convert(obj, config):
     """Convert an armature to a series of paint strokes"""
 
     # Create a default paint layer and drawing.
-    paint_layer = sequence.Layer.create_paint_layer(obj.name)
+    paint_layer = sequence_utils .create_paint_layer(obj.name)
     drawing = sequence.Drawing.from_default()
     drawing.data = paint.DrawingData()
     paint_layer.implementation.drawings.append(drawing)
