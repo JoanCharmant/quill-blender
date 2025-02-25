@@ -5,7 +5,7 @@ import json
 import logging
 import mathutils
 from math import degrees, radians
-from .model import sequence, state, paint
+from .model import sequence, state, paint, sequence_utils
 from .exporters import paint_wireframe, paint_armature, paint_gpencil, utils
 
 class QuillExporter:
@@ -89,12 +89,18 @@ class QuillExporter:
             if obj in self.exporting_objects and obj.parent is None:
                 self.export_object(obj, root_layer)
 
+        # Remove empty hierarchies if needed.
+        if self.config["use_non_empty"]:
+            sequence_utils.delete_empty_groups(root_layer)
+
         if memo_edit_mode:
             bpy.ops.object.editmode_toggle()
 
     def should_export_object(self, obj):
 
-        if obj.type not in self.config["object_types"]:
+        # Always include empties as they are used for grouping.
+        # We then have a second pass at the end to remove empty groups if needed.
+        if obj.type != "EMPTY" and obj.type not in self.config["object_types"]:
             return False
 
         if self.config["use_selection"] and not obj.select_get():

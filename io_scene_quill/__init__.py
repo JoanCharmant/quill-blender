@@ -133,14 +133,13 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
     object_types: EnumProperty(
         name="Object Types",
         options={'ENUM_FLAG'},
-        items=(('EMPTY', "Empty", ""),
-                (gp, "Grease Pencil", ""),
-                ('CAMERA', "Camera", ""),
-                ('MESH', "Mesh", ""),
-                ('ARMATURE', "Armature", ""),
-                ),
+        items=((gp, "Grease Pencil", ""),
+               ('CAMERA', "Camera", ""),
+               ('MESH', "Mesh", ""),
+               ('ARMATURE', "Armature", ""),
+        ),
         description="Which kind of object to export",
-        default={'EMPTY', gp, 'CAMERA', 'MESH', 'ARMATURE'},
+        default={gp, 'CAMERA', 'MESH', 'ARMATURE'},
     )
 
     use_selection: BoolProperty(
@@ -155,10 +154,10 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         default=False,
     )
 
-    use_mesh_modifiers: BoolProperty(
-        name="Apply Modifiers",
-        description="Apply modifiers to mesh objects.",
-        default=True,
+    use_non_empty: BoolProperty(
+        name="Non-empty",
+        description="Do not create groups without children",
+        default=False,
     )
 
     wireframe_stroke_width: FloatProperty(
@@ -230,6 +229,7 @@ class QUILL_PT_export_include(bpy.types.Panel):
         sublayout = layout.column(heading="Limit to")
         sublayout.prop(operator, "use_selection")
         sublayout.prop(operator, "use_visible")
+        sublayout.prop(operator, "use_non_empty")
 
 
 class QUILL_PT_export_wireframe(bpy.types.Panel):
