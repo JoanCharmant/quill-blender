@@ -437,9 +437,8 @@ def animate(drawing_to_obj, layer):
             # Get the actual drawing that should be visible.
             drawing_index = int(layer.implementation.frames[frame_source])
 
-            # Bail out if we are still on the same drawing.
+            # Bail out if we are still on the same drawing (frame hold).
             # We have already set a key frame to show it during a previous iteration.
-            # This happens for frame holds.
             if drawing_index == active_drawing_index:
                 continue
 
@@ -464,7 +463,7 @@ def animate(drawing_to_obj, layer):
     # Cleanup unecessary keyframes.
     # If it's a single, always visible drawing, we don't actually need the keyframe so
     # clear up the animation data. It's easier to do it this way than to try to predict
-    # if a keyframe is needed due to parent sequences or groups.
+    # if a keyframe is needed or not due to parent sequences or groups.
     if len(drawing_to_obj) == 1:
         obj = drawing_to_obj[0]
         if obj.animation_data.action.frame_start == 0 and obj.animation_data.action.frame_end == 0:
