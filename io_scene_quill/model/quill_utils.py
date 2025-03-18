@@ -205,3 +205,31 @@ def export_scene(folder_path, scene, state):
     # Write the scene graph and application state files.
     write_json(scene.to_dict(), folder_path, "Quill.json")
     write_json(state.to_dict(), folder_path, "State.json")
+
+
+def bbox_empty():
+    # Makes a bounding box initialized to reversed inifinity values
+    # so the first added point will always update the bounding box.
+    return [float('inf'), float('inf'), float('inf'), float('-inf'), float('-inf'), float('-inf')]
+
+
+def bbox_add(a, b):
+    """Augment bounding box a with bounding box b and return a."""
+    a[0] = min(a[0], b[0])
+    a[1] = min(a[1], b[1])
+    a[2] = min(a[2], b[2])
+    a[3] = max(a[3], b[3])
+    a[4] = max(a[4], b[4])
+    a[5] = max(a[5], b[5])
+    return a
+
+
+def bbox_add_point(a, p):
+    """Expand bounding box a with point p and return a."""
+    a[0] = min(a[0], p[0])
+    a[1] = min(a[1], p[1])
+    a[2] = min(a[2], p[2])
+    a[3] = max(a[3], p[0])
+    a[4] = max(a[4], p[1])
+    a[5] = max(a[5], p[2])
+    return a
