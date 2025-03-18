@@ -119,6 +119,7 @@ class QuillImporter:
 
         elif layer.type == "Sound":
             bpy.ops.object.speaker_add()
+            layer.transform.scale = 1.0
             self.setup_obj(layer, parent_layer, parent_obj)
             self.setup_animation(layer, offset, False)
 
@@ -172,63 +173,46 @@ class QuillImporter:
 
     def setup_animation(self, layer, offset, do_scale=True):
         """Setup the animation of the object."""
-        obj = bpy.context.object
-        fps = bpy.context.scene.render.fps
 
         # Key frame times are stored relative to the parent Sequence.
         # Bare groups do not alter the time of their children.
         # Quill uses a time base of 1/12600 (nicely divisible).
-        time_base = 1/12600
+        # Never animate visibility since Blender doesn't inherit visibility.
+        # We will handle it while importing the leaf layers.
+        self.animate_transform(layer, offset, do_scale)
 
-        # Visibility key frames.
-        kkvv = layer.animation.keys.visibility
-        if kkvv and len(kkvv) > 0 and layer.type != "Group":
-            # Quill layers are invisible by default and have a first key frame turning visibility on.
-            # Blender objects are visible by default.
-            # If the first key frame is not at time 0 we need to create one to hide the object before it is visible.
-
-            # Special case for no animation.
-            if kkvv[0].time == 0 and kkvv[0].value:
-                return
-
-            if kkvv[0].time + offset > 0:
-                obj.hide_viewport = True
-                obj.hide_render = True
-                obj.keyframe_insert(data_path="hide_render", frame=0)
-                obj.keyframe_insert(data_path="hide_viewport", frame=0)
-
-            for key in kkvv:
-                time = key.time + offset
-                frame = floor(time * time_base * fps + 0.5)
-                hidden = not key.value
-                obj.hide_viewport = hidden
-                obj.hide_render = hidden
-                obj.keyframe_insert(data_path="hide_render", frame=frame)
-                obj.keyframe_insert(data_path="hide_viewport", frame=frame)
+    def animate_transform(self, layer, offset=0, do_scale=True):
 
         # Transform key frames.
+        # This is set up on all layer types, including groups.
         kktt = layer.animation.keys.transform
-        if kktt:
-            # Create the key frames.
-            for key in kktt:
-                time = key.time + offset
-                frame = floor(time * time_base * fps + 0.5)
+        if kktt == None or len(kktt) == 0:
+            return
 
-                # Name of the channels is from the F-Curve panel in the Graph Editor.
-                obj.matrix_local = self.get_transform(key.value)
-                obj.keyframe_insert(data_path="location", frame=frame)
-                obj.keyframe_insert(data_path="rotation_euler", frame=frame)
-                if do_scale:
-                    obj.keyframe_insert(data_path="scale", frame=frame)
+        obj = bpy.context.object
+        fps = bpy.context.scene.render.fps
+        time_base = 1/12600
 
-            # Go through the key frames we just created and set the interpolation type.
-            # https://docs.blender.org/api/current/bpy.types.Keyframe.html
-            for fcurve in obj.animation_data.action.fcurves:
-                for i in range(len(fcurve.keyframe_points)):
-                    keyframe = fcurve.keyframe_points[i]
-                    interp, easing = self.get_interpolation(kktt[i].interpolation)
-                    keyframe.interpolation = interp
-                    keyframe.easing = easing
+        # Create the key frames.
+        for key in kktt:
+            time = key.time + offset
+            frame = floor(time * time_base * fps + 0.5)
+
+            # Name of the channels is from the F-Curve panel in the Graph Editor.
+            obj.matrix_local = self.get_transform(key.value)
+            obj.keyframe_insert(data_path="location", frame=frame)
+            obj.keyframe_insert(data_path="rotation_euler", frame=frame)
+            if do_scale:
+                obj.keyframe_insert(data_path="scale", frame=frame)
+
+        # Go through the key frames we just created and set the interpolation type.
+        # https://docs.blender.org/api/current/bpy.types.Keyframe.html
+        for fcurve in obj.animation_data.action.fcurves:
+            for i in range(len(fcurve.keyframe_points)):
+                keyframe = fcurve.keyframe_points[i]
+                interp, easing = self.get_interpolation(kktt[i].interpolation)
+                keyframe.interpolation = interp
+                keyframe.easing = easing
 
     def get_interpolation(self, interpolation):
         """Convert Quill interpolation to Blender f-curve interpolation"""
