@@ -75,6 +75,14 @@ def create_paint_layer(name):
     return sequence.Layer.from_default(type, implementation, name)
 
 
+def create_drawing():
+    """Create a new drawing with an empty stroke list."""
+    drawing = sequence.Drawing.from_default()
+    drawing.data = paint.DrawingData()
+    drawing.data.strokes = []
+    return drawing
+
+
 def delete_hidden(layer):
     """Delete all hidden layers recursively."""
     if layer.type == "Group":
@@ -96,8 +104,8 @@ def delete_type(layer, type):
 
 
 def is_empty_group(layer):
-        """Returns true if a layer is a group with no children."""
-        return layer.type == "Group" and len(layer.implementation.children) == 0
+    """Returns true if a layer is a group with no children."""
+    return layer.type == "Group" and len(layer.implementation.children) == 0
 
 
 def delete_empty_groups(layer):
