@@ -481,6 +481,31 @@ class PaintLayerImplementation:
         return result
 
 
+class PictureLayerImplementation:
+    def __init__(self, data_file_offset, import_file_path, type, viewer_locked):
+        self.data_file_offset = data_file_offset
+        self.import_file_path = import_file_path
+        self.type = type
+        self.viewer_locked = viewer_locked
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        data_file_offset = from_str(obj.get("DataFileOffset"))
+        import_file_path = from_str(obj.get("ImportFilePath"))
+        type = from_str(obj.get("Type"))
+        viewer_locked = from_bool(obj.get("ViewerLocked"))
+        return PictureLayerImplementation(data_file_offset, import_file_path, type, viewer_locked)
+
+    def to_dict(self):
+        result = {}
+        result["DataFileOffset"] = from_str(self.data_file_offset)
+        result["ImportFilePath"] = from_str(self.import_file_path)
+        result["Type"] = from_str(self.type)
+        result["ViewerLocked"] = from_bool(self.viewer_locked)
+        return result
+
+
 class LayerImplementation:
     # This is a generic class for unsupported layer types.
     def __init__(self):
@@ -539,6 +564,8 @@ class Layer:
             implementation = CameraLayerImplementation.from_dict(obj.get("Implementation"))
         elif type == "Paint":
             implementation = PaintLayerImplementation.from_dict(obj.get("Implementation"))
+        elif type == "Picture":
+            implementation = PictureLayerImplementation.from_dict(obj.get("Implementation"))
         else:
             implementation = LayerImplementation.from_dict(obj.get("Implementation"))
 

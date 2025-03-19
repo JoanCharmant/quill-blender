@@ -132,6 +132,28 @@ class QuillImporter:
             bpy.ops.object.empty_add(type='IMAGE')
             self.setup_obj(layer, parent_layer, parent_obj)
             self.setup_animation(layer, offset, False)
+            obj = bpy.context.object
+            
+            # Quill stores both the image data and the original path.
+            # We just support the path for now, so the image has to be on disk.
+            # Note: some characters in the file path may be unsupported like em dash.
+            filepath = layer.implementation.import_file_path
+            if not os.path.exists(filepath):
+                logging.warning("Image file not found: %s", filepath)
+                obj.show_name = True
+                return
+
+            # Load the image.
+            img = bpy.data.images.load(filepath, check_existing=False)
+            obj.data = img
+            
+            # To get the correct size we need to do some shenanigans.
+            # This was found by trial and error with images of various aspect ratio.
+            # The correct size is twice the aspect ratio for landscape images,
+            # and for portrait images the aspect ratio is aliased to 1.0.
+            aspect_ratio = img.size[0] / img.size[1]
+            aspect_ratio = max(1.0, aspect_ratio)
+            obj.empty_display_size = aspect_ratio * 2.0
 
         else:
             logging.warning("Unsupported Quill layer type: %s", layer.type)
