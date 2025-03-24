@@ -1,6 +1,22 @@
 # Changelog
 
+## 1.2.0
+
+Importer
+- Grease Pencil: support frame by frame animation and looping.
+- Support image layers.
+- Improved handling of scenes where the existing Blender scene starts after frame 1.
+
+Exporter
+- Export Blender cameras as Quill cameras instead of spawn areas.
+- Export animated transforms.
+- Always include empties on export since they are used for hierarchy.
+- Added option to not include groups with no children.
+- Sanitize layer names before exporting.
+
+
 ## 1.1.1
+
 - Fixes for Grease Pencil v3
 - Fix crash when importing as mesh in Blender 4.3
 
@@ -9,8 +25,8 @@
 Importer
 - Support transform keyframes.
 - Support visibility keyframes.
-- Basic support for animated paint layers, import all drawings and keyframe visibility.
-- Basic support for spans, offsets and looping at the paint layer level.
+- Mesh: support frame by frame animation and looping.
+- Mesh: basic support for spans and offsets at the paint layer level.
 - Mesh: fix normals orientation.
 
 Exporter
@@ -27,6 +43,7 @@ Exporter
 
 
 ## 1.0.0
+
 First official release. No changes compared to 0.0.4.
 
 

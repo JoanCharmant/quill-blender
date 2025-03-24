@@ -66,7 +66,7 @@ def bbox_add(a, b):
 
 
 def bbox_add_point(a, p:Vector):
-    """Expand bounding box a with point b and return a."""
+    """Expand bounding box a with point p and return a."""
     a[0] = min(a[0], p.x)
     a[1] = min(a[1], p.y)
     a[2] = min(a[2], p.z)

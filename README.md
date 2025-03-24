@@ -26,17 +26,25 @@ The add-on reads and writes native Quill file format.
 ### Import
 
 - Import Quill layer hierarchy to Blender objects.
-- Import Quill paint layers as Mesh or Grease pencil.
-- Import Quill camera layers.
+    - Quill groups as Empties with transform and children.
+    - Quill paint layers as Mesh or Grease pencil.
+    - Quill cameras.
+    - Quill image layers.
+- Import Frame by frame animation as Mesh sequences or Grease Pencil frames.
+- Import transform keyframes.
+
 
 [Detailed status of supported Quill features during import](docs/import.md)
 
 ### Export
 
-- Export Grease Pencil objects to Quill paint layers.
-- Export Mesh objects as painted wireframes.
-- Export Armature objects as painted stick figures.
-- Export Cameras to Quill viewpoints.
+- Export the Blender scene to Quill layers
+    - Grease Pencil objects to Quill paint layers.
+    - Mesh objects to wireframes.
+    - Armature objects to stick figures.
+    - Cameras.
+- Export transform keyframes on groups and objects to Quill keyframes.
+- Export Grease Pencil frame by frame animation to Quill drawings.
 
 [Detailed status of supported Blender features during export](docs/export.md)
 

@@ -16,12 +16,13 @@ The following layer types are converted to Blender objects with matching data
 - Group layer
 - Paint layer
 - Camera layer
+- Viewpoint layer (spawn area)
+- Picture layer
 
 The following layer types are converted to Empty objects with no data
-- Viewpoint layer
 - Sound layer
 - Model layer
-- Picture layer
+
 
 ## Common properties
 
@@ -85,14 +86,20 @@ Color and opacity are implemented via vertex attributes.
 
 A single "Principled BSDF" material is created and shared by all imported meshes. This material reads the vertex colors and alpha attributes that were stored in the mesh during import.
 
+To preview the scene with colors that match Quill as much as possible:
+- In viewport shading mode "Material Preview", the colors should be pretty close but make sure the color management is set up correctly under Render > Color Management, with Display Device = `sRGB` and View Transform = `Standard` (not `AgX`). You can also go in the options and set the Render Pass to `Diffuse Color` (instead of `Combined`) to disregard some effects of the PBR material, or change the material to a Diffuse BSDF.
+- Alternatively, in Viewport shading mode "Solid", go in the shading options, select Lighting = `Flat`, and Color = `Attribute`.
+
+
 #### Mesh animation
-When importing the Quill timeline is currently fit into the Blender frame range and Quill frames outside that range are discarded.
+When importing, the Quill timeline is remapped to the Blender frame range. Quill frames outside that range are discarded.
 
-Frame by frame animation of meshes isn't natively supported in Blender. Blender has other ways of animating meshes but for frame by frame animation it relies on "Mesh caches" stored in external files like Alembic or FBX.
+For frame by frame animation the addon creates a separate mesh object for each drawing and animate the visibility of these objects so that only one object is visible on a particular frame.
 
-In order to import frame by frame animation as meshes the addon creates a separate object for each drawing and animate the visibility of these objects so that only one object is visible on each frame.
+Looping of the base clip is supported.
 
-Infinite loop is generally supported but restricting the number of loops is done in Quill via visibility keyframes on the parent which isn't supported.
+Spans (instances of the base clip) and offsets (left-trim of the base clip) of the paint layer are supported but the spans and offsets set in the parent sequences are not currently imported.
+
 
 ### Import as Grease Pencil
 
@@ -108,12 +115,12 @@ The following features are supported when importing paint layers as Grease Penci
 | Color  | ✅ |
 | Opacity  | ✅ |
 | Directional opacity  | ❌ |
-| Frame by frame animation  | ❌ |
-| Looping  | ❌ |
+| Frame by frame animation  | ⚠️ |
+| Looping  | ✅ |
 
 All brushes are converted to the Grease Pencil line.
 
-⚠️ Warning: if your Quill artwork uses the Ribbon brush a lot it will look completely broken when imported, because Grease Pencil is like a billboard always facing the viewer. It will not respect the orientation of the Ribbon, or of any other Quill brush. This is why the Cylinder brush, with its radial symmetry, is the only visually compatible brush.
+⚠️ Warning: if your Quill artwork uses the Ribbon brush it will look completely bloated when imported, because Grease Pencil is like a billboard always facing the viewer. It will not respect the orientation of the Ribbon, or of any other Quill brush. This is why the Cylinder brush, with its quasi-radial symmetry, is the only visually compatible brush.
 
 #### Grease Pencil Caps type
 
@@ -125,9 +132,18 @@ Width, color and opacity are assigned to the corresponding fields in the Grease 
 
 The created strokes use the default Grease Pencil material with Line type = Line, Style = Solid.
 
+💡 Note: to get colors that match Quill make sure the color management is set up correctly under Render > Color Management. Display Device = `sRGB`, View Transform = `Standard` and not `AgX`.
+
 #### Grease Pencil frame by frame animation
 
-Currently only the first drawing is imported.
+The base clip is imported into Grease Pencil frames.
+
+💡 The frame range in the Blender timeline is used to generate the drawings at the corresponding frames so if looping is enabled on the Quill layer it will generate the drawings over the entire Blender timeline.
+
+Only the base clip is supported. Offset and Spans are not supported.
+
+### Grease Pencil v2 and v3
+Grease Pencil v2 (Blender 4.2 and below) and v3 (Blender 4.3 and above) are supported. If you find any anomalous behavior please report the problem.
 
 
 ## Quill camera layers
@@ -137,6 +153,23 @@ Quill cameras are imported as Camera objects.
 | Feature |Status|
 | ------------- |:---:|
 | Field of view    | ✅ |
+
+
+## Quill picture layers
+
+Quill picture layers are imported as Images.
+
+| Feature |Status|
+| ------------- |:---:|
+| Import image from file path    | ✅ |
+| Import image from QBIN | ❌ |
+| Position and scale | ✅ |
+| 360° images    | ❌ |
+| Viewer locked    | ❌ |
+
+Quill file format contains both the image data in the QBIN file and the original path the image was loaded from. Only the path is used by the importer, so the file must still be on disk at the same location.
+
+Only type = `2D` is supported. `360 Equirectangular Mono` and `360 Equirectangular Stereo` are not supported.
 
 
 ## Import dialog
