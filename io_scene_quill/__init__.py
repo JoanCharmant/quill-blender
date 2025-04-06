@@ -159,6 +159,20 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         description="Do not create groups without children",
         default=False,
     )
+    
+    greasepencil_brush_type: EnumProperty(
+        name="Brush type",
+        items=(("CYLINDER", "Cylinder", ""),
+               ("RIBBON", "Ribbon", "")),
+        description="Brush type of exported strokes. When using 'Ribbon' the flat side will be facing up.",
+        default="CYLINDER",
+    )
+    
+    match_round_caps: BoolProperty(
+        name="Match round caps",
+        description="Add extra vertices to the end of strokes to match Blender caps. This is only used if the strokes are created with Round caps in the first place.",
+        default=True,
+    )
 
     wireframe_stroke_width: FloatProperty(
         name="Width",
@@ -232,6 +246,30 @@ class QUILL_PT_export_include(bpy.types.Panel):
         sublayout.prop(operator, "use_non_empty")
 
 
+class QUILL_PT_export_greasepencil(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Grease Pencil"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+        return operator.bl_idname == "EXPORT_SCENE_OT_quill"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "greasepencil_brush_type")
+        layout.prop(operator, "match_round_caps")
+
+
 class QUILL_PT_export_wireframe(bpy.types.Panel):
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOL_PROPS'
@@ -292,6 +330,7 @@ classes = (
     QUILL_PT_import_paint,
     ExportQuill,
     QUILL_PT_export_include,
+    QUILL_PT_export_greasepencil,
     QUILL_PT_export_wireframe,
     QUILL_PT_export_armature,
 )

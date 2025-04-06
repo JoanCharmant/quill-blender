@@ -35,7 +35,7 @@ def convert(obj, config):
     # This is necessary to support the layer-level transform that can be different from the object level one.
     group_layer = quill_utils.create_group_layer(obj.name)
     for gpencil_layer in gpencil_layers:
-        paint_layer = make_paint_layer(gpencil_layer, gpencil_materials, gpencil_stroke_thickness_scale)
+        paint_layer = make_paint_layer(gpencil_layer, gpencil_materials, gpencil_stroke_thickness_scale, config)
         if paint_layer is None:
             continue
         group_layer.implementation.children.append(paint_layer)
@@ -43,7 +43,7 @@ def convert(obj, config):
     return group_layer
 
 
-def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
+def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale, config):
 
     gpv3 = bpy.app.version >= (4, 3, 0)
 
@@ -128,7 +128,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
 
             if material.show_stroke:
                 # This can be represented by a normal Quill stroke.
-                stroke = make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset)
+                stroke = make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, config)
                 if stroke is None:
                     continue
                 drawing.data.strokes.append(stroke)
@@ -180,7 +180,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale):
 
     return paint_layer
 
-def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset):
+def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, config):
 
     gpv3 = bpy.app.version >= (4, 3, 0)
 
@@ -196,6 +196,8 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset):
     # Ribbon brush is not appropriate as it has a directional component whereas the
     # Grease pencil stroke is always facing the viewer.
     brush_type = paint.BrushType.CYLINDER
+    if config["greasepencil_brush_type"] == "RIBBON":
+        brush_type = paint.BrushType.RIBBON
 
     # Ignore cap modes (ROUND, FLAT).
     # gpencil_stroke.start_cap_mode, gpencil_stroke.end_cap_mode.
@@ -226,8 +228,12 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset):
         location = gp_point.position if gpv3 else gp_point.co
         p = utils.swizzle_yup_location(location)
 
-        # Set the normal to be in the direction of the camera.
+        # Set the normal to be in the direction of the camera,
+        # or towards Y-axis for Ribbon.
         normal = (camera_position - p).normalized()
+        if brush_type == paint.BrushType.RIBBON:
+            normal = mathutils.Vector((0, 1, 0))
+        
         tangent = compute_tangent(gp_stroke, i, p)
 
         # Mix between the vertex color and the base color.
@@ -262,16 +268,18 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset):
     # TODO: add an extra vertex at the start if the stroke is marked "cyclic".
     # This happens for the rectangle and circle tools.
 
-    # Add extra vertices for caps.
-    # We only do this if the first point has a width. This is used to detect if the GPencil
-    # stroke is already imported from Quill and we don't need to add caps.
-    # This means we don't quite support round-trip of Quill strokes with no caps.
-    # There is only ROUND and FLAT for now so we only care about these.
-    caps_type = "ROUND"
-    if (gpv3 and gp_stroke.start_cap == 1) or (not gpv3 and gp_stroke.start_cap_mode == 'FLAT'):
-        caps_type = "FLAT"
-
+    # Add extra vertices for caps if needed.
+    # Heuristic:
+    # - if the stroke already has a zero width extremities we don't do anything (assume it was imported from Quill).
+    # - if the stroke was created with FLAT caps in Blender, we add end vertices with zero width.
+    # - if the user disabled round caps in export settings, we also just add zero width extremities.
+    # - otherwise it's round caps and we add a bunch of vertices to rebuild them.
+    # This is independent of the export brush type.
     if vertices[0].width > 0:
+        caps_type = "FLAT"
+        has_round_caps = (gpv3 and gp_stroke.start_cap == 0) or (not gpv3 and gp_stroke.start_cap_mode == 'ROUND')
+        if has_round_caps and config["match_round_caps"]:
+            caps_type = "ROUND"
         add_caps(vertices, caps_type, bbox)
 
     id = 0
@@ -332,6 +340,7 @@ def add_caps(vertices, caps_type, bbox):
 
     if caps_type == 'FLAT':
 
+        # Flat cap: add a single vertex at the start and end with zero width.
         # Note: we extend the stroke by a small length on each side.
         # If we set the extra points exactly at the same location as the current end points
         # it behaves badly when imported back.
