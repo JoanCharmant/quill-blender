@@ -184,24 +184,42 @@ class QuillExporter:
         time_base = 12600
 
         memo_current_frame = scn.frame_current
-        previous_transform = layer.transform
+        
+        # At this point we don't know if there will be any key frames to create.
+        # We always create the first one to make sure we initialize it correctly in case there are others.
+        # We'll remove it at the end if it turns out it's the only one and the layer-level transform is enough.
+        previous_matrix_local = None
 
         # Transform key frames.
         kktt = layer.animation.keys.transform
         for frame in range(frame_start, frame_end + 1):
 
             scn.frame_set(frame)
-            transform = self.get_transform(obj, is_camera)
+            
+            # Only create a kf if we have moved.
+            # Perform the check on the Blender transform to minimize precision issues.
+            # It's not clear what the epsilon of matrix equality is in Blender, but it doesn't work for the local 
+            # matrix of an object parented to a moving empty. The local matrix keeps changing when it shouldn't. 
+            # Using 1e-5 seems to work.
+            epsilon = 1e-5
+            if previous_matrix_local == None or not utils.transform_equals(obj.matrix_local, previous_matrix_local, epsilon):
 
-            # Don't create a kf if we are still on the same tranform.
-            if transform != previous_transform:
-                # If we do create it, create it with constant interpolation:
-                # any interpolation on blender side is already accounted for from the
-                # fact that we test every frame for changes. The only remaning case is a frame-hold.
+                transform = self.get_transform(obj, is_camera)
+
+                # If we do create it, create it with constant interpolation.
+                # Any interpolation style on Blender side is already accounted for from the
+                # fact that we get the transform at every frame. The only remaning case is a frame-hold.
                 time = int((frame / fps) * time_base)
                 keyframe = sequence.Keyframe("None", time, transform)
                 kktt.append(keyframe)
-                previous_transform = transform
+
+                previous_matrix_local = obj.matrix_local.copy()
+
+        # Cleanup unecessary keyframe.
+        # If there is a single key frame we don't need it.
+        # The layer-level transform has already been set.
+        if len(kktt) == 1:
+            kktt.clear()
 
         # Restore the active frame
         scn.frame_set(memo_current_frame)

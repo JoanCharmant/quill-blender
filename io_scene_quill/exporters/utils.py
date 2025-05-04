@@ -33,6 +33,21 @@ def convert_transform(m: Matrix):
     return translation, rotation, scale, flip
 
 
+def transform_equals(m1: Matrix, m2: Matrix, epsilon=1e-6):
+    """Compare two matrices for equality, with a tolerance."""
+    if m1 == m2:
+        return True
+
+    # Check for equality with a tolerance.
+    for i in range(4):
+        for j in range(4):
+            if abs(m1[i][j] - m2[i][j]) > epsilon:
+                return False
+
+    return True
+
+
+
 # Functions to work with bounding boxes.
 # TODO: move this to a class.
 
