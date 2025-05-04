@@ -157,7 +157,7 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
     use_non_empty: BoolProperty(
         name="Non-empty",
         description="Do not create groups without children",
-        default=False,
+        default=True,
     )
     
     greasepencil_brush_type: EnumProperty(
