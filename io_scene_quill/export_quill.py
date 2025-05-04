@@ -151,6 +151,7 @@ class QuillExporter:
         elif obj.type == "GPENCIL" or obj.type == "GREASEPENCIL":
             layer = paint_gpencil.convert(obj, self.config)
             self.setup_layer(layer, obj, parent_layer)
+            self.animate_layer(layer, obj)
 
         elif obj.type == "ARMATURE":
             layer = paint_armature.convert(obj, self.config)
