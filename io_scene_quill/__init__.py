@@ -151,7 +151,7 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
     use_visible: BoolProperty(
         name="Visible Objects",
         description="Export visible objects only",
-        default=False,
+        default=True,
     )
 
     use_non_empty: BoolProperty(
