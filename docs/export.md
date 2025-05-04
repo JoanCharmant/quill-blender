@@ -16,11 +16,11 @@ The following object types are supported when exporting Blender scenes:
 
 | Feature |Status|
 | ------------- |:---:|
-| Mesh | ⚠️ |
-| Curve | ❌ |
+| Mesh | ⚠️¹ |
+| Curve | ❌¹ |
 | Surface    | ❌ |
 | Metaball  | ❌ |
-| Text  | ❌ |
+| Text  | ❌¹ |
 | Volume  | ❌ |
 | Grease Pencil  | ⚠️ |
 | Armature  | ⚠️ |
@@ -34,32 +34,21 @@ The following object types are supported when exporting Blender scenes:
 | Force field  | ❌ |
 | Collection instance  | ❌ |
 
-Note: the following object types can be converted to Grease Pencil objects using Blender built-in converter and then exported to Quill:
-- Mesh
-- Curve
-- Text
+¹ Mesh, Curve and Text objects can be converted to Grease Pencil objects using Blender built-in converters and then exported to Quill. For Text only the outline of the characters is converted.
 
 
-## Animation
+## Empty
 
-Blender has many animation features, most of which are not currently supported by the exporter.
+Empty objects are converted to layer groups and their children are processed recursively.
 
-| Feature |Status|
-| ------------- |:---:|
-| Animated transform (key frames) | ❌ |
-| Parenting to animated object | ❌ |
-| Parenting to armature bones| ❌ |
-| Deformation from armature (weight painting) | ❌ |
-| Lattice | ❌ |
-| Constraints | ❌ |
-| Drivers | ❌ |
-| Shape keys | ❌ |
-| Mesh caches (Alembic, FBX) | ❌ |
-| Grease Pencil frame by frame | ✅ |
+## Camera
+
+Camera objects are converted to Quill cameras. The field of view should generally match but is known to not be 100% pixel perfect. Double check in Quill that the framing is still appropriate and adjust if needed.
 
 
 ## Grease Pencil
-Grease pencil is the closest thing to Quill. The addon tries to convert Grease Pencil objects to Quill paint layers with corresponding data.
+
+Grease pencil is the Blender feature closest to Quill paint model. The addon tries to convert Grease Pencil objects to Quill paint layers with corresponding data.
 
 The options under GPencil > Data > Strokes are ignored and always match Quill model which corresponds to:
 - Stroke Depth Order: `3D location`
@@ -82,7 +71,7 @@ Each Grease Pencil object can contain several layers. In this case the exporter 
 | Adjustments | ⚠️ |
 | Relations | ❌ |
 
-In Adjustments, Stroke Thickness is supported, it applies an offset to the thickness of all strokes of the layer. Tint color and Tint factor are not supported.
+Under Adjustments, Stroke Thickness is supported, it applies an offset to the thickness of all strokes of the layer. Tint color and Tint factor are not supported.
 
 ### Grease Pencil material
 
@@ -116,7 +105,7 @@ The options under Line type and Line style are ignored and forced to Quill model
 - Line type: `Line`
 - Line style: `Solid`
 
-The generated paint strokes use Quill brush type `Cylinder` which most closely match the behavior of the Grease Pencil strokes (always facing the viewer).
+By default the generated paint strokes use Quill brush type `Cylinder` which most closely match the behavior of the Grease Pencil strokes (always facing the viewer). When using the option `Ribbon` in the exporter dialog, ribbon strokes are created instead, with the flat side up, as if laying on the floor. This is best used for flat drawings or hand writing created on the Blender floor plane.
 
 The final color is a mix between the base color and the vertex color.
 
@@ -150,7 +139,9 @@ Single-point stroke with Round caps will generate a sphere in Quill.
 
 Grease Pencil doesn't have a concept of "normal" for vertices while Quill uses it to rotate the cross section of the brushes (particularly evident for Ribbon and Cube brushes) and for directional opacity. In Quill this is based on the orientation of the controller.
 
-The exporter uses the camera as the general direction of the normal. You don't normally need to worry about this but if you don't have a camera in the scene the exporter will use the origin, and for certain strokes that happen to be on a plane crossing the origin this can cause random twisting of the paint strokes when imported back in Blender from Quill after a round-trip. To solve this issue make sure to have a camera in the scene at export time, ideally away from any strokes. This issue is only visible when exporting Grease Pencil and importing back as Mesh.
+When exporting with Brush type `Cylinder`, the exporter uses the camera as the general direction of the normal. You don't normally need to worry about this but if you don't have a camera in the scene the exporter will use the origin, and for certain strokes that happen to be on a plane crossing the origin this can cause random twisting of the paint strokes when imported back in Blender from Quill after a round-trip. To solve this issue make sure to have a camera in the scene at export time, ideally away from any strokes. This issue is only visible when exporting Grease Pencil and importing back as Mesh.
+
+When exporting with Brush type `Ribbon` the exporter uses the up axis for the normal.
 
 
 ### Grease Pencil frame by frame animation
@@ -164,6 +155,7 @@ Each Grease Pencil layer can have multiple key frames with independent drawings 
 | Key frames | ✅ |
 | Frame hold | ✅ |
 | Empty key frame | ✅ |
+
 
 ## Mesh
 Meshes are automatically converted to a wireframe representation. Each edge of each polygon is converted to a paint stroke.
@@ -182,13 +174,32 @@ Animation is not currently supported.
 The bones can be produced as octahedral or stick-like paint strokes. The color of the generated strokes is random.
 
 
-## Empty
 
-Empty objects are converted to layer groups and their children are processed recursively.
+## Animation
 
-## Camera
+Blender has many animation features, some are acting on the object transform and others on vertex positions or attributes. Generally speaking the features acting on the transform are supported for all object types and the features acting on vertices are only supported for Grease Pencil, if at all.
 
-Camera objects are converted to Quill viewpoints. Most of the camera properties aside from the transform aren't currently supported.
+| Feature |Status|
+| ------------- |:---:|
+| Animated transform (key frames) | ✅ |
+| Parenting to animated object | ✅ |
+| Parenting to armature bones| ✅ |
+| Deformation from armature (weight painting) | ⚠️ |
+| Lattice | ❌ |
+| Constraints (Follow Path, Track To, etc.) | ✅ |
+| Drivers | ✅ |
+| Shape keys | ❌ |
+| Mesh caches (Alembic) | ❌ |
+| Grease Pencil frame by frame | ✅ |
+
+The exporter implements transform-based animation by creating a key frame at each frame and reading the final resulting value calculated by Blender.
+
+For example you can have an Empty object with a constraint of type "Follow Path" and attach it to a Bezier curve animated over 100 frames, and further animate the time mapping of the Bezier curve to produce a non linear speed ramp along the path. The exporter will create a Group layer for the Empty, add key frames covering the entire Blender scene range, and update the transform at each key frame to match the motion of the Empty. If you have a camera or any other supported object inside the empty it will be carried along. For now the child layer itself will also have key frames created by the exporter even if its local transform doesn't change.
+
+For bone deformation it is only for Grease Pencil objects and you have to bake the animation to Grease Pencil frames. Select the GP object, object mode, menu Object > Animation > Bake object transform to Grease Pencil. This creates a new Grease Pencil object with the deformation animation baked into frames (both transform and vertices) and this is exported to frame by frame drawings.
+
+Similarly certain modifiers of Grease Pencil are acting on vertices like "Noise" or "Build". You also need to bake the animation to Grease Pencil frames before exporting. (Note: this is not the same as "Applying" the modifier).
+
 
 
 ## Export dialog
@@ -199,13 +210,14 @@ The export dialog has the following options:
 
 **Object Types**
 
-Types of objects exported: Empty, Grease Pencil, Camera, Mesh, Armature. All other object types aren't supported.
+Types of objects exported: Grease Pencil, Camera, Mesh, Armature. Empties are always exported since they are used for hierarchy. All other object types aren't supported.
 
 **Limit to**
 
 Behavior when exporting objects.
-- Selected Objects
-- Visible Objects
+- Selected Objects: only the selected object(s) are exported.
+- Visible Objects: only the objects visible in the viewport are exported.
+- Non-empty: This is only for Groups (created from blender object type "Empty"). When this option is checked they are only added to the Quill scene if they have children data layers. This is important for example when you only export a certain type of object like cameras and you don't want to have the rest of the hierarchy coming along.
 
 ### Mesh Wireframe
 

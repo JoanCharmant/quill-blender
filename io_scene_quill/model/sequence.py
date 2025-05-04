@@ -600,7 +600,7 @@ class Layer:
             result["Implementation"] = to_class(PaintLayerImplementation, self.implementation)
         else:
             logging.error("Exporting unsupported layer type: %s", self.type)
-            # Paint, Sound and Model have QBin data that we don't know how to export.
+            # Picture, Sound and Model layers have QBin data that we don't know how to export.
             # Export an empty Group layer to avoid a crash.
             result["Type"] = "Group"
             implementation = GroupLayerImplementation.from_dict({

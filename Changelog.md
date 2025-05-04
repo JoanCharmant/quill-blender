@@ -12,6 +12,8 @@ Exporter
 - Export animated transforms.
 - Always include empties on export since they are used for hierarchy.
 - Added option to not include groups with no children.
+- Added option to export Grease Pencil as Ribbon strokes, facing up.
+- Made matching round caps of Grease Pencil optional.
 - Sanitize layer names before exporting.
 
 
