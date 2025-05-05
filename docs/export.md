@@ -204,34 +204,48 @@ Similarly certain modifiers of Grease Pencil are acting on vertices like "Noise"
 
 ## Export dialog
 
-The export dialog has the following options:
+![](images/export-dialog.png)
 
 ### Include
 
 **Object Types**
 
-Types of objects exported: Grease Pencil, Camera, Mesh, Armature. Empties are always exported since they are used for hierarchy. All other object types aren't supported.
+Types of objects exported: Grease Pencil, Camera, Mesh, Armature. Empties are always exported since they are used for hierarchy. All other object types (including Images) aren't exported.
 
 **Limit to**
 
 Behavior when exporting objects.
 - Selected Objects: only the selected object(s) are exported.
 - Visible Objects: only the objects visible in the viewport are exported.
-- Non-empty: This is only for Groups (created from blender object type "Empty"). When this option is checked they are only added to the Quill scene if they have children data layers. This is important for example when you only export a certain type of object like cameras and you don't want to have the rest of the hierarchy coming along.
+- Non-empty: This is only for Groups (created from blender object type "Empty"). When this option is checked they are only added to the Quill scene if they have children layers. This is useful for example when you only export a certain type of objects like cameras and you don't want to have the rest of the hierarchy coming along.
+
+### Grease Pencil
+
+**Brush Type**
+
+Brush type used for all paint strokes.
+- Cylinder
+- Ribbon (forced orientation: flat side up)
+
+**Match round caps**
+
+If this is checked and the Grease Pencil strokes were created with round caps the exporter will add a few points to each end of the strokes to make them round in Quill and match the Blender visual appearance. If it is not checked it will only add one point to close the stroke flat. This is independent of the brush type used in the previous option.
 
 ### Mesh Wireframe
 
 Mesh objects are converted to their wireframe representation. These options control the generation of the wireframe paint strokes.
 
 **Width**
+
 Width of paint strokes
 
 **Resolution**
+
 Density of paint strokes, in number of points per stroke.
 
 ### Armature
 
-Armature objects are flattened and converted to a single paint layer. These options control the generation of the armature paint strokes.
+Armature objects are flattened converted to a single paint layer. These options control the generation of the armature paint strokes.
 
 **Bone shape**
 - Octahedral

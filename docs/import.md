@@ -174,17 +174,17 @@ Only type = `2D` is supported. `360 Equirectangular Mono` and `360 Equirectangul
 
 ## Import dialog
 
-The import dialog has the following options
+![](images/import-dialog.png)
 
 ### Include
 
 **Hidden layers**
 
-Import invisible Quill layers.
+If checked it will import layers that are marked as hidden in Quill, and make them hidden in Blender. If unchecked the Quill hidden layers are not imported at all.
 
 **Cameras**
 
-Import Quill cameras and viewpoints.
+Import Quill cameras and viewpoints as Blender Camera objects. 
 
 ### Paint layers
 
