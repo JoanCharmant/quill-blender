@@ -2,16 +2,23 @@
 import bpy
 import mathutils
 import random
-from ..model import paint, quill_utils, sequence
+from ..model import paint, quill_utils
 from . import utils
+
 
 def convert(obj, config):
     """Convert an armature to a series of paint strokes"""
 
+    layer = make_rest_pose(obj, config)
+
+    return layer
+
+
+def make_rest_pose(obj, config):
+    
     # Create a default paint layer and drawing.
     paint_layer = quill_utils .create_paint_layer(obj.name)
-    drawing = sequence.Drawing.from_default()
-    drawing.data = paint.DrawingData()
+    drawing = quill_utils.create_drawing()
     paint_layer.implementation.drawings.append(drawing)
 
     # Produce a paint stroke for each bone.
