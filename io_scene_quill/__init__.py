@@ -50,7 +50,8 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
     convert_paint: EnumProperty(
         name="Convert to",
         items=(("MESH", "Mesh", ""),
-            (gp, "Grease Pencil", "")),
+            (gp, "Grease Pencil", ""),
+            ("CURVE", "Curve", "")),
         description="How paint layers are converted during import",
         default="MESH")
 

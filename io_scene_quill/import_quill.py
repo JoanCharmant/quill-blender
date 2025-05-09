@@ -1,11 +1,10 @@
 import os
 import bpy
-import json
 import logging
 import mathutils
 from math import floor, radians
-from .importers import gpencil_paint, mesh_material, mesh_paint
-from .model import paint, quill_utils, sequence
+from .importers import gpencil_paint, mesh_material, mesh_paint, curve_paint
+from .model import quill_utils
 
 class QuillImporter:
 
@@ -88,8 +87,7 @@ class QuillImporter:
                 bpy.ops.object.empty_add(type='PLAIN_AXES')
                 self.setup_obj(layer, parent_layer, parent_obj)
                 self.setup_animation(layer, offset)
-                obj = bpy.context.object
-                mesh_paint.convert(self.config, obj, layer, self.material)
+                mesh_paint.convert(self.config, bpy.context.object, layer, self.material)
 
             elif self.config["convert_paint"] == "GPENCIL" or self.config["convert_paint"] == "GREASEPENCIL":
 
@@ -101,6 +99,16 @@ class QuillImporter:
                 self.setup_obj(layer, parent_layer, parent_obj)
                 self.setup_animation(layer, offset)
                 gpencil_paint.convert(bpy.context.object, layer)
+                
+            elif self.config["convert_paint"] == "CURVE":
+                
+                curve_data = bpy.data.curves.new(layer.name, type='CURVE')
+                obj = bpy.data.objects.new(layer.name, curve_data)
+                bpy.context.collection.objects.link(obj)
+                bpy.context.view_layer.objects.active = obj
+                self.setup_obj(layer, parent_layer, parent_obj)
+                self.setup_animation(layer, offset)
+                curve_paint.convert(obj, layer)
 
         elif layer.type == "Viewpoint":
             bpy.ops.object.camera_add()
