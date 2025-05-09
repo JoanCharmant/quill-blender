@@ -27,8 +27,12 @@ def convert(obj, layer):
     gpencil_layer.opacity = layer.opacity
     
     # Delete the default frame, we'll create our own.
-    gpencil_layer.frames.remove(gpencil_layer.frames[0])
-    
+    if bpy.app.version < (4, 3, 0):
+        gpencil_layer.frames.remove(gpencil_layer.frames[0])
+    else:
+        gpencil_layer.frames.remove(gpencil_layer.frames[0].frame_number)
+
+
     # Blender frame range vs Quill animation range.
     # We will loop through Blender frames and show the corresponding drawing.
     scn = bpy.context.scene
