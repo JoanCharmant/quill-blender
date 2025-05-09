@@ -129,13 +129,13 @@ def convert_stroke(stroke, vertices, edges, faces, attributes, base_vertex):
             # Duplicate the Quill vertex data at each vertex of the cross section.
             # The extra attributes may be used to export back the data to Quill.
             attributes["rgba"].append(color_linear)
-            attributes["stroke"].append(stroke.id)
-            attributes["brush"].append(brush.value)
-            attributes["index"].append(i)
-            attributes["p"].append(quill_vertex.position)
-            attributes["n"].append(quill_vertex.normal)
-            attributes["t"].append(quill_vertex.tangent)
-            attributes["w"].append(quill_vertex.width)
+            # attributes["stroke"].append(stroke.id)
+            # attributes["brush"].append(brush.value)
+            # attributes["index"].append(i)
+            # attributes["p"].append(quill_vertex.position)
+            # attributes["n"].append(quill_vertex.normal)
+            # attributes["t"].append(quill_vertex.tangent)
+            # attributes["w"].append(quill_vertex.width)
 
         # Connect the vertices into quad faces.
         if i == 0:
@@ -238,23 +238,23 @@ def assign_attributes(config, mesh, attributes):
             mesh.attributes["rgba"].data[vert_i_loop].color_srgb = attributes["rgba"][vert_i_mesh]
 
     # Extra attributes
-    if config["extra_attributes"]:
-        mesh.attributes.new(name="q_stroke", type="INT", domain="POINT")
-        mesh.attributes.new(name="q_brush", type="INT", domain="POINT")
-        mesh.attributes.new(name="q_index", type="INT", domain="POINT")
-        mesh.attributes.new(name="q_p", type="FLOAT_VECTOR", domain="POINT")
-        mesh.attributes.new(name="q_n", type="FLOAT_VECTOR", domain="POINT")
-        mesh.attributes.new(name="q_t", type="FLOAT_VECTOR", domain="POINT")
-        mesh.attributes.new(name="q_w", type="FLOAT", domain="POINT")
-        for vert in mesh.vertices:
-            vert_i = vert.index
-            mesh.attributes["q_stroke"].data[vert_i].value = attributes["stroke"][vert_i]
-            mesh.attributes["q_brush"].data[vert_i].value = attributes["brush"][vert_i]
-            mesh.attributes["q_index"].data[vert_i].value = attributes["index"][vert_i]
-            mesh.attributes["q_p"].data[vert_i].vector = attributes["p"][vert_i]
-            mesh.attributes["q_n"].data[vert_i].vector = attributes["n"][vert_i]
-            mesh.attributes["q_t"].data[vert_i].vector = attributes["t"][vert_i]
-            mesh.attributes["q_w"].data[vert_i].value = attributes["w"][vert_i]
+    # if config["extra_attributes"]:
+    #     mesh.attributes.new(name="q_stroke", type="INT", domain="POINT")
+    #     mesh.attributes.new(name="q_brush", type="INT", domain="POINT")
+    #     mesh.attributes.new(name="q_index", type="INT", domain="POINT")
+    #     mesh.attributes.new(name="q_p", type="FLOAT_VECTOR", domain="POINT")
+    #     mesh.attributes.new(name="q_n", type="FLOAT_VECTOR", domain="POINT")
+    #     mesh.attributes.new(name="q_t", type="FLOAT_VECTOR", domain="POINT")
+    #     mesh.attributes.new(name="q_w", type="FLOAT", domain="POINT")
+    #     for vert in mesh.vertices:
+    #         vert_i = vert.index
+    #         mesh.attributes["q_stroke"].data[vert_i].value = attributes["stroke"][vert_i]
+    #         mesh.attributes["q_brush"].data[vert_i].value = attributes["brush"][vert_i]
+    #         mesh.attributes["q_index"].data[vert_i].value = attributes["index"][vert_i]
+    #         mesh.attributes["q_p"].data[vert_i].vector = attributes["p"][vert_i]
+    #         mesh.attributes["q_n"].data[vert_i].vector = attributes["n"][vert_i]
+    #         mesh.attributes["q_t"].data[vert_i].vector = attributes["t"][vert_i]
+    #         mesh.attributes["q_w"].data[vert_i].value = attributes["w"][vert_i]
 
 
 def animate(drawing_to_obj, layer):

@@ -118,7 +118,10 @@ class QUILL_PT_import_paint(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "convert_paint")
-        layout.prop(operator, "extra_attributes")
+        
+        # Hide the extra attributes option for now.
+        # It will only make sense when we can actually round trip the data.
+        #layout.prop(operator, "extra_attributes")
 
 
 class ExportQuill(bpy.types.Operator, ExportHelper):

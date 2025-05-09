@@ -1,5 +1,4 @@
 import bpy
-import math
 
 def convert(obj, layer):
     """Convert a Quill paint layer to a Blender grease pencil object."""
