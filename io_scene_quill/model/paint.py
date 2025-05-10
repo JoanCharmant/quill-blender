@@ -1,4 +1,4 @@
-# Core data used by Drawings and read/write functions ("Quill.qbin").
+# Qbin data used by Drawings.
 # These do not depend on any Blender data types.
 
 import struct
@@ -75,12 +75,6 @@ def read_vertex(qbin):
     return Vertex(position, normal, tangent, color, opacity, width)
 
 
-def write_header(qbin):
-    # 8-byte header.
-    qbin.write(struct.pack("<I", 0))
-    qbin.write(struct.pack("<I", 0))
-
-
 def write_drawing_data(data, qbin):
     qbin.write(struct.pack("<I", len(data.strokes)))
     for stroke in data.strokes:
@@ -111,5 +105,6 @@ def write_vertex(vertex, qbin):
     qbin.write(struct.pack("<fff", *vertex.color))
     qbin.write(struct.pack("<f", vertex.opacity))
     qbin.write(struct.pack("<f", vertex.width))
+
 
 

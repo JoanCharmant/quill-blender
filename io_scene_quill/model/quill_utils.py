@@ -1,7 +1,8 @@
 import json
 import os
 import re
-from . import paint, sequence, state
+import struct
+from . import paint, picture, sequence, state
 
 
 def create_scene():
@@ -83,6 +84,20 @@ def create_drawing():
     return drawing
 
 
+def create_picture_layer(name):
+    """Create a new picture layer."""
+    type = "Picture"
+    implementation = sequence.PictureLayerImplementation.from_dict({
+        "DataFileOffset": "0",
+        "ImportFilePath": "",
+        "Type": "2D",
+        "ViewerLocked": False
+    })
+
+    name = sanitize_name(name)
+    return sequence.Layer.from_default(type, implementation, name)
+
+
 def delete_hidden(layer):
     """Delete all hidden layers recursively."""
     if layer.type == "Group":
@@ -147,18 +162,23 @@ def load_drawing_data(layer, qbin):
             drawing.data = paint.read_drawing_data(qbin)
 
 
-def write_drawing_data(layer, qbin):
-    """Write drawing data for the layer and its children."""
+def write_qbin_data(layer, qbin):
+    """Write Qbin data for the layer and its children. Update data_file_offset fields."""
 
     if layer.type == "Group":
         for child in layer.implementation.children:
-            write_drawing_data(child, qbin)
+            write_qbin_data(child, qbin)
 
     elif layer.type == "Paint":
         for drawing in layer.implementation.drawings:
             offset = hex(qbin.tell())[2:].upper().zfill(8)
             drawing.data_file_offset = offset
             paint.write_drawing_data(drawing.data, qbin)
+            
+    elif layer.type == "Picture":
+        offset = hex(qbin.tell())[2:].upper().zfill(8)
+        layer.implementation.data_file_offset = offset
+        picture.write_picture_data(layer.implementation.data, qbin)
 
 
 def write_json(json_obj, folder_path, file_name):
@@ -203,11 +223,16 @@ def export_scene(folder_path, scene, state):
     """Write a Quill scene to a folder with a Quill.json, Quill.qbin, and State.json file."""
 
     # Write qbin file.
-    # This will also update the data_file_offset fields in the drawing data.
     qbin_path = os.path.join(folder_path, "Quill.qbin")
     qbin = open(qbin_path, 'wb')
-    paint.write_header(qbin)
-    write_drawing_data(scene.sequence.root_layer, qbin)
+    
+    # Write the 8-byte header.
+    qbin.write(struct.pack("<I", 0))
+    qbin.write(struct.pack("<I", 0))
+    
+    # Write the data.
+    # This will also update the data_file_offset fields in the drawing data.
+    write_qbin_data(scene.sequence.root_layer, qbin)
     qbin.close()
 
     # Write the scene graph and application state files.

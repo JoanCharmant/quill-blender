@@ -1,12 +1,11 @@
 
 import os
 import bpy
-import json
 import logging
 import mathutils
 from math import degrees, radians
-from .model import paint, quill_utils, state, sequence
-from .exporters import paint_armature, paint_gpencil, paint_wireframe, utils
+from .model import quill_utils, sequence
+from .exporters import paint_armature, paint_gpencil, paint_wireframe, picture, utils
 
 class QuillExporter:
     """Handles picking what nodes to export and kicks off the export process"""
@@ -88,9 +87,12 @@ class QuillExporter:
 
     def should_export_object(self, obj):
 
-        # Always include empties as they are used for grouping.
+        # Always include pure empties as they are used for grouping.
         # We then have a second pass at the end to remove empty groups if needed.
         if obj.type != "EMPTY" and obj.type not in self.config["object_types"]:
+            return False
+        
+        if obj.type == "EMPTY" and obj.empty_display_type == "IMAGE" and "IMAGE" not in self.config["object_types"]:
             return False
 
         if self.config["use_selection"] and not obj.select_get():
@@ -112,23 +114,41 @@ class QuillExporter:
             return
 
         logging.info("Exporting Blender object: %s", obj.name)
-
-        memo_active = bpy.context.view_layer.objects.active
-        bpy.context.view_layer.objects.active = obj
-
+        
         # Note: Quill only supports uniform scaling.
         # If the object has non-uniform scaling the user should have manually applied scale before export.
         # The rest of the code will assume the scale is uniform and use scale[0] as a proxy.
         if (obj.scale.x != obj.scale.y or obj.scale.y != obj.scale.z):
             logging.warning("Non-uniform scaling not supported. Please apply scale on %s.", obj.name)
 
-        if obj.type == "EMPTY":
-            layer = quill_utils.create_group_layer(obj.name)
-            self.setup_layer(layer, obj, parent_layer)
-            self.animate_layer(layer, obj)
+        memo_active = bpy.context.view_layer.objects.active
+        bpy.context.view_layer.objects.active = obj
 
-            for child in obj.children:
-                self.export_object(child, layer)
+        if obj.type == "EMPTY":
+            
+            if obj.empty_display_type == "IMAGE":
+                # Special case for Image empties.
+                
+                # Bail out if the image is not loaded or invalid.
+                if obj.data == None or obj.data.size[1] == 0:
+                    return
+                
+                layer = picture.convert(obj, self.config)
+                self.setup_layer(layer, obj, parent_layer)
+                
+            else:
+                # Normal case: create a group layer for the empty.
+                # Skip it if it's going to create an empty group and the user doesn't want that.
+                if len(obj.children) == 0 and self.config["use_non_empty"]:
+                    return
+
+                # Make a group and process the children recursively.
+                layer = quill_utils.create_group_layer(obj.name)
+                self.setup_layer(layer, obj, parent_layer)
+                self.animate_layer(layer, obj)
+
+                for child in obj.children:
+                    self.export_object(child, layer)
 
         elif obj.type == "MESH":
             layer = paint_wireframe.convert(obj, self.config)
@@ -145,8 +165,8 @@ class QuillExporter:
             # and is independent of the image aspect ratio.
             fov = obj.data.angle * (24/36)
             layer.implementation.fov = degrees(fov)
-            self.setup_layer(layer, obj, parent_layer, is_camera=True)
-            self.animate_layer(layer, obj, is_camera=True)
+            self.setup_layer(layer, obj, parent_layer)
+            self.animate_layer(layer, obj)
 
         elif obj.type == "GPENCIL" or obj.type == "GREASEPENCIL":
             layer = paint_gpencil.convert(obj, self.config)
@@ -159,16 +179,16 @@ class QuillExporter:
 
         bpy.context.view_layer.objects.active = memo_active
 
-    def setup_layer(self, layer, obj, parent_layer, is_camera=False):
+    def setup_layer(self, layer, obj, parent_layer):
         """Common setup for all layers."""
 
         if layer is None:
             return
 
-        layer.transform = self.get_transform(obj, is_camera)
+        layer.transform = self.get_transform(obj)
         parent_layer.implementation.children.append(layer)
 
-    def animate_layer(self, layer, obj, is_camera=False):
+    def animate_layer(self, layer, obj):
         """Layer level animation with transform key frames."""
 
         if layer is None:
@@ -204,7 +224,7 @@ class QuillExporter:
             epsilon = 1e-5
             if previous_matrix_local == None or not utils.transform_equals(obj.matrix_local, previous_matrix_local, epsilon):
 
-                transform = self.get_transform(obj, is_camera)
+                transform = self.get_transform(obj)
 
                 # If we do create it, create it with constant interpolation.
                 # Any interpolation style on Blender side is already accounted for from the
@@ -224,18 +244,47 @@ class QuillExporter:
         # Restore the active frame
         scn.frame_set(memo_current_frame)
 
-    def get_transform(self, obj, is_camera):
+    def get_transform(self, obj):
         """Get the object's transform at the current frame, in Quill space."""
-        if is_camera:
-            # Special setup.
-            # Blender camera identity pose looks down (negative Z axis).
+        
+        if obj.type == "EMPTY" and obj.empty_display_type == "IMAGE":
+            
+            # Blender identity pose for images is on the front plane.
+            mat = obj.matrix_local @ mathutils.Matrix.Rotation(radians(90), 4, 'X')
+            translation, rotation, scale, flip = utils.convert_transform(mat)
+            
+            # On Blender side, images have a display size independent of the scale.
+            # For landscape the unit quad is mapped to the width, for portrait to the height.
+            # On Quill side, images are mapped to quads of size 2x2 and it's always 
+            # the height that drives the aspect ratio.
+            # Heuristic
+            # - if the image is square or portrait, it's the same model as Quill, 
+            # so we just have to scale by the display size and divide by 2.
+            # - if the image is landscape, we also need to scale by 1/aspect.
+
+            scale_factor = obj.empty_display_size
+
+            aspect = float(obj.data.size[0] / obj.data.size[1])
+            if aspect > 1.0:
+                 scale_factor /= aspect
+
+            scale_factor *= 0.5
+            
+            scale *= scale_factor
+            transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+
+        elif obj.type == "CAMERA":
+            
+            # Blender identity pose for cameras looks down.
             # Rotate by 90° around X axis to match Quill.
             mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
             translation, rotation, scale, flip = utils.convert_transform(mat)
+            
             # Apply extra scale based on the "display size" of the camera
             # Camera > Viewport Display > Size (cm).
             scale *= obj.data.display_size
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+        
         else:
             translation, rotation, scale, flip = utils.convert_transform(obj.matrix_local)
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))

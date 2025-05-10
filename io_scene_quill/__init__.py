@@ -141,9 +141,10 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
                ('CAMERA', "Camera", ""),
                ('MESH', "Mesh", ""),
                ('ARMATURE', "Armature", ""),
+               ('IMAGE', "Image", ""),
         ),
         description="Which kind of object to export",
-        default={gp, 'CAMERA', 'MESH', 'ARMATURE'},
+        default={gp, 'CAMERA', 'MESH', 'ARMATURE', 'IMAGE'},
     )
 
     use_selection: BoolProperty(
