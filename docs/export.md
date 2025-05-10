@@ -26,10 +26,10 @@ The following object types are supported when exporting Blender scenes:
 | Armature  | ⚠️ |
 | Lattice  | ❌ |
 | Empty  | ✅ |
-| Image  | ❌ |
+| Image  | ⚠️ |
 | Light  | ❌ |
 | Light probe  | ❌ |
-| Camera  | ⚠️ |
+| Camera  | ✅ |
 | Speaker  | ❌ |
 | Force field  | ❌ |
 | Collection instance  | ❌ |
@@ -40,6 +40,8 @@ The following object types are supported when exporting Blender scenes:
 ## Empty
 
 Empty objects are converted to layer groups and their children are processed recursively.
+
+Empty objects with the subtype "Image" are exported to Image layers.
 
 ## Camera
 
@@ -173,7 +175,21 @@ Animation is not currently supported.
 
 The bones can be produced as octahedral or stick-like paint strokes. The color of the generated strokes is random.
 
+## Image
 
+Blender supports adding Image references via Add > Image > Reference or Add > Empty > Image. They are converted to image layers at the corresponding location, orientation and scale.
+
+| Feature |Status|
+| ------------- |:---:|
+| Size | ✅ |
+| Offset | ❌ |
+| Single image | ✅ |
+| Image sequence | ❌ |
+| Movie | ❌ |
+| Generated | ✅ |
+| UDIM tiles | ❌ |
+
+For Image sequences and Movies the image exported is the one displayed in the Blender viewport at the moment of the export.
 
 ## Animation
 
@@ -210,7 +226,7 @@ Similarly certain modifiers of Grease Pencil are acting on vertices like "Noise"
 
 **Object Types**
 
-Types of objects exported: Grease Pencil, Camera, Mesh, Armature. Empties are always exported since they are used for hierarchy. All other object types (including Images) aren't exported.
+Types of objects exported: Grease Pencil, Camera, Mesh, Armature, Image. Empties are always exported since they are used for hierarchy. All other object types aren't exported.
 
 **Limit to**
 

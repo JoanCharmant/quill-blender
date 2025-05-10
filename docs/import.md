@@ -62,7 +62,7 @@ Key frame interpolation (None, Linear, Ease in, Ease out, Ease in/out) is genera
 
 ## Quill paint layers
 
-Paint layers contain one or more drawings made of paint strokes. On import the drawings are converted to either Mesh objects or Grease pencil objects, this can be configured in the import dialog.
+Paint layers contain one or more drawings made of paint strokes. On import the drawings are converted to Mesh, Grease pencil or Curve objects, this can be configured in the import dialog.
 
 ### Import as Mesh
 
@@ -144,6 +144,12 @@ Only the base clip is supported. Offset and Spans are not supported.
 
 ### Grease Pencil v2 and v3
 Grease Pencil v2 (Blender 4.2 and below) and v3 (Blender 4.3 and above) are supported. If you find any anomalous behavior please report the problem.
+
+### Import as Curve
+
+When importing paint layers as Curve objects, the paint strokes are converted to polyline splines. Only the point positions are retained. Animation is not supported, only the first drawing is imported.
+
+This option is mainly used to attach other objects to Quill strokes using the "Follow Path" constraint. This can be used for example to attach a Blender camera to a trajectory that was drawn in Quill.
 
 
 ## Quill camera layers

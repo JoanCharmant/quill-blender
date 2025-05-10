@@ -1,6 +1,14 @@
 # Changelog
 
 
+## 1.3.0
+
+Importer
+- Option to import paint layers as Curve objects.
+
+Exporter
+- Export Blender Image references to Image layers.
+
 ## 1.2.0
 
 Importer

@@ -43,6 +43,7 @@ The add-on reads and writes native Quill file format.
     - Mesh objects to painted wireframes.
     - Armature objects to painted stick figures.
     - Cameras to cameras.
+    - Image references to image layers.
     - Empty objects to Quill groups.
 - Export transform keyframes on groups and objects to Quill keyframes.
 - Export Grease Pencil frame by frame animation to Quill drawings.

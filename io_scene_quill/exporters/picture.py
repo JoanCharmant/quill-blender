@@ -1,10 +1,24 @@
+import bpy
 from ..model import picture, quill_utils
 
 def convert(obj, config):
     """Convert from Blender Image reference to Quill picture layer."""
     
-    # TODO: handle sequences.
+    # TODO: handle image sequences and movies.
+    # Ideally we just want to grab the image data updated to the current frame.
     #obj.data.source = "SEQUENCE"
+    # For now it doesn't seem possible to force an update of the obj.data.pixels.
+    # We always get the data of the current frame at the moment of the export.
+    # Tested to change the frame:
+    # - scn.frame_set(frame)
+    # - scn.frame_current = frame
+    # - obj.image_user.frame_current = frame
+    # Tested to force update pixel data:
+    # - obj.data.update()
+    # - obj.data.reload()
+    # - bpy.context.view_layer.update()
+    # - finding VIEW_3D area and doing area.tag_redraw()
+    # - obj.hide_render = obj.hide_render
     
     picture_layer = quill_utils.create_picture_layer(obj.name)
     
