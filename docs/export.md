@@ -53,14 +53,14 @@ Camera objects are converted to Quill cameras. The field of view should generall
 Grease pencil is the Blender feature closest to Quill paint model. The addon tries to convert Grease Pencil objects to Quill paint layers with corresponding data.
 
 The options under GPencil > Data > Strokes are ignored and always match Quill model which corresponds to:
-- Stroke Depth Order: `3D location`
-- Stroke Thickness: `World space`
+- Stroke Depth Order: `3D location` (Not `2D layers`)
+- Stroke Thickness: `World space` (Not `Screen space`)
 
 Thickness Scale applies a multiplier to all strokes in all layers. This is supported.
 
 ### Grease Pencil layers
 
-Each Grease Pencil object can contain several layers. In this case the exporter creates a Quill Layer Group and converts each GP layer to a Quill paint layer.
+Each Grease Pencil object can contain several layers, with their own transform. To support this the exporter creates a Quill Layer Group and converts each GP layer to a separate Quill paint layer.
 
 #### Layer level features
 
@@ -114,20 +114,9 @@ The final color is a mix between the base color and the vertex color.
 
 ### Grease Pencil stroke caps
 
-Stroke caps data is handled differently between Blender and Quill. In Blender the caps type information is a property of the stroke. On the other hand Quill doesn't store cap information separately, caps are created with an extra vertex of zero width. This difference is problematic for round tripping.
+Stroke caps data is handled differently between Blender and Quill. In Blender the caps type information is a property of the stroke and is only handled at render time. Quill on the other hand doesn't store cap information separately, caps are created with an extra vertex of zero width. This difference is problematic for round tripping.
 
 To emulate Grease Pencil caps the exporter adds extra vertices at each end of the stroke. It only does this if the first vertex doesn't already have a zero width to try to detect round tripping. Note: The importer always configure imported Quill strokes using `Round` cap mode.
-
-These heuristics result in the following compatibility table during export:
-
-| Source |Status|
-| ------------- |:---:|
-| Native Grease Pencil stroke with Flat cap  | ✅ |
-| Native Grease Pencil stroke with Round cap  | ✅ |
-| Grease Pencil stroke imported from Quill stroke with cap  | ✅ |
-| Grease Pencil stroke imported from Quill stroke without cap  | ❌ |
-
-In the last case the stroke is imported into Blender Grease Pencil with Round cap since Blender doesn't have a concept of strokes without caps, and during the export it is "closed".
 
 Single-point stroke with Round caps will generate a sphere in Quill.
 
@@ -164,7 +153,9 @@ Meshes are automatically converted to a wireframe representation. Each edge of e
 
 Non-uniform scaling is not supported in Quill. You should apply the scale before exporting. (Menu Object > Apply > Scale).
 
-Tip: Another way to export mesh wireframes is to use Blender built-in converter: with the mesh object selected, menu Object > Convert > Grease Pencil. This way you can tweak the grease pencil stroke width and color before the actual export. The Fill layer will not be exported.
+💡 Another way to export mesh wireframes is to use Blender built-in converter: with the mesh object selected, menu Object > Convert > Grease Pencil. This way you can tweak the grease pencil stroke width and color before the actual export. The Fill layer will not be exported.
+
+⚠️ There is a limit to what Quill will accept as the total number of strokes in a single layer, probably around 200K strokes. If Quill freezes on import it's probably over quota. This can happen when converting heavy meshes.
 
 
 ## Armature
@@ -177,7 +168,7 @@ The bones can be produced as octahedral or stick-like paint strokes. The color o
 
 ## Image
 
-Blender supports adding Image references via Add > Image > Reference or Add > Empty > Image. They are converted to image layers at the corresponding location, orientation and scale.
+Blender supports adding Image references via Add > Image > Reference or Add > Empty > Image. Both methods result in an object of type "Empty" with a subtype "Image". These are converted to image layers at the corresponding location, orientation and scale.
 
 | Feature |Status|
 | ------------- |:---:|
@@ -210,7 +201,7 @@ Blender has many animation features, some are acting on the object transform and
 
 The exporter implements transform-based animation by creating a key frame at each frame and reading the final resulting value calculated by Blender.
 
-For example you can have an Empty object with a constraint of type "Follow Path" and attach it to a Bezier curve animated over 100 frames, and further animate the time mapping of the Bezier curve to produce a non linear speed ramp along the path. The exporter will create a Group layer for the Empty, add key frames covering the entire Blender scene range, and update the transform at each key frame to match the motion of the Empty. If you have a camera or any other supported object inside the empty it will be carried along. For now the child layer itself will also have key frames created by the exporter even if its local transform doesn't change.
+For example you can have an Empty object with a constraint of type "Follow Path" and attach it to a Bezier curve animated over 100 frames, and further animate the time mapping of the Bezier curve to produce a non linear speed ramp along the path. The exporter will create a Group layer for the Empty, add key frames covering the entire Blender scene range, and update the transform at each key frame to match the motion of the Empty. If you have a camera or any other supported object inside the empty it will be carried along.
 
 For bone deformation it is only for Grease Pencil objects and you have to bake the animation to Grease Pencil frames. Select the GP object, object mode, menu Object > Animation > Bake object transform to Grease Pencil. This creates a new Grease Pencil object with the deformation animation baked into frames (both transform and vertices) and this is exported to frame by frame drawings.
 

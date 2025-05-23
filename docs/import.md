@@ -124,8 +124,7 @@ All brushes are converted to the Grease Pencil line.
 
 #### Grease Pencil Caps type
 
-All strokes are created with Caps type `Round`. Unlike Quill, Blender doesn't have a concept of strokes without caps. Note that the exporter always adds caps vertices to visually match the ending of Grease Pencil strokes so Quill strokes without caps cannot be round-tripped correctly, they will be closed during export.
-
+All strokes are created with Caps type `Round`. This shouldn't really matter since Quill already adds a zero-width point at the ends of all strokes so whether it's round or square doesn't make a difference. In Blender the caps are added dynamically by the renderer, this is relevant for exporting and round-tripping (more details on the export page).
 
 #### Grease Pencil material
 Width, color and opacity are assigned to the corresponding fields in the Grease Pencil stroke: pressure, vertex color and strength, respectively.
@@ -199,6 +198,7 @@ Import Quill cameras and viewpoints as Blender Camera objects.
 Behavior when importing paint layers
 - Mesh
 - Grease Pencil
+- Curve
 
 
 

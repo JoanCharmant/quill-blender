@@ -10,14 +10,18 @@ Philosophy: some things are easier to work on in VR and other things are easier 
 1. Download io_scene_quill.zip file from the Releases section.
 2. Open Blender, Go to Edit > Preferences… > Add-ons.
 3. Click the Install… button, navigate to and select the downloaded zip.
-4. Tick the check mark next to Import-Export: Quill to activate the plugin.
+4. Tick the check mark next to Import-Export: Quill to activate the add-on.
 
 
 ## Usage
 
-The tool can be found in Blender under File > Import > Quill scene and File > Export > Quill scene.
+To import or export Quill scenes go to **File > Import > Quill scene** and **File > Export > Quill scene**.
 
-When selecting the entry the add-on will present the usual window to import or export the Quill scene with some options on the right side panel.
+For import, select a file inside the Quill scene folder, for example `Quill.json`. The import process may take a while for large scenes.
+
+For export, it will use the file name to create the scene folder.
+
+The import/export dialogs have options on the right hand side.
 
 ## Features
 
