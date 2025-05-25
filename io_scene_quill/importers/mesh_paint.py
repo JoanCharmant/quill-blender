@@ -48,6 +48,13 @@ def convert(config, parent_obj, layer, material):
         mesh.from_pydata(vertices, edges, faces)
         assign_attributes(config, mesh, attributes)
         mesh.materials.append(material)
+        
+        # Run Smart UV project on the mesh.
+        if config["smart_project"]:
+            bpy.ops.object.editmode_toggle()
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.uv.smart_project()
+            bpy.ops.object.editmode_toggle()
 
         index += 1
 

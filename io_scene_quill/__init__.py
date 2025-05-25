@@ -2,7 +2,7 @@
 bl_info = {
     'name': 'Quill',
     'author': 'Joan Charmant',
-    'version': (1, 2, 0),
+    'version': (1, 3, 0),
     'blender': (3, 6, 0),
     'location': 'File > Import-Export',
     'description': 'Import-Export Quill scenes',
@@ -54,6 +54,12 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
             ("CURVE", "Curve", "")),
         description="How paint layers are converted during import",
         default="MESH")
+    
+    smart_project: BoolProperty(
+            name="Smart UV Project",
+            description="Creates UVs on meshes by running Smart UV Project at the drawing level.",
+            default=False,
+            )
 
     extra_attributes: BoolProperty(
             name="Extra attributes",
@@ -118,6 +124,7 @@ class QUILL_PT_import_paint(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "convert_paint")
+        layout.prop(operator, "smart_project")
         
         # Hide the extra attributes option for now.
         # It will only make sense when we can actually round trip the data.
