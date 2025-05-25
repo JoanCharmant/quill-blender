@@ -170,19 +170,19 @@ class Animation:
         if "Frames" in obj or "Spans" in obj:
             return Animation.from_default()
 
-        duration = from_union([from_float, from_int, lambda x: int(from_str(x))], obj.get("Duration"))
+        duration = from_union([from_int, from_float, lambda x: int(from_str(x))], obj.get("Duration"))
         keys = Keys.from_dict(obj.get("Keys"))
-        max_repeat_count = from_union([from_float, from_int, lambda x: int(from_str(x))], obj.get("MaxRepeatCount"))
-        start_offset = from_union([from_none, from_float, from_int, lambda x: int(from_str(x))], obj.get("StartOffset"))
+        max_repeat_count = from_union([from_int, from_float, lambda x: int(from_str(x))], obj.get("MaxRepeatCount"))
+        start_offset = from_union([from_int, from_float, from_none, lambda x: int(from_str(x))], obj.get("StartOffset"))
         timeline = from_bool(obj.get("Timeline"))
         return Animation(duration, keys, max_repeat_count, start_offset, timeline)
 
     def to_dict(self):
         result = {}
-        result["Duration"] = from_int(self.duration)
+        result["Duration"] = from_int(int(self.duration))
         result["Timeline"] = from_bool(self.timeline)
-        result["StartOffset"] = from_union([lambda x: from_none((lambda x: is_type(type(None), x))(x)), lambda x: from_int((lambda x: is_type(int, x))(x))], self.start_offset)
-        result["MaxRepeatCount"] = from_int(self.max_repeat_count)
+        result["StartOffset"] = from_union([from_none, from_int], self.start_offset)
+        result["MaxRepeatCount"] = from_int(int(self.max_repeat_count))
         result["Keys"] = to_class(Keys, self.keys)
         return result
 
@@ -499,7 +499,7 @@ class Layer:
         elif self.type == "Paint":
             logging.info("Exporting paint layer: %s", self.name)
             result["Implementation"] = to_class(PaintLayerImplementation, self.implementation)
-        elif self.type == "Picture":
+        elif self.type == "Picture" and self.implementation.data != None:
             logging.info("Exporting picture layer: %s", self.name)
             result["Implementation"] = to_class(PictureLayerImplementation, self.implementation)
         else:

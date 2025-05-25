@@ -175,7 +175,7 @@ def write_qbin_data(layer, qbin):
             drawing.data_file_offset = offset
             paint.write_drawing_data(drawing.data, qbin)
             
-    elif layer.type == "Picture":
+    elif layer.type == "Picture" and layer.implementation.data != None:
         offset = hex(qbin.tell())[2:].upper().zfill(8)
         layer.implementation.data_file_offset = offset
         picture.write_picture_data(layer.implementation.data, qbin)
