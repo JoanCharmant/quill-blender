@@ -65,6 +65,8 @@ Here are the main pain points.
 ![](docs/images/venn-paint-strokes.png)
 
 
-⚠️ Visibility inheritance. This is used a lot in Quill to limit the range of loops and animations. It will have to be baked on import (not fully supported yet).
+⚠️ Quill sequence hierarchy with spans and loops. These are not supported yet.
 
-⚠️ Animation types. Aside from transform key frames and frame by frame animation Blender also supports armature based animation and shape keys. These will have to be baked on export (not currently supported).
+⚠️ Opacity keyframes and layer-level opacity. This is not supported.
+
+⚠️ Animation types on export. Aside from transform key frames and frame by frame animation Blender also supports armature based animation and shape keys. These will have to be baked on export (not currently supported).
