@@ -5,7 +5,8 @@
 
 Importer
 - Option to import paint layers as Curve objects.
-- Option to generate UVs when importing as Mesh.
+- Mesh: option to generate UVs when importing.
+- Mesh: support for looping and clips in sequences and visibility spans in groups.
 
 Exporter
 - Export Blender Image references to Image layers.
@@ -39,7 +40,7 @@ Importer
 - Support transform keyframes.
 - Support visibility keyframes.
 - Mesh: support frame by frame animation and looping.
-- Mesh: basic support for spans and offsets at the paint layer level.
+- Mesh: basic support for clips and offsets at the paint layer level.
 - Mesh: fix normals orientation.
 
 Exporter

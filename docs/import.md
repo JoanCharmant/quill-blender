@@ -39,7 +39,7 @@ Properties shared by all layer types
 | Transform    | ✅ |
 | Pivot    | ❌ |
 
-Visibility is imported but the inheritance of the parent group visibility is not respected at this point. This is because Blender objects don't natively support visibility inheritance (hiding the parent doesn't hide the children).
+Visibility is imported but treated differently because Blender objects don't natively support visibility inheritance (hiding the parent doesn't hide the children).
 
 By default hidden layers are not imported. You can force their import by checking Include > Hidden layers in the import dialog. In this case hidden layer groups will be imported and forced visible.
 
@@ -47,18 +47,22 @@ By default hidden layers are not imported. You can force their import by checkin
 
 | Feature |Status|
 | ------------- |:---:|
-| Visibility key frames    | ⚠️ |
 | Transform  key frames  | ✅ |
-| Offset key frames  | ❌ |
 | Opacity key frames  | ❌ |
+| Visibility key frames    | ⚠️ |
+| Offset key frames  | ⚠️ |
+| Looping  | ⚠️ |
+| Clips  | ⚠️ |
 | Key frame interpolation  | ✅ |
 
+Base transforms and transform keys are imported and inherited between the parent group and children.
 
-Visibility key frames are not imported on layer groups.
+Visibility and Offset key frames are used to define "clips". They are only supported in the Mesh importer for frame by frame animation, not in the Grease Pencil or Curve importers.
 
-Transform and transform keys are imported and inherited between the parent group and children.
+Looping sequences containing transform key frames are not properly supported, only the first iteration is honored. Similarly, clips of sequences where the base iteration or nested layers have transform key frames are not correctly imported.
 
 Key frame interpolation (None, Linear, Ease in, Ease out, Ease in/out) is generally supported but may not be an exact mathematical match on the intermediate frames.
+
 
 ## Quill paint layers
 
@@ -78,8 +82,9 @@ The following features are supported when importing paint layers as Mesh
 | Color  | ✅ |
 | Opacity  | ✅ |
 | Directional opacity  | ❌ |
-| Frame by frame animation  | ⚠️ |
-| Looping  | ⚠️ |
+| Frame by frame animation  | ✅ |
+| Looping  | ✅ |
+| Clips  | ✅ |
 
 #### Mesh material
 Color and opacity are implemented via vertex attributes.
@@ -94,11 +99,11 @@ To preview the scene with colors that match Quill as much as possible:
 #### Mesh animation
 When importing, the Quill timeline is remapped to the Blender frame range. Quill frames outside that range are discarded.
 
-For frame by frame animation the addon creates a separate mesh object for each drawing and animate the visibility of these objects so that only one object is visible on a particular frame.
+For the base frame by frame animation the addon creates a separate mesh object for each drawing and animate the visibility of these objects so that only one object is visible on a particular frame.
 
-Looping of the base clip is supported.
+Looping of the base frame by frame animation is supported, as well as clips, both on the paint layer itself and on parent sequences. Clip offsets (left-trim) are also supported. 
 
-Spans (instances of the base clip) and offsets (left-trim of the base clip) of the paint layer are supported but the spans and offsets set in the parent sequences are not currently imported.
+Note that currently the looping and clipping of transform key frames is not supported.
 
 
 ### Import as Grease Pencil
@@ -115,8 +120,9 @@ The following features are supported when importing paint layers as Grease Penci
 | Color  | ✅ |
 | Opacity  | ✅ |
 | Directional opacity  | ❌ |
-| Frame by frame animation  | ⚠️ |
+| Frame by frame animation  | ✅ |
 | Looping  | ✅ |
+| Clips  | ❌ |
 
 All brushes are converted to the Grease Pencil line.
 
@@ -135,11 +141,11 @@ The created strokes use the default Grease Pencil material with Line type = Line
 
 #### Grease Pencil frame by frame animation
 
-The base clip is imported into Grease Pencil frames.
+The base animation is imported into Grease Pencil frames.
 
 💡 The frame range in the Blender timeline is used to generate the drawings at the corresponding frames so if looping is enabled on the Quill layer it will generate the drawings over the entire Blender timeline.
 
-Only the base clip is supported. Offset and Spans are not supported.
+Only the base animation is supported. Clips are not supported.
 
 ### Grease Pencil v2 and v3
 Grease Pencil v2 (Blender 4.2 and below) and v3 (Blender 4.3 and above) are supported. If you find any anomalous behavior please report the problem.

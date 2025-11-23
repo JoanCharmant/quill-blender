@@ -288,10 +288,10 @@ def animate(drawing_to_obj, layer):
     # Blender frame range vs Quill animation range.
     # We will loop through Blender frames and show the corresponding drawing.
     # Heuristic:
-    # - if the scene starts before 0, we import from 0 until the end.
-    # - if the scene starts at 0, we import from 0 until the end.
-    # - if the scene starts at 1 (blender default), we change it to start at 0, then import from 0 to the end.
-    # - if the scene starts after 1, we change it to start at 0, import from 0 to how many frames the original range was,
+    # - if the Blender scene starts before 0, we import from 0 until the end.
+    # - if the Blender scene starts at 0, we import from 0 until the end.
+    # - if the Blender scene starts at 1 (blender default), we change it to start at 0, then import from 0 to the end.
+    # - if the Blender scene starts after 1, we change it to start at 0, import from 0 to how many frames the original range was,
     # and change the end to match the number of frames.
     # We do this to cope with Blender scenes set up between say 1000 and 1249, which is done to create a buffer for simulations.
     # Instead of importing from 0 to 1249 we import from 0 to 249. We don't try to import from 1000 to 1249.
@@ -322,46 +322,57 @@ def animate(drawing_to_obj, layer):
         hide_drawing(i, min(scn.frame_start, import_start), drawing_to_obj)
 
 
-    # Quill animation features.
+    # Quill animation.
 
-    # 1. The lowest level is the basic sequence of drawings, for frame by frame animation. 
+    # 1. Base animation. 
+    # The lowest level is the basic sequence of drawings, for frame by frame animation. 
     # Quill format uses a fully expanded frame list pointing to the drawing indices.
     # The drawings are not necessarily stored in order of apparition in the timeline.
-    # Framelist: [2, 2, 2, 0, 1, 2, 3, 3, 0]
-    # This basic animated sequence is what gets exported by Quill Alembic/FBX exporter.
-    # The sequence can be looped.
+    # Example framelist: [2, 2, 2, 0, 1, 2, 3, 3, 0]
+    # This basic animated sequence is what gets exported by Quill's Alembic/FBX exporter.
+    # The base sequence can either be looping or open-ended.
 
-    # 2. The second level is a concept of "spans".
-    # These let us stop and restart the animated sequence on the same layer.
-    # The length of a span may be a fractional number of loops.
+    # 2. Clips or Spans.
+    # Each clip is like an independent window over an infinite series of the base animation.
+    # These let us stop and restart the base animation sequence.
+    # The length of a clip may be a fractional number of iterations of the base animation.
     # This is controlled by in and out points, the [ and ] icons in Quill.
     # https://www.youtube.com/watch?v=1w0wk2Sjih0
     # In the file format each in and out point becomes a visibility key frame.
-    # Importantly, when we restart a visibility span it restarts at the first drawing
-    # of the basic sequence, not where it would be from looping.
+    # By default a clip restarts at the first drawing of the basic sequence.
+    # It's possible to remove the out-point of the last clip.
+    # It's not possible to expand the in-point of a clip leftward beyond 0.
+    # The clip can be moved as a whole but grabbing it by the in-point actually sets the offset.
+    # Using the [ button between two clips doesn't pull the next clip leftward,
+    # instead it creates a new small clip starting at the current time and going to the next clip's in-point.
 
-    # 3. The third concept is offsetting.
-    # To control where in the basic sequence the span starts at, that is, which drawing is
-    # shown on the first frame of a new span, we left-trim the block of frames.
-    # In the format this results in an offset key frame.
+    # 3. Offsetting.
+    # To control the first drawing shown in a clip, we can left-trim it by grabbing the in-point.
+    # In the format this results in an offset key frame at the same time as a visibility one.
     # In theory there should be one offset key frame for each in-point.
     # The value of the offset key frame is a time, not a frame index.
 
-    # 4. The fourth concept is the visibility of the parent groups.
-    # Normal groups can have spans.
-    # Sequence groups can have spans, offsets, and looping.
-    # Sequence groups have the "timeline" property to True, other than that the format is the same.
-    # The parent groups can also have their "world visibility" on or off (the eye icon in Quill).
-
-    # None of these concepts exist as such in Blender.
-    # We must bake all the visibility information into the drawings themselves.
+    # 4. Group layers marked as "sequences" (timelines).
+    # These define their own base animation via a loop-point.
+    # This base animation can be looping or open-ended.
+    # Then we can create clips of that base animation, with offsets.
+    
+    # 5. For normal groups (not sequences), the in and out points define visibility spans only.
+    # They do not restart the underlying animation.
+    # It looks like the UI still treats them as clips, you can select, delete and trim them.
+    # Grabbing and moving a clip on a normal group does weird things.
+    
+    # 6. The base animation can also have transform key frames and when we loop it or 
+    # create clips out of it, the transform should respect the clipping logic.
+    
+    # None of these concepts exist in Blender.
+    # We bake all the visibility information into the drawings themselves.
     # This is done by keyframing the hide_viewport and hide_render properties.
-    # We also need to expand the Blender timeline to encompass the Quill timeline.
+    # Transforms are not handled here.
 
     # Points unclear:
     # - StartOffset property. This seems redundant with the first offset key frame.
-    # - Layers with "Timeline" : false, and MaxRepeatCount: "0", and offsets.
-
+    
     # There are three cases:
     # - single drawing layer: treated as an infinite loop.
     # - multi-drawing layer without loop.
@@ -380,66 +391,35 @@ def animate(drawing_to_obj, layer):
     # - relative time is the time since the start of the span.
     # - local time is the time within the drawing sequence taking offset and looping into account.
 
+
+    # Create a stack of the lineage for this layer up to the root.
+    # We will compute the local time by walking down the tree.
+    stack = [layer]
+    parent = layer.parent
+    while parent is not None:
+        stack.append(parent)
+        parent = parent.parent
+
     # Loop through the Blender frames and show the corresponding drawing.
-    is_visible = False
-    kkvv = layer.animation.keys.visibility
-    kkoo = layer.animation.keys.offset
+    was_visible = False
     ticks_per_second = 12600
     fps = scn.render.fps
     active_drawing_index = -1
     for frame_target in range(import_start, import_end + 1):
-        print("processing:", frame_target)
+        
+        #print("----------------------------------------")
+        #print("Blender frame:", frame_target)
 
-        # Convert time to Quill ticks for easier comparison with key frames.
+        # Convert Blender frame to Quill ticks for easier comparison with key frames.
         # Everything after this point is in Quill time.
-        global_time = (frame_target / fps) * ticks_per_second
-        print("global_time:", global_time)
+        global_time = int((frame_target + 0.5) / fps * ticks_per_second)
+        visible, local_time = get_local_time(stack, global_time, fps)
 
-        # TODO: find the current active key in the parent hierarchy,
-        # update start time, update timeline time: the time relative
-        # to the span start in the parent.
-        # This must handle looping of any parent timeline here?
-        timeline_time = global_time
+        if visible:
 
-        # Time relative to current span start.
-        # Find the visibility key frame right before the current frame, at the layer level.
-        last_key = None
-        for i in range(len(kkvv)):
-            if kkvv[i].time > timeline_time:
-                break
-
-            last_key = kkvv[i]
-
-        # Bail out if we are before the first key frame.
-        if last_key is None:
-            continue
-
-        if last_key.value == True:
-
-            # We are within an active span.
-            # A drawing must be visible, find which one.
-            is_visible = True
-            print("\twithin span")
-
-            # Check if there is an offset key matching the in-point.
-            local_start_offset = 0
-            for i in range(len(kkoo)):
-                if kkoo[i].time == last_key.time:
-                    local_start_offset = kkoo[i].value
-                    break
-
-            # Time within the lower level frame animation sequence.
-            local_time = timeline_time - last_key.time + local_start_offset
-
-            # Convert back to a frame index
-            frame_source = math.floor(local_time / ticks_per_second * fps + 0.5)
-
-            # Take layer-level looping into account.
-            looping = layer.implementation.max_repeat_count == 0
-            if looping:
-                frame_source = frame_source % len(layer.implementation.frames)
-            else:
-                frame_source = min(frame_source, len(layer.implementation.frames) - 1)
+            # We are within an active iteration of the fundamental paint level animation.
+            # Convert the time to a frame index
+            frame_source = math.floor((local_time / ticks_per_second * fps) + 0.5)
 
             # Get the actual drawing that should be visible.
             drawing_index = int(layer.implementation.frames[frame_source])
@@ -449,32 +429,97 @@ def animate(drawing_to_obj, layer):
             if drawing_index == active_drawing_index:
                 continue
 
-            # Change active drawing.
+            # Change the active drawing.
             hide_drawing(active_drawing_index, frame_target, drawing_to_obj)
-            print("\thidden drawing:", active_drawing_index)
             show_drawing(drawing_index, frame_target, drawing_to_obj)
             active_drawing_index = drawing_index
-            print("\tshowing drawing:", active_drawing_index)
+            was_visible = True
 
         else:
-            print("\tbetween spans")
-            # We are between spans, all drawings must be hidden.
-            if not is_visible:
-                continue
+            # We are between clips, all drawings must be hidden.
+            if not was_visible:
+                 continue
 
             hide_drawing(active_drawing_index, frame_target, drawing_to_obj, True)
-            print("\thidden drawing:", active_drawing_index)
             active_drawing_index = -1
-            is_visible = False
+            was_visible = False
 
     # Cleanup unecessary keyframes.
     # If it's a single, always visible drawing, we don't actually need the keyframe so
-    # clear up the animation data. It's easier to do it this way than to try to predict
+    # clear up the animation data. It's simpler to do it this way than to try to predict
     # if a keyframe is needed or not due to parent sequences or groups.
     if len(drawing_to_obj) == 1:
         obj = drawing_to_obj[0]
         if obj.animation_data.action.frame_start == 0 and obj.animation_data.action.frame_end == 0:
             obj.animation_data_clear()
+
+
+def get_local_time(stack, global_time, fps):
+    
+    """Given a global time, compute the local time relatively to the fundamental base frame sequence"""
+    
+    ticks_per_second = 12600
+    local_time = int(global_time)
+    
+    # Walk from the root down to the layer and update the local time at each level,
+    # based on clips, offsets, and looping of the fundamental animation.
+    # At each layer we calculate the time within the fundamental animation sequence, not the clip.
+    # A clip may cover multiple iterations of the fundamental animation, and may start at an offset.
+    # A single layer can have multiple clips each with its own duration and offset.
+    # If we are invisible at a given level we bail out early since no drawing will be visible underneath.
+    for i in range(len(stack) - 1, -1, -1):
+        
+        layer = stack[i]
+        kkvv = layer.animation.keys.visibility
+        kkoo = layer.animation.keys.offset
+        
+        # Find the key before the current time.
+        last_key = None
+        for i in range(len(kkvv)):
+            if kkvv[i].time > local_time:
+                break
+
+            last_key = kkvv[i]
+
+        # Bail out if we are before the first key.
+        if last_key is None:
+            return False, local_time
+        
+        if last_key.value:
+            # We are inside a clip or a visibility span.
+            
+            # Check if there is an offset key matching the in-point.
+            start_offset = 0
+            for i in range(len(kkoo)):
+                if kkoo[i].time == int(last_key.time):
+                    start_offset = int(kkoo[i].value)
+                    break
+            
+            # Sequences define clips while groups define visibility spans.
+            # Update the time to be relative to the start of the clip, taking offset into account.
+            if layer.animation.timeline:
+                local_time = local_time - int(last_key.time) + start_offset
+        
+            # Handle base animation looping.
+            # For sequence layers the base animation is defined by the loop point.
+            # For paint layers the base animation is the drawing sequence.
+            looping = layer.animation.max_repeat_count == 0
+            duration = int(layer.animation.duration)
+            if layer.type == "Paint":
+                frames_count = len(layer.implementation.frames)
+                duration = int((frames_count / fps) * ticks_per_second)
+                
+            if looping and duration > 0:
+                local_time = int(local_time % duration)
+                
+            #print("layer:", layer.name, "local frame:", int(local_time / ticks_per_second * fps))
+        
+        else:
+            # We are between clips or after the last.
+            #print("layer:", layer.name, "local frame: X")
+            return False, local_time
+        
+    return True, local_time
 
 
 def hide_drawing(drawing_index, frame, drawing_to_obj, hide=True):
