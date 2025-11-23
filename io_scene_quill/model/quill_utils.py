@@ -10,7 +10,7 @@ def create_scene():
     # Create the minimal layer hierarchy.
     root_layer = create_group_layer("Root")
     viewpoint_layer = create_viewpoint_layer("InitialSpawnArea")
-    root_layer.implementation.children.append(viewpoint_layer)
+    root_layer.add_child(viewpoint_layer)
     seq = sequence.Sequence.from_default(root_layer)
     version = 1
     return sequence.QuillScene(seq, version)
@@ -198,6 +198,7 @@ def import_scene(scene_path, qbin_path, include_hidden=True, include_cameras=Tru
         with open(scene_path) as f:
             d = json.load(f)
             scene = sequence.QuillScene.from_dict(d)
+            connect_parents(scene.sequence.root_layer)
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to load JSON: {e}")
     except:
@@ -240,6 +241,14 @@ def export_scene(folder_path, scene, state):
     write_json(state.to_dict(), folder_path, "State.json")
 
 
+def connect_parents(layer_group):
+    """Recursively assign the parent."""
+    for child in layer_group.implementation.children:
+        if child.type == "Group":
+            connect_parents(child)
+        child.parent = layer_group
+    
+    
 def bbox_empty():
     # Makes a bounding box initialized to reversed inifinity values
     # so the first added point will always update the bounding box.

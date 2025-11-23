@@ -437,6 +437,7 @@ class Layer:
         self.transform = transform
         self.type = type
         self.visible = visible
+        self.parent = None
 
     @staticmethod
     def from_dict(obj):
@@ -528,6 +529,13 @@ class Layer:
         visible = True
         return Layer(animation, b_box_visible, collapsed, implementation, is_model_top_layer, keep_alive, locked, name, opacity, pivot, transform, type, visible)
 
+    def add_child(self, layer):
+        if self.type != "Group":
+            return
+        
+        self.implementation.children.append(layer)
+        layer.parent = self
+
 
 class Sequence:
     def __init__(self, background_color, camera_resolution, default_viewpoint, export_end, export_start, framerate, gallery, metadata, root_layer):
@@ -553,6 +561,7 @@ class Sequence:
         gallery = from_union([Gallery.from_dict, from_none], obj.get("Gallery"))
         metadata = from_union([Metadata.from_dict, from_none], obj.get("Metadata"))
         root_layer = Layer.from_dict(obj.get("RootLayer"))
+        
         return Sequence(background_color, camera_resolution, default_viewpoint, export_end, export_start, framerate, gallery, metadata, root_layer)
 
     def to_dict(self):

@@ -186,7 +186,7 @@ class QuillExporter:
             return
 
         layer.transform = self.get_transform(obj)
-        parent_layer.implementation.children.append(layer)
+        parent_layer.add_child(layer)
 
     def animate_layer(self, layer, obj):
         """Layer level animation with transform key frames."""

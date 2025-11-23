@@ -38,7 +38,7 @@ def convert(obj, config):
         paint_layer = make_paint_layer(gpencil_layer, gpencil_materials, gpencil_stroke_thickness_scale, config)
         if paint_layer is None:
             continue
-        group_layer.implementation.children.append(paint_layer)
+        group_layer.add_child(paint_layer)
 
     return group_layer
 
