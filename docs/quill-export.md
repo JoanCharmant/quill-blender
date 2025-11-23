@@ -50,7 +50,7 @@ Quill generated uv0 (left) vs Smart UV Project (right)
 
 ## Export Animation
 
-The add-on importer generates a mesh for each drawing and then run through the Blender frame range to calculates which drawing should be visible on any particular frame.
+The add-on importer generates a mesh for each drawing and then run through the Blender frame range to calculate which drawing should be visible on any particular frame.
 
 | Feature | Quill FBX | Quill ABC | Add-on importer
 | ------------- |:---:|:---:|:---:|

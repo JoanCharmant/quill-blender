@@ -200,6 +200,10 @@ Behavior when importing paint layers
 - Grease Pencil
 - Curve
 
+**Smart UV Project**
+
+Run Blender Smart UV Project on meshes to generate UVs.
+
 
 
 

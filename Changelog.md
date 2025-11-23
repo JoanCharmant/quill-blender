@@ -5,6 +5,7 @@
 
 Importer
 - Option to import paint layers as Curve objects.
+- Option to generate UVs when importing as Mesh.
 
 Exporter
 - Export Blender Image references to Image layers.
