@@ -56,17 +56,14 @@ The add-on importer generates a mesh for each drawing and then run through the B
 | ------------- |:---:|:---:|:---:|
 | Transform key frames | ❌ | ❌ | ✅
 | Opacity key frames | ❌ | ❌ | ❌
-| Base clip | ⚠️¹ | ✅ | ✅
-| Base clip starting later on the timeline | ❌ | ❌ | ✅
-| Base clip with left-trim | ❌ | ❌ | ✅
-| Base clip with looping | ❌ | ⚠️² | ✅
-| Base clip with spans | ❌ | ❌ | ✅
-| Multiple base clips with different looping length | ❌ | ❌ | ✅
-| Parent folder with spans (hide/show the children) | ❌ | ❌ | ❌
-| Parent sequence starting later on the timeline | ❌ | ❌ | ❌
-| Parent sequence with left-trim | ❌ | ❌ | ❌
-| Parent sequence with looping | ❌ | ❌ | ❌
-| Parent sequence with spans | ❌ | ❌ | ❌
+| Base animation | ⚠️¹ | ✅ | ✅
+| Base animation looping | ❌ | ⚠️² | ✅
+| Clips of the animation | ❌ | ❌ | ✅
+| Parent sequence looping | ❌ | ❌ | ✅
+| Clips in parent sequences | ❌ | ❌ | ✅
+| Clips in parent groups (hide/show children) | ❌ | ❌ | ✅
+| Looping of transform key frames | ❌ | ❌ | ❌
+| Clips with transform key frames | ❌ | ❌ | ❌
 
 
 ¹ Blender loads the exported FBX and creates one mesh per drawing but doesn't animate the visibility so all the frames are visible at the same time.
@@ -99,6 +96,6 @@ In Quill if this is not checked it exports a single four-channel vertex color at
 The add-on doesn't have this option and always creates a single four-channel attribute named "rgba".
 
 
-## Extra features
+## Other assets
 
 The add-on also imports cameras and images.
