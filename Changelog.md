@@ -1,6 +1,13 @@
 # Changelog
 
 
+## 1.3.1
+
+Importer
+- Fix: local time calculation could result in an out of bound error.
+- Fix: non-looping paint layer were always imported as looping.
+- Fix: single-frame paint layer were hidden.
+
 ## 1.3.0
 
 Importer
