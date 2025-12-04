@@ -403,8 +403,9 @@ def animate(drawing_to_obj, layer):
     # Loop through the Blender frames and show the corresponding drawing.
     was_visible = False
     ticks_per_second = 12600
-    fps = scn.render.fps
+    ticks_per_frame = int(ticks_per_second / scn.render.fps)
     active_drawing_index = -1
+    last_frame = len(layer.implementation.frames) - 1
     for frame_target in range(import_start, import_end + 1):
         
         #print("----------------------------------------")
@@ -412,14 +413,15 @@ def animate(drawing_to_obj, layer):
 
         # Convert Blender frame to Quill ticks for easier comparison with key frames.
         # Everything after this point is in Quill time.
-        global_time = int((frame_target + 0.5) / fps * ticks_per_second)
-        visible, local_time = get_local_time(stack, global_time, fps)
+        #global_time = int((frame_target + 0.5) / fps * ticks_per_second)
+        global_time = frame_target * ticks_per_frame
+        visible, local_time = get_local_time(stack, global_time, ticks_per_frame)
 
         if visible:
 
             # We are within an active iteration of the fundamental paint level animation.
             # Convert the time to a frame index
-            frame_source = math.floor((local_time / ticks_per_second * fps) + 0.5)
+            frame_source = min(int(local_time / ticks_per_frame), last_frame)
 
             # Get the actual drawing that should be visible.
             drawing_index = int(layer.implementation.frames[frame_source])
@@ -454,11 +456,10 @@ def animate(drawing_to_obj, layer):
             obj.animation_data_clear()
 
 
-def get_local_time(stack, global_time, fps):
+def get_local_time(stack, global_time, ticks_per_frame):
     
     """Given a global time, compute the local time relatively to the fundamental base frame sequence"""
     
-    ticks_per_second = 12600
     local_time = int(global_time)
     
     # Walk from the root down to the layer and update the local time at each level,
@@ -497,22 +498,26 @@ def get_local_time(stack, global_time, fps):
             
             # Sequences define clips while groups define visibility spans.
             # Update the time to be relative to the start of the clip, taking offset into account.
-            if layer.animation.timeline:
+            if layer.type == "Paint" or layer.animation.timeline:
                 local_time = local_time - int(last_key.time) + start_offset
         
             # Handle base animation looping.
             # For sequence layers the base animation is defined by the loop point.
             # For paint layers the base animation is the drawing sequence.
-            looping = layer.animation.max_repeat_count == 0
-            duration = int(layer.animation.duration)
+            # TODO: handle max repeat count that's not 0 or 1, does Quill support this?
+            looping = False
+            duration = 0
             if layer.type == "Paint":
-                frames_count = len(layer.implementation.frames)
-                duration = int((frames_count / fps) * ticks_per_second)
+                looping = layer.implementation.max_repeat_count == 0
+                duration = len(layer.implementation.frames) * ticks_per_frame
+            else:
+                looping = layer.animation.max_repeat_count == 0
+                duration = int(layer.animation.duration)
                 
             if looping and duration > 0:
                 local_time = int(local_time % duration)
                 
-            #print("layer:", layer.name, "local frame:", int(local_time / ticks_per_second * fps))
+            #print("layer:", layer.name, "local frame:", int(local_time / ticks_per_frame))
         
         else:
             # We are between clips or after the last.
