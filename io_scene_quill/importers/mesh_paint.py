@@ -448,7 +448,7 @@ def animate(drawing_to_obj, layer):
     # If it's a single, always visible drawing, we don't actually need the keyframe so
     # clear up the animation data. It's simpler to do it this way than to try to predict
     # if a keyframe is needed or not due to parent sequences or groups.
-    if len(drawing_to_obj) == 1:
+    if len(drawing_to_obj) == 1 and len(layer.animation.keys.visibility) == 1:
         obj = drawing_to_obj[0]
         if obj.animation_data.action.frame_start == 0 and obj.animation_data.action.frame_end == 0:
             obj.animation_data_clear()
