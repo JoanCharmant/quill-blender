@@ -9,9 +9,8 @@ from .model import quill_utils
 class QuillImporter:
 
     def __init__(self, path, kwargs, operator):
-        self.path = path
+        self.path = os.path.dirname(path)
         self.config = kwargs
-        self.config["path"] = path
 
     def __enter__(self):
         return self
@@ -21,17 +20,10 @@ class QuillImporter:
 
     def import_scene(self, context):
 
-        file_dir = os.path.dirname(self.path)
-        scene_path = os.path.join(file_dir, "Quill.json")
-        qbin_path = os.path.join(file_dir, "Quill.qbin")
-
-        # Check if the files exist.
-        if not os.path.exists(scene_path) or not os.path.exists(qbin_path):
-            raise FileNotFoundError(f"File not found.")
-
+        # Import the Quill scene to memory, including scene graph and drawing data.
         include_hidden = self.config["load_hidden_layers"]
         include_cameras = self.config["load_cameras"]
-        quill_scene = quill_utils.import_scene(scene_path, qbin_path, include_hidden, include_cameras)
+        quill_scene = quill_utils.import_scene(self.path, include_hidden, include_cameras)
 
         # Reset the context.
         # Should we backup and restore afterwards?
@@ -48,10 +40,10 @@ class QuillImporter:
 
         # Import/convert layers to Blender objects.
         root_layer = quill_scene.sequence.root_layer
-        self.import_layer(root_layer, 0)
+        self.import_layer(root_layer, 0, "")
         bpy.context.view_layer.update()
 
-    def import_layer(self, layer, offset, parent_layer=None, parent_obj=None):
+    def import_layer(self, layer, offset, parent_layer=None, parent_obj=None, layer_path=""):
 
         logging.info("Importing Quill layer: %s (%s).", layer.name, layer.type)
 
@@ -61,7 +53,7 @@ class QuillImporter:
             # Since Blender doesn't inherit visibility, hidden layers will be visible.
             # The user can choose to not import these layers at all from the importer configuration.
             bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0, 0, 0))
-            self.setup_obj(layer, parent_layer, parent_obj)
+            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
             self.setup_animation(layer, offset)
 
             # If we are a sequence the times of children are relative to our start point.
@@ -72,7 +64,8 @@ class QuillImporter:
 
             obj = bpy.context.object
             for child in layer.implementation.children:
-                self.import_layer(child, offset, layer, obj)
+                layer_path = layer_path + "/" + layer.name
+                self.import_layer(child, offset, layer, obj, layer_path)
 
             # Apply a 90° rotation on the root object to match Blender coordinate system.
             if parent_layer is None:
@@ -85,7 +78,7 @@ class QuillImporter:
             if self.config["convert_paint"] == "MESH":
                 # Create a container obj and add the drawings to it.
                 bpy.ops.object.empty_add(type='PLAIN_AXES')
-                self.setup_obj(layer, parent_layer, parent_obj)
+                self.setup_obj(layer, parent_layer, parent_obj, layer_path)
                 self.setup_animation(layer, offset)
                 mesh_paint.convert(self.config, bpy.context.object, layer, self.material)
 
@@ -96,29 +89,29 @@ class QuillImporter:
                 else:
                     bpy.ops.object.grease_pencil_add()
 
-                self.setup_obj(layer, parent_layer, parent_obj)
+                self.setup_obj(layer, parent_layer, parent_obj, layer_path)
                 self.setup_animation(layer, offset)
                 gpencil_paint.convert(bpy.context.object, layer)
-                
+
             elif self.config["convert_paint"] == "CURVE":
-                
+
                 curve_data = bpy.data.curves.new(layer.name, type='CURVE')
                 obj = bpy.data.objects.new(layer.name, curve_data)
                 bpy.context.collection.objects.link(obj)
                 bpy.context.view_layer.objects.active = obj
-                self.setup_obj(layer, parent_layer, parent_obj)
+                self.setup_obj(layer, parent_layer, parent_obj, layer_path)
                 self.setup_animation(layer, offset)
                 curve_paint.convert(obj, layer)
 
         elif layer.type == "Viewpoint":
             bpy.ops.object.camera_add()
-            self.setup_obj(layer, parent_layer, parent_obj)
+            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
 
         elif layer.type == "Camera":
             bpy.ops.object.camera_add()
             layer.transform.scale = 1.0
-            self.setup_obj(layer, parent_layer, parent_obj)
+            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
             obj = bpy.context.object
             # FIXME FOV isn't an exact match between Quill and Blender.
@@ -128,20 +121,20 @@ class QuillImporter:
         elif layer.type == "Sound":
             bpy.ops.object.speaker_add()
             layer.transform.scale = 1.0
-            self.setup_obj(layer, parent_layer, parent_obj)
+            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
 
         elif layer.type == "Model":
             bpy.ops.object.empty_add(type='CUBE')
-            self.setup_obj(layer, parent_layer, parent_obj)
+            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
 
         elif layer.type == "Picture":
             bpy.ops.object.empty_add(type='IMAGE')
-            self.setup_obj(layer, parent_layer, parent_obj)
+            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
             obj = bpy.context.object
-            
+
             # Quill stores both the image data and the original path.
             # We just support the path for now, so the image has to be on disk.
             # Note: some characters in the file path may be unsupported like em dash.
@@ -154,7 +147,7 @@ class QuillImporter:
             # Load the image.
             img = bpy.data.images.load(filepath, check_existing=False)
             obj.data = img
-            
+
             # To get the correct size we need to do some shenanigans.
             # This was found by trial and error with images of various aspect ratio.
             # The correct size is twice the aspect ratio for landscape images,
@@ -166,13 +159,19 @@ class QuillImporter:
         else:
             logging.warning("Unsupported Quill layer type: %s", layer.type)
 
-    def setup_obj(self, layer, parent_layer=None, parent_obj=None):
+    def setup_obj(self, layer, parent_layer=None, parent_obj=None, layer_path=""):
         """Basic configuration of the resulting Blender object, common to all layer types."""
         obj = bpy.context.object
         obj.name = layer.name
         obj.parent = parent_obj
         obj.matrix_local = self.get_transform(layer.transform)
         # TODO: pivot.
+
+        # Store link to original Quill project and layer.
+        # This is used during export, to swap back the original Quill data.
+        obj.quill.active = True
+        obj.quill.scene_path = self.path
+        obj.quill.layer_path = layer_path + "/" + layer.name
 
         # Visibility inheritance.
         # In Quill if the parent group is hidden the whole subtree is hidden,

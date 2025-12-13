@@ -3,7 +3,7 @@ bl_info = {
     'name': 'Quill',
     'author': 'Joan Charmant',
     'version': (1, 3, 1),
-    'blender': (3, 6, 0),
+    'blender': (4, 2, 0),
     'location': 'File > Import-Export',
     'description': 'Import-Export Quill scenes',
     'warning': '',
@@ -11,18 +11,24 @@ bl_info = {
     'category': 'Import-Export',
 }
 
-# To support reload properly, try to access a package var, if it's there, reload everything
 if "bpy" in locals():
     import importlib
-    if "export_quill" in locals():
-        importlib.reload(export_quill)
-    if "import_quill" in locals():
-        importlib.reload(import_quill)
+    for mod in [import_quill,
+                export_quill,
+                properties,
+                ]:
+        importlib.reload(mod)
+    print("Add-on Reloaded: Quill")
+else:
+    import bpy
+    from . import (
+        import_quill,
+        export_quill,
+        properties,
+    )
 
-
-import bpy
 from bpy.props import StringProperty, BoolProperty, FloatProperty, IntProperty, EnumProperty
-from bpy_extras.io_utils import ExportHelper, ImportHelper, orientation_helper, axis_conversion
+from bpy_extras.io_utils import ExportHelper, ImportHelper
 
 gp = 'GPENCIL' if bpy.app.version < (4, 3, 0) else 'GREASEPENCIL'
 
@@ -54,7 +60,7 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
             ("CURVE", "Curve", "")),
         description="How paint layers are converted during import",
         default="MESH")
-    
+
     smart_project: BoolProperty(
             name="Smart UV Project",
             description="Creates UVs on meshes by running Smart UV Project at the drawing level.",
@@ -125,7 +131,7 @@ class QUILL_PT_import_paint(bpy.types.Panel):
 
         layout.prop(operator, "convert_paint")
         layout.prop(operator, "smart_project")
-        
+
         # Hide the extra attributes option for now.
         # It will only make sense when we can actually round trip the data.
         #layout.prop(operator, "extra_attributes")
@@ -171,7 +177,7 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         description="Do not create groups without children",
         default=True,
     )
-    
+
     greasepencil_brush_type: EnumProperty(
         name="Brush type",
         items=(("CYLINDER", "Cylinder", ""),
@@ -179,7 +185,7 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         description="Brush type of exported strokes. When using 'Ribbon' the flat side will be facing up.",
         default="CYLINDER",
     )
-    
+
     match_round_caps: BoolProperty(
         name="Match round caps",
         description="Add extra vertices to the end of strokes to match Blender caps. This is only used if the strokes are created with Round caps in the first place.",
@@ -352,6 +358,8 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    properties.register()
+
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
@@ -359,6 +367,8 @@ def register():
 def unregister():
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+
+    properties.unregister()
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

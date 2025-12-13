@@ -174,7 +174,7 @@ def write_qbin_data(layer, qbin):
             offset = hex(qbin.tell())[2:].upper().zfill(8)
             drawing.data_file_offset = offset
             paint.write_drawing_data(drawing.data, qbin)
-            
+
     elif layer.type == "Picture" and layer.implementation.data != None:
         offset = hex(qbin.tell())[2:].upper().zfill(8)
         layer.implementation.data_file_offset = offset
@@ -190,8 +190,15 @@ def write_json(json_obj, folder_path, file_name):
     file.close()
 
 
-def import_scene(scene_path, qbin_path, include_hidden=True, include_cameras=True):
+def import_scene(path, include_hidden=True, include_cameras=True):
     """Load a Quill scene graph and drawing data."""
+
+    scene_path = os.path.join(path, "Quill.json")
+    qbin_path = os.path.join(path, "Quill.qbin")
+
+    # Check if the expected files exist.
+    if not os.path.exists(scene_path) or not os.path.exists(qbin_path):
+        raise FileNotFoundError(f"File not found.")
 
     scene = None
     try:
@@ -226,11 +233,11 @@ def export_scene(folder_path, scene, state):
     # Write qbin file.
     qbin_path = os.path.join(folder_path, "Quill.qbin")
     qbin = open(qbin_path, 'wb')
-    
+
     # Write the 8-byte header.
     qbin.write(struct.pack("<I", 0))
     qbin.write(struct.pack("<I", 0))
-    
+
     # Write the data.
     # This will also update the data_file_offset fields in the drawing data.
     write_qbin_data(scene.sequence.root_layer, qbin)
@@ -241,14 +248,38 @@ def export_scene(folder_path, scene, state):
     write_json(state.to_dict(), folder_path, "State.json")
 
 
+def get_layer(scene, layer_path):
+    """Get a layer by its path in the scene graph."""
+
+    parts = layer_path.split("/")
+
+    # Remove empty and root parts.
+    parts = parts[2:]
+
+    current_layer = scene.sequence.root_layer
+    for part in parts:
+        found = False
+        if current_layer.type != "Group":
+            return None
+        for child in current_layer.implementation.children:
+            if child.name == part:
+                current_layer = child
+                found = True
+                break
+        if not found:
+            return None
+
+    return current_layer
+
+
 def connect_parents(layer_group):
     """Recursively assign the parent."""
     for child in layer_group.implementation.children:
         if child.type == "Group":
             connect_parents(child)
         child.parent = layer_group
-    
-    
+
+
 def bbox_empty():
     # Makes a bounding box initialized to reversed inifinity values
     # so the first added point will always update the bounding box.

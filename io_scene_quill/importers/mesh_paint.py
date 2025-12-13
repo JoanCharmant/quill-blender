@@ -10,6 +10,9 @@ def convert(config, parent_obj, layer, material):
     if drawings is None or len(drawings) == 0:
         return
 
+    # Mark the parent as a paint layer for export.
+    parent_obj.quill.paint_layer = True
+
     # Load all drawings into mesh objects.
     # Note: empty frames still have a drawing pointer, just no strokes.
     index = 0
@@ -23,6 +26,12 @@ def convert(config, parent_obj, layer, material):
         drawing_to_obj[index] = obj
         bpy.context.collection.objects.link(obj)
         bpy.context.view_layer.objects.active = obj
+
+        # Remember the original drawing source for export.
+        obj.quill.active = True
+        obj.quill.scene_path = parent_obj.quill.scene_path
+        obj.quill.layer_path = parent_obj.quill.layer_path
+        obj.quill.drawing_index = index
 
         # Load the drawing data into the mesh.
         # The extra attributes besides rgba are only added if the option is enabled.
@@ -48,7 +57,7 @@ def convert(config, parent_obj, layer, material):
         mesh.from_pydata(vertices, edges, faces)
         assign_attributes(config, mesh, attributes)
         mesh.materials.append(material)
-        
+
         # Run Smart UV project on the mesh.
         if config["smart_project"]:
             bpy.ops.object.editmode_toggle()
@@ -270,16 +279,7 @@ def animate(drawing_to_obj, layer):
 
     #--------------------------------------------------------------
     # Animation of the paint layer.
-    # This covers multiple concepts:
-    # - Frame by frame animation (multi-drawing layer)
-    # - Looping (max_repeat_count)
-    # - Spans (in and out points)
-    # - Left-trimming a span (offset)
-    # - Spans and offset of the parent groups, recursively all the way to the root.
-    # - Sequences vs Groups, and sequence looping.
-    # - Frame rate
-    # - Frame range
-    # We treat everything here because Blender empty objects aren't a good match for Quill groups,
+    # We treat everything here because Blender empty objects aren't a good match for Quill groups
     # as they don't inherit visibility and there is no concept of offsetting.
     # So all the visibility information from parent groups is baked into the children.
     #--------------------------------------------------------------
@@ -324,17 +324,18 @@ def animate(drawing_to_obj, layer):
 
     # Quill animation.
 
-    # 1. Base animation. 
+    # 1. Base animation.
     # The lowest level is the basic sequence of drawings, for frame by frame animation. 
     # Quill format uses a fully expanded frame list pointing to the drawing indices.
     # The drawings are not necessarily stored in order of apparition in the timeline.
     # Example framelist: [2, 2, 2, 0, 1, 2, 3, 3, 0]
     # This basic animated sequence is what gets exported by Quill's Alembic/FBX exporter.
-    # The base sequence can either be looping or open-ended.
+
+    # 1.1 The base animation can either be looping or open-ended.
 
     # 2. Clips or Spans.
     # Each clip is like an independent window over an infinite series of the base animation.
-    # These let us stop and restart the base animation sequence.
+    # These let us stop and restart the base animation.
     # The length of a clip may be a fractional number of iterations of the base animation.
     # This is controlled by in and out points, the [ and ] icons in Quill.
     # https://www.youtube.com/watch?v=1w0wk2Sjih0
@@ -352,19 +353,19 @@ def animate(drawing_to_obj, layer):
     # In theory there should be one offset key frame for each in-point.
     # The value of the offset key frame is a time, not a frame index.
 
-    # 4. Group layers marked as "sequences" (timelines).
+    # 4. Group layers can be marked as "sequences" (timelines).
     # These define their own base animation via a loop-point.
     # This base animation can be looping or open-ended.
     # Then we can create clips of that base animation, with offsets.
-    
+
     # 5. For normal groups (not sequences), the in and out points define visibility spans only.
     # They do not restart the underlying animation.
     # It looks like the UI still treats them as clips, you can select, delete and trim them.
     # Grabbing and moving a clip on a normal group does weird things.
-    
-    # 6. The base animation can also have transform key frames and when we loop it or 
-    # create clips out of it, the transform should respect the clipping logic.
-    
+
+    # 6. The base animation (on paint layers or sequences) can also have transform key frames
+    # when we loop it or create clips out of it, the transform should respect the clipping logic.
+
     # None of these concepts exist in Blender.
     # We bake all the visibility information into the drawings themselves.
     # This is done by keyframing the hide_viewport and hide_render properties.
@@ -372,7 +373,7 @@ def animate(drawing_to_obj, layer):
 
     # Points unclear:
     # - StartOffset property. This seems redundant with the first offset key frame.
-    
+
     # There are three cases:
     # - single drawing layer: treated as an infinite loop.
     # - multi-drawing layer without loop.
@@ -407,13 +408,12 @@ def animate(drawing_to_obj, layer):
     active_drawing_index = -1
     last_frame = len(layer.implementation.frames) - 1
     for frame_target in range(import_start, import_end + 1):
-        
+
         #print("----------------------------------------")
         #print("Blender frame:", frame_target)
 
         # Convert Blender frame to Quill ticks for easier comparison with key frames.
         # Everything after this point is in Quill time.
-        #global_time = int((frame_target + 0.5) / fps * ticks_per_second)
         global_time = frame_target * ticks_per_frame
         visible, local_time = get_local_time(stack, global_time, ticks_per_frame)
 
@@ -457,11 +457,11 @@ def animate(drawing_to_obj, layer):
 
 
 def get_local_time(stack, global_time, ticks_per_frame):
-    
+
     """Given a global time, compute the local time relatively to the fundamental base frame sequence"""
-    
+
     local_time = int(global_time)
-    
+
     # Walk from the root down to the layer and update the local time at each level,
     # based on clips, offsets, and looping of the fundamental animation.
     # At each layer we calculate the time within the fundamental animation sequence, not the clip.
@@ -469,11 +469,11 @@ def get_local_time(stack, global_time, ticks_per_frame):
     # A single layer can have multiple clips each with its own duration and offset.
     # If we are invisible at a given level we bail out early since no drawing will be visible underneath.
     for i in range(len(stack) - 1, -1, -1):
-        
+
         layer = stack[i]
         kkvv = layer.animation.keys.visibility
         kkoo = layer.animation.keys.offset
-        
+
         # Find the key before the current time.
         last_key = None
         for i in range(len(kkvv)):
@@ -485,22 +485,22 @@ def get_local_time(stack, global_time, ticks_per_frame):
         # Bail out if we are before the first key.
         if last_key is None:
             return False, local_time
-        
+
         if last_key.value:
             # We are inside a clip or a visibility span.
-            
+
             # Check if there is an offset key matching the in-point.
             start_offset = 0
             for i in range(len(kkoo)):
                 if kkoo[i].time == int(last_key.time):
                     start_offset = int(kkoo[i].value)
                     break
-            
+
             # Sequences define clips while groups define visibility spans.
             # Update the time to be relative to the start of the clip, taking offset into account.
             if layer.type == "Paint" or layer.animation.timeline:
                 local_time = local_time - int(last_key.time) + start_offset
-        
+
             # Handle base animation looping.
             # For sequence layers the base animation is defined by the loop point.
             # For paint layers the base animation is the drawing sequence.
@@ -513,17 +513,17 @@ def get_local_time(stack, global_time, ticks_per_frame):
             else:
                 looping = layer.animation.max_repeat_count == 0
                 duration = int(layer.animation.duration)
-                
+
             if looping and duration > 0:
                 local_time = int(local_time % duration)
-                
+
             #print("layer:", layer.name, "local frame:", int(local_time / ticks_per_frame))
-        
+
         else:
             # We are between clips or after the last.
             #print("layer:", layer.name, "local frame: X")
             return False, local_time
-        
+
     return True, local_time
 
 

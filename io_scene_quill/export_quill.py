@@ -15,8 +15,8 @@ class QuillExporter:
         self.operator = operator
         self.scene = bpy.context.scene
         self.config = kwargs
-        self.config["path"] = path
 
+        self.original_quill_scenes = {}
         self.quill_scene = None
         self.quill_state = None
         self.quill_qbin = None
@@ -63,7 +63,7 @@ class QuillExporter:
             memo_edit_mode = True
             bpy.ops.object.editmode_toggle()
 
-        # Decide which objects to export.
+        # Loop through the Blender objects and decide which objects to export.
         for obj in self.scene.objects:
             if obj in self.exporting_objects:
                 continue
@@ -72,7 +72,7 @@ class QuillExporter:
 
         logging.info("Exporting %d objects", len(self.exporting_objects))
 
-        # Loop over all objects in the scene and export them.
+        # Loop through the Blender objects and export them.
         root_layer = self.quill_scene.sequence.root_layer
         for obj in self.scene.objects:
             if obj in self.exporting_objects and obj.parent is None:
@@ -91,7 +91,7 @@ class QuillExporter:
         # We then have a second pass at the end to remove empty groups if needed.
         if obj.type != "EMPTY" and obj.type not in self.config["object_types"]:
             return False
-        
+
         if obj.type == "EMPTY" and obj.empty_display_type == "IMAGE" and "IMAGE" not in self.config["object_types"]:
             return False
 
@@ -114,7 +114,7 @@ class QuillExporter:
             return
 
         logging.info("Exporting Blender object: %s", obj.name)
-        
+
         # Note: Quill only supports uniform scaling.
         # If the object has non-uniform scaling the user should have manually applied scale before export.
         # The rest of the code will assume the scale is uniform and use scale[0] as a proxy.
@@ -125,35 +125,73 @@ class QuillExporter:
         bpy.context.view_layer.objects.active = obj
 
         if obj.type == "EMPTY":
-            
+
             if obj.empty_display_type == "IMAGE":
                 # Special case for Image empties.
-                
+
                 # Bail out if the image is not loaded or invalid.
                 if obj.data == None or obj.data.size[1] == 0:
                     return
-                
+
                 layer = picture.convert(obj, self.config)
                 self.setup_layer(layer, obj, parent_layer)
-                
+
             else:
+
                 # Normal case: create a group layer for the empty.
                 # Skip it if it's going to create an empty group and the user doesn't want that.
                 if len(obj.children) == 0 and self.config["use_non_empty"]:
                     return
 
+                # TODO: check if this empty was created from a paint layer.
+                # In that case we might rebuild the paint layer from the contained objects.
+
                 # Make a group and process the children recursively.
                 layer = quill_utils.create_group_layer(obj.name)
                 self.setup_layer(layer, obj, parent_layer)
                 self.animate_layer(layer, obj)
-
                 for child in obj.children:
                     self.export_object(child, layer)
 
         elif obj.type == "MESH":
-            layer = paint_wireframe.convert(obj, self.config)
-            self.setup_layer(layer, obj, parent_layer)
-            self.animate_layer(layer, obj)
+
+            # Check if this object was imported from Quill and swap back the original data if so.
+            if obj.quill.active:
+
+                # Since we are on a mesh object this should be either a single drawing from a paint layer or
+                # a Keymesh object with multiple drawings inside.
+
+                # Load original Quill scene if not already done.
+                scene_path = obj.quill.scene_path
+                if scene_path in self.original_quill_scenes:
+                    original_quill_scene = self.original_quill_scenes[scene_path]
+                else:
+                    original_quill_scene = quill_utils.import_scene(scene_path)
+                    if original_quill_scene is None:
+                        logging.warning("Could not load original Quill scene at %s for object %s", scene_path, obj.name)
+                        return
+
+                    self.original_quill_scenes[scene_path] = original_quill_scene
+
+                # Get original Quill layer.
+                layer_path = obj.quill.layer_path
+                original_layer = quill_utils.get_layer(original_quill_scene, layer_path)
+
+                layer = quill_utils.create_paint_layer(obj.name)
+
+                # TODO: Check if it's a Keymesh object and export all blocks.
+                #if hasattr(obj, "keymesh") and obj.keymesh.active:
+                # otherwise  create a layer with a single drawing in it.
+                original_drawing = original_layer.implementation.drawings[obj.quill.drawing_index]
+                layer.implementation.drawings.append(original_drawing)
+            else:
+                # If not imported from Quill convert the mesh to a wireframe.
+                # TODO: if this is a keymesh object we could also export an animated wireframe.
+                layer = paint_wireframe.convert(obj, self.config)
+
+            if layer is not None:
+                self.setup_layer(layer, obj, parent_layer)
+                self.animate_layer(layer, obj)
 
         elif obj.type == "CAMERA":
             layer = quill_utils.create_camera_layer(obj.name)
@@ -204,22 +242,22 @@ class QuillExporter:
         time_base = 12600
 
         memo_current_frame = scn.frame_current
-        
+
         # At this point we don't know if there will be any key frames to create.
         # We always create the first one to make sure we initialize it correctly in case there are others.
         # We'll remove it at the end if it turns out it's the only one and the layer-level transform is enough.
         previous_matrix_local = None
 
         # Transform key frames.
-        kktt = layer.animation.keys.transform
+        kktt = layer.animation.keys.transform or []
         for frame in range(frame_start, frame_end + 1):
 
             scn.frame_set(frame)
-            
+
             # Only create a kf if we have moved.
             # Perform the check on the Blender transform to minimize precision issues.
-            # It's not clear what the epsilon of matrix equality is in Blender, but it doesn't work for the local 
-            # matrix of an object parented to a moving empty. The local matrix keeps changing when it shouldn't. 
+            # It's not clear what the epsilon of matrix equality is in Blender, but it doesn't work for the local
+            # matrix of an object parented to a moving empty. The local matrix keeps changing when it shouldn't.
             # Using 1e-5 seems to work.
             epsilon = 1e-5
             if previous_matrix_local == None or not utils.transform_equals(obj.matrix_local, previous_matrix_local, epsilon):
@@ -246,19 +284,19 @@ class QuillExporter:
 
     def get_transform(self, obj):
         """Get the object's transform at the current frame, in Quill space."""
-        
+
         if obj.type == "EMPTY" and obj.empty_display_type == "IMAGE":
-            
+
             # Blender identity pose for images is on the front plane.
             mat = obj.matrix_local @ mathutils.Matrix.Rotation(radians(90), 4, 'X')
             translation, rotation, scale, flip = utils.convert_transform(mat)
-            
+
             # On Blender side, images have a display size independent of the scale.
             # For landscape the unit quad is mapped to the width, for portrait to the height.
-            # On Quill side, images are mapped to quads of size 2x2 and it's always 
+            # On Quill side, images are mapped to quads of size 2x2 and it's always
             # the height that drives the aspect ratio.
             # Heuristic
-            # - if the image is square or portrait, it's the same model as Quill, 
+            # - if the image is square or portrait, it's the same model as Quill,
             # so we just have to scale by the display size and divide by 2.
             # - if the image is landscape, we also need to scale by 1/aspect.
 
@@ -269,22 +307,22 @@ class QuillExporter:
                  scale_factor /= aspect
 
             scale_factor *= 0.5
-            
+
             scale *= scale_factor
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
         elif obj.type == "CAMERA":
-            
+
             # Blender identity pose for cameras looks down.
             # Rotate by 90° around X axis to match Quill.
             mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
             translation, rotation, scale, flip = utils.convert_transform(mat)
-            
+
             # Apply extra scale based on the "display size" of the camera
             # Camera > Viewport Display > Size (cm).
             scale *= obj.data.display_size
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
-        
+
         else:
             translation, rotation, scale, flip = utils.convert_transform(obj.matrix_local)
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
