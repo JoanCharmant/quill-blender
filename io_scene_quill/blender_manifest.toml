@@ -1,0 +1,38 @@
+schema_version = "1.0.0"
+
+id = "quill"
+version = "1.3.1"
+name = "Quill Import/Export"
+tagline = "Import and export Quill VR illustrations and animations"
+maintainer = "Joan Charmant"
+type = "add-on"
+website = "https://github.com/JoanCharmant/quill-blender"
+
+# # Optional: tag list defined by Blender and server, see:
+# # https://docs.blender.org/manual/en/dev/advanced/extensions/tags.html
+tags = ["Import-Export"]
+
+blender_version_min = "4.2.0"
+blender_version_max = "5.0.0"
+
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+
+# # Optional: add-ons can list which resources they will require:
+# # * files (for access of any filesystem operations)
+# # * network (for internet access)
+# # * clipboard (to read and/or write the system clipboard)
+# # * camera (to capture photos and videos)
+# # * microphone (to capture audio)
+# #
+# # If using network, remember to also check `bpy.app.online_access`
+# # https://docs.blender.org/manual/en/dev/advanced/extensions/addons.html#internet-access
+# #
+# # For each permission it is important to also specify the reason why it is required.
+# # Keep this a single short sentence without a period (.) at the end.
+# # For longer explanations use the documentation or detail page.
+#
+[permissions]
+files = "Import/export Quill projects from/to disk"
+
