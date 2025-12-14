@@ -22,16 +22,19 @@ def convert(config, parent_obj, layer, material):
         # Create a new mesh object for this drawing.
         mesh = bpy.data.meshes.new(layer.name + f"_{index}")
         obj = bpy.data.objects.new(mesh.name, mesh)
-        obj.parent = parent_obj
         drawing_to_obj[index] = obj
-        bpy.context.collection.objects.link(obj)
-        bpy.context.view_layer.objects.active = obj
 
         # Remember the original drawing source for export.
         obj.quill.active = True
         obj.quill.scene_path = parent_obj.quill.scene_path
         obj.quill.layer_path = parent_obj.quill.layer_path
         obj.quill.drawing_index = index
+
+        # Parent to the layer object.
+        obj.parent = parent_obj
+        bpy.context.collection.objects.link(obj)
+        bpy.context.view_layer.objects.active = obj
+
 
         # Load the drawing data into the mesh.
         # The extra attributes besides rgba are only added if the option is enabled.
