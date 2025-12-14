@@ -237,9 +237,12 @@ class QuillExporter:
 
             if obj.quill.active:
 
-                # Since we are on a mesh object this should result in a single drawing.
+                # Since we are on an individual mesh object this should result in a single drawing.
                 # This could be a mesh extracted or duplicated out of a paint layer container,
-                # or could be a multi-frame keymesh object (TODO).
+                # or could be a multi-frame Keymesh object (TODO).
+                # Mark the object as "paint layer", this is used later to adjust the transform.
+                obj.quill.paint_layer = True
+
                 # Create a new paint layer.
                 layer = quill_utils.create_paint_layer(obj.name)
 
@@ -393,7 +396,22 @@ class QuillExporter:
             scale *= obj.data.display_size
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
+        elif obj.quill.active and obj.quill.paint_layer:
+            # We want to use any custom transform applied at the layer level in Blender,
+            # but at the same time the drawings inside will be coming from the original Quill layer
+            # without the modification we normally apply during import (90° rotation around X).
+            # To achieve this we apply an extra -90° rotation around X to the transform.
+            # This is applied to layer paint containers and to isolated meshes converted to their own paint layer.
+            # This approach means that every time we import and export we accumulate rotations around X.
+            # The other approach would be to modify the original drawing data on the fly at the vertex level
+            # just to counter the rotation done in `convert_transform`.
+            mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
+            translation, rotation, scale, flip = utils.convert_transform(mat)
+            transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+
         else:
+            # Normal case for groups and leaf objects created in Blender.
+            # This does the normal conversion from Blender to Quill space.
             translation, rotation, scale, flip = utils.convert_transform(obj.matrix_local)
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
