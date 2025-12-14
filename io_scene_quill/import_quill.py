@@ -40,7 +40,7 @@ class QuillImporter:
 
         # Import/convert layers to Blender objects.
         root_layer = quill_scene.sequence.root_layer
-        self.import_layer(root_layer, 0, "")
+        self.import_layer(root_layer, 0)
         bpy.context.view_layer.update()
 
     def import_layer(self, layer, offset, parent_layer=None, parent_obj=None, layer_path=""):
