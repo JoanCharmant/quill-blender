@@ -3,24 +3,27 @@ import math
 import mathutils
 from ..model.paint import BrushType
 
-def convert(config, parent_obj, layer, material):
+def convert(config, parent_obj, layer, material, use_keymesh):
     """Convert a Quill paint layer to a Blender mesh object."""
 
     drawings = layer.implementation.drawings
     if drawings is None or len(drawings) == 0:
         return
 
-    # Mark the parent as a paint layer for export.
+    # Mark the parent as a paint layer, for export.
     parent_obj.quill.paint_layer = True
 
     # Load all drawings into mesh objects.
     # Note: empty frames still have a drawing pointer, just no strokes.
     index = 0
     drawing_to_obj = {}
+    names = {}
     for drawing in drawings:
 
         # Create a new mesh object for this drawing.
-        mesh = bpy.data.meshes.new(layer.name + f"_{index}")
+        name = layer.name + f"_{index}"
+        names[index] = name
+        mesh = bpy.data.meshes.new(name)
         obj = bpy.data.objects.new(mesh.name, mesh)
         drawing_to_obj[index] = obj
 
@@ -30,11 +33,13 @@ def convert(config, parent_obj, layer, material):
         obj.quill.layer_path = parent_obj.quill.layer_path
         obj.quill.drawing_index = index
 
-        # Parent to the layer object.
-        obj.parent = parent_obj
+        # Add to scene and make active.
         bpy.context.collection.objects.link(obj)
         bpy.context.view_layer.objects.active = obj
 
+        # Parent to the layer object.
+        if not use_keymesh:
+            obj.parent = parent_obj
 
         # Load the drawing data into the mesh.
         # The extra attributes besides rgba are only added if the option is enabled.
@@ -70,7 +75,28 @@ def convert(config, parent_obj, layer, material):
 
         index += 1
 
-    animate(drawing_to_obj, layer)
+    # If using keymesh we need to turn the parent layer into a keymesh object
+    # and transfer the data of the drawings into keymesh blocks.
+    if use_keymesh:
+
+        # Add all created drawings to Blender selection.
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in drawing_to_obj.values():
+            obj.select_set(True)
+
+        # Make the parent active as it will be the target of the join.
+        bpy.context.view_layer.objects.active = parent_obj
+
+        # Call the Keymesh "join" operator:
+        # 1. turn the active object into a Keymesh object and add its data as a block,
+        # 2. add all selected object data as blocks.
+        bpy.ops.object.keymesh_join()
+
+        # Remove the parent object data block since it's not needed.
+        parent_obj.keymesh.blocks_active_index = 0
+        bpy.ops.object.keymesh_block_remove()
+
+    animate(drawing_to_obj, layer, use_keymesh, parent_obj, names)
 
 
 def convert_stroke(stroke, vertices, edges, faces, attributes, base_vertex):
@@ -276,9 +302,12 @@ def assign_attributes(config, mesh, attributes):
     #         mesh.attributes["q_w"].data[vert_i].value = attributes["w"][vert_i]
 
 
-def animate(drawing_to_obj, layer):
+def animate(drawing_to_obj, layer, use_keymesh, parent_obj, names):
     # drawing_to_obj: maps the index of the drawing in Quill to the corresponding Blender object.
     # layer: the Quill paint layer.
+    # use_keymesh: whether we are using Keymesh for this paint layer.
+    # parent_obj: the Blender object representing the paint layer.
+    # names: maps the drawing index to its name, for Keymesh indexing.
 
     #--------------------------------------------------------------
     # Animation of the paint layer.
@@ -318,13 +347,19 @@ def animate(drawing_to_obj, layer):
     if layer.implementation.framerate != scn.render.fps:
         scn.render.fps = int(layer.implementation.framerate)
 
+    # For Keymesh we animate the blocks visibility inside the parent keymesh object.
+    # For non-keymesh we animate the visibility of the child objects directly.
+
     # Start by hiding all drawings from the very beginning.
     # We revisit this at the end to remove that keyframe if not really necessary
     # in case of a single, always visible drawing.
-    for i in range(len(drawing_to_obj)):
-        hide_drawing(i, min(scn.frame_start, import_start), drawing_to_obj)
+    # For keymesh this is already the default state.
+    if not use_keymesh:
+        for i in range(len(drawing_to_obj)):
+            hide_drawing(i, min(scn.frame_start, import_start), drawing_to_obj)
 
 
+    #--------------------------------------------------------------
     # Quill animation.
 
     # 1. Base animation.
@@ -435,8 +470,22 @@ def animate(drawing_to_obj, layer):
                 continue
 
             # Change the active drawing.
-            hide_drawing(active_drawing_index, frame_target, drawing_to_obj)
-            show_drawing(drawing_index, frame_target, drawing_to_obj)
+            if use_keymesh:
+
+                # Select the block corresponding to the drawing we want to show.
+                # Since we are still in the setup phase we know the block index matches the drawing index.
+                # After that drawings can be rearranged in the frame picker.
+                parent_obj.keymesh.blocks_active_index = drawing_index
+
+                # Call the "Pick Keymesh Frame" operator.
+                bpy.context.view_layer.objects.active = parent_obj
+                scn.frame_set(frame_target)
+                bpy.ops.object.keymesh_block_keyframe(block=names[drawing_index])
+
+            else:
+                hide_drawing(active_drawing_index, frame_target, drawing_to_obj)
+                show_drawing(drawing_index, frame_target, drawing_to_obj)
+
             active_drawing_index = drawing_index
             was_visible = True
 
@@ -445,7 +494,13 @@ def animate(drawing_to_obj, layer):
             if not was_visible:
                  continue
 
-            hide_drawing(active_drawing_index, frame_target, drawing_to_obj, True)
+            if use_keymesh:
+                # TODO: if use_keymesh we need to hide all blocks which is not possible.
+                # We need to create a blank block and activate it.
+                pass
+            else:
+                hide_drawing(active_drawing_index, frame_target, drawing_to_obj, True)
+
             active_drawing_index = -1
             was_visible = False
 
@@ -453,7 +508,7 @@ def animate(drawing_to_obj, layer):
     # If it's a single, always visible drawing, we don't actually need the keyframe so
     # clear up the animation data. It's simpler to do it this way than to try to predict
     # if a keyframe is needed or not due to parent sequences or groups.
-    if len(drawing_to_obj) == 1 and len(layer.animation.keys.visibility) == 1:
+    if not use_keymesh and len(drawing_to_obj) == 1 and len(layer.animation.keys.visibility) == 1:
         obj = drawing_to_obj[0]
         if obj.animation_data.action.frame_start == 0 and obj.animation_data.action.frame_end == 0:
             obj.animation_data_clear()

@@ -76,11 +76,24 @@ class QuillImporter:
             # Quill paint layers are converted to Mesh objects or Grease Pencil objects.
 
             if self.config["convert_paint"] == "MESH":
-                # Create a container obj and add the drawings to it.
-                bpy.ops.object.empty_add(type='PLAIN_AXES')
+
+                use_keymesh = hasattr(parent_obj, "keymesh")
+
+                if use_keymesh:
+                    # Create the Keymesh mesh.
+                    mesh_data = bpy.data.meshes.new(layer.name)
+                    obj = bpy.data.objects.new(layer.name, mesh_data)
+                    bpy.context.collection.objects.link(obj)
+                    bpy.context.view_layer.objects.active = obj
+                else:
+                    # Create an Empty and drawings will be children of it.
+                    bpy.ops.object.empty_add(type='PLAIN_AXES')
+
                 self.setup_obj(layer, parent_layer, parent_obj, layer_path)
                 self.setup_animation(layer, offset)
-                mesh_paint.convert(self.config, bpy.context.object, layer, self.material)
+
+                # Add the drawings and animate them.
+                mesh_paint.convert(self.config, bpy.context.object, layer, self.material, use_keymesh)
 
             elif self.config["convert_paint"] == "GPENCIL" or self.config["convert_paint"] == "GREASEPENCIL":
 
