@@ -2,6 +2,8 @@ import bpy
 import math
 import mathutils
 from ..model.paint import BrushType
+from ..importers.mesh_keymesh import keymesh_init, keymesh_import, keymesh_keyframe
+
 
 def convert(config, parent_obj, layer, material, use_keymesh):
     """Convert a Quill paint layer to a Blender mesh object."""
@@ -75,26 +77,9 @@ def convert(config, parent_obj, layer, material, use_keymesh):
 
         index += 1
 
-    # If using keymesh we need to turn the parent layer into a keymesh object
-    # and transfer the data of the drawings into keymesh blocks.
     if use_keymesh:
-
-        # Add all created drawings to Blender selection.
-        bpy.ops.object.select_all(action='DESELECT')
-        for obj in drawing_to_obj.values():
-            obj.select_set(True)
-
-        # Make the parent active as it will be the target of the join.
-        bpy.context.view_layer.objects.active = parent_obj
-
-        # Call the Keymesh "join" operator:
-        # 1. turn the active object into a Keymesh object and add its data as a block,
-        # 2. add all selected object data as blocks.
-        bpy.ops.object.keymesh_join()
-
-        # Remove the parent object data block since it's not needed.
-        parent_obj.keymesh.blocks_active_index = 0
-        bpy.ops.object.keymesh_block_remove()
+        keymesh_init(parent_obj)
+        keymesh_import(parent_obj, drawing_to_obj.values())
 
     animate(drawing_to_obj, layer, use_keymesh, parent_obj, names)
 
@@ -471,17 +456,7 @@ def animate(drawing_to_obj, layer, use_keymesh, parent_obj, names):
 
             # Change the active drawing.
             if use_keymesh:
-
-                # Select the block corresponding to the drawing we want to show.
-                # Since we are still in the setup phase we know the block index matches the drawing index.
-                # After that drawings can be rearranged in the frame picker.
-                parent_obj.keymesh.blocks_active_index = drawing_index
-
-                # Call the "Pick Keymesh Frame" operator.
-                bpy.context.view_layer.objects.active = parent_obj
-                scn.frame_set(frame_target)
-                bpy.ops.object.keymesh_block_keyframe(block=names[drawing_index])
-
+                keymesh_keyframe(parent_obj, frame_target, drawing_index)
             else:
                 hide_drawing(active_drawing_index, frame_target, drawing_to_obj)
                 show_drawing(drawing_index, frame_target, drawing_to_obj)
@@ -512,6 +487,9 @@ def animate(drawing_to_obj, layer, use_keymesh, parent_obj, names):
         obj = drawing_to_obj[0]
         if obj.animation_data.action.frame_start == 0 and obj.animation_data.action.frame_end == 0:
             obj.animation_data_clear()
+
+    # Return to start of animation.
+    scn.frame_set(import_start)
 
 
 def get_local_time(stack, global_time, ticks_per_frame):

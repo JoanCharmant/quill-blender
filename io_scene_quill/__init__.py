@@ -2,7 +2,7 @@
 bl_info = {
     'name': 'Quill',
     'author': 'Joan Charmant',
-    'version': (1, 3, 1),
+    'version': (1, 4, 0),
     'blender': (4, 2, 0),
     'location': 'File > Import-Export',
     'description': 'Import-Export Quill scenes',

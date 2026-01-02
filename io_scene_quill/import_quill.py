@@ -80,13 +80,13 @@ class QuillImporter:
                 use_keymesh = hasattr(parent_obj, "keymesh")
 
                 if use_keymesh:
-                    # Create the Keymesh mesh.
+                    # Create the mesh object that will become the Keymesh mesh.
                     mesh_data = bpy.data.meshes.new(layer.name)
                     obj = bpy.data.objects.new(layer.name, mesh_data)
                     bpy.context.collection.objects.link(obj)
                     bpy.context.view_layer.objects.active = obj
                 else:
-                    # Create an Empty and drawings will be children of it.
+                    # Create an Empty that will be the parent of the individual drawings.
                     bpy.ops.object.empty_add(type='PLAIN_AXES')
 
                 self.setup_obj(layer, parent_layer, parent_obj, layer_path)
