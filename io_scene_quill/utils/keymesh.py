@@ -40,11 +40,6 @@ def keymesh_import(parent_obj, drawing_objs):
         block.keymesh["Data"] = index
         block.use_fake_user = True
 
-        # Give the block Quill properties.
-        block.quill.scene_path = obj.quill.scene_path
-        block.quill.layer_path = obj.quill.layer_path
-        block.quill.drawing_index = index
-
         # Assign the block to the parent object.
         block_registry = parent_obj.keymesh.blocks.add()
         block_registry.block = block

@@ -294,14 +294,17 @@ class QuillExporter:
 
         if hasattr(obj, "keymesh") and obj.keymesh.active:
 
-            # Export all Keymesh blocks back as drawings.
+            # Export all Keymesh blocks as the original drawings they were imported from.
             for block_registry in obj.keymesh.blocks:
                 block = block_registry.block
+
+                # Bail out if it wasn't part of the original paint layer (we might handle this in the future).
+                if block.quill.scene_path != obj.quill.scene_path or block.quill.layer_path != obj.quill.layer_path:
+                    logging.warning("Skipping Quill drawing %s not part of original paint layer %s", block.name, obj.name)
+                    continue
+
                 drawing_index = block.quill.drawing_index
-
-                # TODO: validate the block belongs to the original layer.
-
-                if drawing_index is not None:
+                if drawing_index is not None and drawing_index >= 0 and drawing_index < len(original_layer.implementation.drawings):
                     original_drawing = original_layer.implementation.drawings[drawing_index]
                     paint_layer.implementation.drawings.append(original_drawing)
 
@@ -316,7 +319,7 @@ class QuillExporter:
 
             else:
 
-                # The returned frame sequence is sparse while Quill expects a dense frame list.
+                # The returned frame sequence is sparse while Quill needs a dense one.
                 # Fill in the gaps with frame holds.
                 last_frame = frame_sequence[-1][0]
                 current_index = frame_sequence[0][1]
@@ -331,7 +334,7 @@ class QuillExporter:
 
         else:
             # A single mesh imported from Quill but is not a Keymesh object.
-            # This happens when the user manually extracts a drawing from a paint layer Empty.
+            # This happens when the user manually extracts or duplicates a drawing from under a paint layer Empty.
             # Create a paint layer with a single drawing in it.
             original_drawing = original_layer.implementation.drawings[obj.quill.drawing_index]
             paint_layer.implementation.drawings.append(original_drawing)

@@ -31,8 +31,6 @@ def convert(config, parent_obj, layer, material, use_keymesh):
 
         # Remember the original drawing source for export.
         obj.quill.active = True
-        #obj.quill.scene_path = parent_obj.quill.scene_path
-        #obj.quill.layer_path = parent_obj.quill.layer_path
         obj.data.quill.scene_path = parent_obj.quill.scene_path
         obj.data.quill.layer_path = parent_obj.quill.layer_path
         obj.data.quill.drawing_index = index
