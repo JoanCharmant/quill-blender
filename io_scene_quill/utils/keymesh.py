@@ -1,5 +1,6 @@
 import bpy
 import random
+from .fcurves import get_fcurve
 
 
 # Helper functions for Keymesh objects.
@@ -14,50 +15,6 @@ def new_object_id() -> int:
         id = random.randint(1, 1000)
 
     return id
-
-
-def ensure_channelbag(data_block):
-    """
-    Returns the channelbag of f-curves for a given ID, or `None` if the ID doesn't
-    have an animation data, an action, or a slot.
-    """
-
-    anim_data = data_block.animation_data
-    if anim_data is None:
-        return None
-
-    action = anim_data.action
-    if action is None:
-        return None
-    if action.is_empty:
-        return None
-
-    if anim_data.action_slot is None:
-        return None
-
-    from bpy_extras.anim_utils import action_ensure_channelbag_for_slot
-    channelbag = action_ensure_channelbag_for_slot(action, anim_data.action_slot)
-
-    return channelbag
-
-
-def get_fcurve(obj, path: str):
-    """Returns the f-curve with a given data-path from objects action, or `None` if it doesn't exists."""
-
-    if not obj.animation_data or not obj.animation_data.action:
-        return None
-
-    if bpy.app.version >= (5, 0, 0):
-        # Slotted actions check.
-        channelbag = ensure_channelbag(obj)
-        for fcurve in channelbag.fcurves:
-            if fcurve.data_path == path:
-                return fcurve
-    else:
-        # Blender 4.5 LTS or older check.
-        for fcurve in obj.animation_data.action.fcurves:
-            if fcurve.data_path == path:
-                return fcurve
 
 
 def keymesh_init(obj):
@@ -75,20 +32,25 @@ def keymesh_import(parent_obj, drawing_objs):
     """
     Inserts Keymesh blocks for each object in `drawing_objs` and delete the original objects afterwards.
     """
-    block_index = 0
+    index = 0
     for obj in drawing_objs:
         # Give the block Keymesh properties.
         block = obj.data
         block.keymesh["ID"] = parent_obj.keymesh["ID"]
-        block.keymesh["Data"] = block_index
+        block.keymesh["Data"] = index
         block.use_fake_user = True
+
+        # Give the block Quill properties.
+        block.quill.scene_path = obj.quill.scene_path
+        block.quill.layer_path = obj.quill.layer_path
+        block.quill.drawing_index = index
 
         # Assign the block to the parent object.
         block_registry = parent_obj.keymesh.blocks.add()
         block_registry.block = block
         block_registry.name = obj.name
 
-        block_index += 1
+        index += 1
 
     # Delete the individual drawing objects since their data is now in Keymesh blocks.
     bpy.ops.object.select_all(action='DESELECT')
@@ -123,4 +85,21 @@ def keymesh_keyframe(parent_obj, frame, index):
         for kf in fcurve.keyframe_points:
             kf.interpolation = 'CONSTANT'
 
+
+def keymesh_get_frame_sequence(obj):
+    """
+    Returns a list of (frame, drawing_index) tuples for each keyframe in the Keymesh object `obj`.
+    """
+
+    frame_sequence = []
+
+    data_path = 'keymesh["Keymesh Data"]'
+    fcurve = get_fcurve(obj, data_path)
+    if fcurve:
+        for kf in fcurve.keyframe_points:
+            frame = int(kf.co.x)
+            drawing_index = int(kf.co.y)
+            frame_sequence.append((frame, drawing_index))
+
+    return frame_sequence
 

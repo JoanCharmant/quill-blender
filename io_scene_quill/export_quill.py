@@ -6,6 +6,7 @@ import mathutils
 from math import degrees, radians
 from .model import quill_utils, sequence
 from .exporters import paint_armature, paint_gpencil, paint_wireframe, picture, utils
+from .utils.keymesh import keymesh_get_frame_sequence
 
 class QuillExporter:
     """Handles picking what nodes to export and kicks off the export process"""
@@ -127,143 +128,17 @@ class QuillExporter:
         if obj.type == "EMPTY":
 
             if obj.empty_display_type == "IMAGE":
-                # Special case for Image empties.
-
-                # Bail out if the image is not loaded or invalid.
-                if obj.data == None or obj.data.size[1] == 0:
-                    return
-
-                layer = picture.convert(obj, self.config)
-                self.setup_layer(layer, obj, parent_layer)
-
+                self.export_image(obj)
             else:
-                # Bail out if it's going to create an empty group and the user doesn't want that.
-                if len(obj.children) == 0 and self.config["use_non_empty"]:
-                    return
-
-                if obj.quill.active and obj.quill.paint_layer:
-                    # This empty represents a Quill paint layer that was imported as a group of objects.
-                    # Rebuild the paint layer from the contained objects.
-                    paint_layer = quill_utils.create_paint_layer(obj.name)
-                    self.setup_layer(paint_layer, obj, parent_layer)
-                    self.animate_layer(paint_layer, obj)
-
-                    # Get the original Quill layer.
-                    original_quill_scene = self.get_quill_scene(obj)
-                    original_layer = quill_utils.get_layer(original_quill_scene, obj.quill.layer_path)
-
-                    # Loop through contained objects and add their drawings to the paint layer.
-                    # Keep track of which Blender objects were actually added in case there are extra ones.
-                    blender_object_indices = []
-                    for i, child in enumerate(obj.children):
-
-                        # Bail out if the child is not a mesh or not imported from Quill.
-                        if child.type != "MESH" or not child.quill.active:
-                            logging.warning("Skipping non-mesh or non-Quill child %s in paint layer %s", child.name, obj.name)
-                            continue
-
-                        # Bail out if it wasn't part of the original paint layer (we might handle this in the future).
-                        if child.quill.scene_path != obj.quill.scene_path or child.quill.layer_path != obj.quill.layer_path:
-                            logging.warning("Skipping Quill drawing %s not part of original paint layer %s", child.name, obj.name)
-                            continue
-
-                        blender_object_indices.append(i)
-
-                        # Add the drawing to the paint layer.
-                        original_drawing = original_layer.implementation.drawings[child.quill.drawing_index]
-                        paint_layer.implementation.drawings.append(original_drawing)
-
-                    drawing_count = len(paint_layer.implementation.drawings)
-                    if drawing_count == 0:
-                        logging.warning("Paint layer %s has no drawings after export.", obj.name)
-                        return
-
-                    if drawing_count == 1:
-                        # If there is a single frame don't create an animation.
-                        paint_layer.implementation.frames = [0]
-
-                    else:
-                        # Create the animation for the paint layer.
-                        # Note that this isn't a non-descructive round trip, the looping flag and clips
-                        # have been collapsed into a single frame list during import.
-                        scn = bpy.context.scene
-                        frame_start = scn.frame_start
-                        frame_end = scn.frame_end
-                        paint_layer.implementation.frames = []
-                        for frame in range(frame_start, frame_end + 1):
-                            scn.frame_set(frame)
-
-                            # Determine which drawing is visible at this frame.
-                            # We assume at most one drawing is visible at a time and stop at the first one we find.
-                            blender_drawing_index = -1
-                            for i, child in enumerate(obj.children):
-                                if child.visible_get() and i in blender_object_indices:
-                                    blender_drawing_index = i
-                                    break
-
-                            # If no suitable drawing is visible, use the special empty drawing.
-                            # This may happen when the original Quill layer or parents have clips that
-                            # start after frame 0 or there are gaps between the clips.
-                            # Normally we can't rebuild a base animation with gaps, but we can
-                            # create a special empty drawing to represent those gaps.
-                            quill_drawing_index = -1
-                            if blender_drawing_index == -1:
-                                # TODO: check if we already added the empty drawing to the paint layer.
-                                # add it if not, and set the visible_drawing_index to it.
-                                # empty_drawing = quill_utils.create_empty_drawing()
-                                # paint_layer.implementation.drawings.append(empty_drawing)
-                                # visible_drawing_index = drawing_count
-                                # drawing_count += 1
-                                pass
-                            else:
-                                # We found a visible drawing on this frame.
-                                # Map from blender child index to Quill drawing index.
-                                quill_drawing_index = obj.children[blender_drawing_index].quill.drawing_index
-
-                            # Set the drawing index for this frame.
-                            paint_layer.implementation.frames.append(quill_drawing_index)
-
-                else:
-                    # Otherwise it's a normal Empty, representing a group or sequence.
-                    # Either imported from Quill or created in Blender.
-                    # Make a group layer and process the children recursively.
-                    layer = quill_utils.create_group_layer(obj.name)
-                    self.setup_layer(layer, obj, parent_layer)
-                    self.animate_layer(layer, obj)
-                    for child in obj.children:
-                        self.export_object(child, layer)
+                self.export_empty(obj, parent_layer)
 
         elif obj.type == "MESH":
 
             if obj.quill.active:
-
-                # Since we are on an individual mesh object this should result in a single drawing.
-                # This could be a mesh extracted or duplicated out of a paint layer container,
-                # or could be a multi-frame Keymesh object (TODO).
-                # Mark the object as "paint layer", this is used later to adjust the transform.
-                obj.quill.paint_layer = True
-
-                # Create a new paint layer.
-                layer = quill_utils.create_paint_layer(obj.name)
-
-                # Get the original Quill layer.
-                original_quill_scene = self.get_quill_scene(obj)
-                original_layer = quill_utils.get_layer(original_quill_scene, obj.quill.layer_path)
-
-                # TODO: Check if it's a Keymesh object and export all blocks as drawings,
-                # then recreate the base animation.
-                #if hasattr(obj, "keymesh") and obj.keymesh.active:
-                # otherwise  create a layer with a single drawing in it.
-                original_drawing = original_layer.implementation.drawings[obj.quill.drawing_index]
-                layer.implementation.drawings.append(original_drawing)
+                self.export_mesh_quill(obj, parent_layer)
             else:
-                # If not imported from Quill convert the mesh to a wireframe.
-                # TODO: if this is a keymesh object we could also export an animated wireframe.
-                layer = paint_wireframe.convert(obj, self.config)
+                self.export_mesh_wireframe(obj, parent_layer)
 
-            if layer is not None:
-                self.setup_layer(layer, obj, parent_layer)
-                self.animate_layer(layer, obj)
 
         elif obj.type == "CAMERA":
             layer = quill_utils.create_camera_layer(obj.name)
@@ -288,6 +163,193 @@ class QuillExporter:
             self.setup_layer(layer, obj, parent_layer)
 
         bpy.context.view_layer.objects.active = memo_active
+
+    def export_image(self, obj, parent_layer):
+
+        # Bail out if the image is not loaded or invalid.
+        if obj.data == None or obj.data.size[1] == 0:
+            return
+
+        layer = picture.convert(obj, self.config)
+        self.setup_layer(layer, obj, parent_layer)
+
+    def export_empty(self, obj, parent_layer):
+
+        # Bail out if it's going to create an empty group and the user doesn't want that.
+        if len(obj.children) == 0 and self.config["use_non_empty"]:
+            return
+
+        if obj.quill.active and obj.quill.paint_layer:
+            self.export_empty_as_paint_layer(obj, parent_layer)
+        else:
+            # Otherwise it's a normal Empty, representing a group or sequence.
+            # Either imported from Quill or created in Blender.
+            # Make a group layer and process the children recursively.
+            layer = quill_utils.create_group_layer(obj.name)
+            self.setup_layer(layer, obj, parent_layer)
+            self.animate_layer(layer, obj)
+            for child in obj.children:
+                self.export_object(child, layer)
+
+    def export_empty_as_paint_layer(self, obj, parent_layer):
+
+        # This empty represents a Quill paint layer that was imported as a group of objects.
+        # Rebuild the paint layer from the contained objects.
+        paint_layer = quill_utils.create_paint_layer(obj.name)
+        self.setup_layer(paint_layer, obj, parent_layer)
+        self.animate_layer(paint_layer, obj)
+
+        # Get the original Quill layer.
+        original_quill_scene = self.get_quill_scene(obj)
+        original_layer = quill_utils.get_layer(original_quill_scene, obj.quill.layer_path)
+
+        # Loop through contained objects and add their drawings to the paint layer.
+        # Keep track of which Blender objects were actually added in case there are extra ones.
+        blender_object_indices = []
+        for i, child in enumerate(obj.children):
+
+            # Bail out if the child is not a mesh or not imported from Quill.
+            if child.type != "MESH" or not child.quill.active:
+                logging.warning("Skipping non-mesh or non-Quill child %s in paint layer %s", child.name, obj.name)
+                continue
+
+            # Bail out if it wasn't part of the original paint layer (we might handle this in the future).
+            if child.quill.scene_path != obj.quill.scene_path or child.quill.layer_path != obj.quill.layer_path:
+                logging.warning("Skipping Quill drawing %s not part of original paint layer %s", child.name, obj.name)
+                continue
+
+            blender_object_indices.append(i)
+
+            # Add the drawing to the paint layer.
+            original_drawing = original_layer.implementation.drawings[child.quill.drawing_index]
+            paint_layer.implementation.drawings.append(original_drawing)
+
+        drawing_count = len(paint_layer.implementation.drawings)
+        if drawing_count == 0:
+            logging.warning("Paint layer %s has no drawings after export.", obj.name)
+            return
+
+        if drawing_count == 1:
+            # If there is a single frame don't create an animation.
+            paint_layer.implementation.frames = [0]
+
+        else:
+            # Create the animation for the paint layer.
+            # Note that this is not a non-descructive round trip, the looping flag and clips
+            # have been collapsed into a single frame list during import.
+            scn = bpy.context.scene
+            frame_start = scn.frame_start
+            frame_end = scn.frame_end
+            paint_layer.implementation.frames = []
+            for frame in range(frame_start, frame_end + 1):
+                scn.frame_set(frame)
+
+                # Determine which drawing is visible at this frame.
+                # We assume at most one drawing is visible at a time and stop at the first one we find.
+                blender_drawing_index = -1
+                for i, child in enumerate(obj.children):
+                    if child.visible_get() and i in blender_object_indices:
+                        blender_drawing_index = i
+                        break
+
+                # If no suitable drawing is visible, use the special empty drawing.
+                # This may happen when the original Quill layer or parents have clips that
+                # start after frame 0 or there are gaps between the clips.
+                # Normally we can't rebuild a base animation with gaps, but we can
+                # create a special empty drawing to represent those gaps.
+                quill_drawing_index = -1
+                if blender_drawing_index == -1:
+                    # TODO: check if we already added the empty drawing to the paint layer.
+                    # add it if not, and set the visible_drawing_index to it.
+                    # empty_drawing = quill_utils.create_empty_drawing()
+                    # paint_layer.implementation.drawings.append(empty_drawing)
+                    # visible_drawing_index = drawing_count
+                    # drawing_count += 1
+                    pass
+                else:
+                    # We found a visible drawing on this frame.
+                    # Map from blender child index to Quill drawing index.
+                    quill_drawing_index = obj.children[blender_drawing_index].quill.drawing_index
+
+                # Set the drawing index for this frame.
+                paint_layer.implementation.frames.append(quill_drawing_index)
+
+    def export_mesh_quill(self, obj, parent_layer):
+
+        # Export a mesh object that is marked as imported from Quill.
+        # This could be:
+        # - a Keymesh object containing drawings as blocks.
+        # - a single mesh extracted or duplicated out of a paint layer group container,
+
+        # Mark the object as a "paint layer" if it's not already.
+        # This is used later to export the transform.
+        obj.quill.paint_layer = True
+
+        # Create a new paint layer.
+        paint_layer = quill_utils.create_paint_layer(obj.name)
+
+        # Get the original Quill layer.
+        original_quill_scene = self.get_quill_scene(obj)
+        original_layer = quill_utils.get_layer(original_quill_scene, obj.quill.layer_path)
+
+        if hasattr(obj, "keymesh") and obj.keymesh.active:
+
+            # Export all Keymesh blocks back as drawings.
+            for block_registry in obj.keymesh.blocks:
+                block = block_registry.block
+                drawing_index = block.quill.drawing_index
+
+                # TODO: validate the block belongs to the original layer.
+
+                if drawing_index is not None:
+                    original_drawing = original_layer.implementation.drawings[drawing_index]
+                    paint_layer.implementation.drawings.append(original_drawing)
+
+            # Recreate the base animation from the Blender keyframes.
+            # Note that this is not a non-descructive round trip, the looping flag and clips
+            # have been collapsed into a single frame list during import.
+            frame_sequence = keymesh_get_frame_sequence(obj)
+
+            if len(frame_sequence) < 2:
+                # No animation.
+                paint_layer.implementation.frames = [0]
+
+            else:
+
+                # The returned frame sequence is sparse while Quill expects a dense frame list.
+                # Fill in the gaps with frame holds.
+                last_frame = frame_sequence[-1][0]
+                current_index = frame_sequence[0][1]
+                paint_layer.implementation.frames.clear()
+                for frame in range(0, last_frame + 1):
+                    # Update the current drawing index if we have a keyframe at this frame otherwise hold.
+                    for kf in frame_sequence:
+                        if kf[0] == frame:
+                            current_index = kf[1]
+                            break
+                    paint_layer.implementation.frames.append(current_index)
+
+        else:
+            # A single mesh imported from Quill but is not a Keymesh object.
+            # This happens when the user manually extracts a drawing from a paint layer Empty.
+            # Create a paint layer with a single drawing in it.
+            original_drawing = original_layer.implementation.drawings[obj.quill.drawing_index]
+            paint_layer.implementation.drawings.append(original_drawing)
+            paint_layer.implementation.frames = [0]
+
+        # Finalize the paint layer.
+        if paint_layer is not None:
+            self.setup_layer(paint_layer, obj, parent_layer)
+            self.animate_layer(paint_layer, obj)
+
+    def export_mesh_wireframe(self, obj, parent_layer):
+
+        # TODO: if this is a keymesh object we could also export an animated wireframe.
+        layer = paint_wireframe.convert(obj, self.config)
+
+        if layer is not None:
+            self.setup_layer(layer, obj, parent_layer)
+            self.animate_layer(layer, obj)
 
     def setup_layer(self, layer, obj, parent_layer):
         """Common setup for all layers."""

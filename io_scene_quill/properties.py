@@ -3,9 +3,18 @@ import bpy
 
 class OBJECT_PG_quill(bpy.types.PropertyGroup):
 
+    # OBJECT-level PROPERTIES
+
     # True if the object was created from a Quill layer.
     active: bpy.props.BoolProperty(
         name = "Quill Object",
+        options = set(),
+        default = False,
+    )
+
+    # True for objects created from Quill paint layers.
+    paint_layer: bpy.props.BoolProperty(
+        name = "Paint Layer",
         options = set(),
         default = False,
     )
@@ -22,14 +31,30 @@ class OBJECT_PG_quill(bpy.types.PropertyGroup):
         name = "Path to Layer",
     )
 
-    # True for objects created from Quill paint layers.
-    paint_layer: bpy.props.BoolProperty(
-        name = "Paint Layer",
-        options = set(),
-        default = False,
+    # Set on mesh objects created from individual drawings.
+    # drawing_index: bpy.props.IntProperty(
+    #     name = "Drawing Index",
+    #     options = set(),
+    #     default = 0,
+    # )
+
+
+class DATA_PG_quill(bpy.types.PropertyGroup):
+    # DATA-level PROPERTIES
+
+    # File system path to the Quill scene project folder this drawing comes from.
+    scene_path: bpy.props.StringProperty(
+        name = "Path to Quill Scene",
+        subtype = 'FILE_PATH',
+        options = {'PATH_SUPPORTS_BLEND_RELATIVE'},
     )
 
-    # Set on mesh objects created from individual drawings.
+    # Internal path to the layer containing the drawing this mesh was imported from.
+    layer_path: bpy.props.StringProperty(
+        name = "Path to Layer",
+    )
+
+    # Index of the drawing this mesh was imported from.
     drawing_index: bpy.props.IntProperty(
         name = "Drawing Index",
         options = set(),
@@ -39,8 +64,12 @@ class OBJECT_PG_quill(bpy.types.PropertyGroup):
 
 def register():
     bpy.utils.register_class(OBJECT_PG_quill)
+    bpy.utils.register_class(DATA_PG_quill)
     bpy.types.Object.quill = bpy.props.PointerProperty(type=OBJECT_PG_quill, name="Quill")
+    bpy.types.Mesh.quill = bpy.props.PointerProperty(type=DATA_PG_quill, name="Quill")
 
 def unregister():
+    bpy.utils.unregister_class(DATA_PG_quill)
     bpy.utils.unregister_class(OBJECT_PG_quill)
     del bpy.types.Object.quill
+    del bpy.types.Mesh.quill
