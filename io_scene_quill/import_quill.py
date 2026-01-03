@@ -53,7 +53,7 @@ class QuillImporter:
             # Since Blender doesn't inherit visibility, hidden layers will be visible.
             # The user can choose to not import these layers at all from the importer configuration.
             bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0, 0, 0))
-            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
+            self.setup_obj(layer, parent_obj, layer_path)
             self.setup_animation(layer, offset)
 
             # If we are a sequence the times of children are relative to our start point.
@@ -86,13 +86,13 @@ class QuillImporter:
                     bpy.context.collection.objects.link(obj)
                     bpy.context.view_layer.objects.active = obj
                 else:
-                    # Create an Empty that will be the parent of the individual drawings.
+                    # Create an Empty that will become the parent of the individual drawings.
                     bpy.ops.object.empty_add(type='PLAIN_AXES')
 
-                self.setup_obj(layer, parent_layer, parent_obj, layer_path)
+                self.setup_obj(layer, parent_obj, layer_path)
                 self.setup_animation(layer, offset)
 
-                # Add the drawings and animate them.
+                # Import the drawings and animate them.
                 mesh_paint.convert(self.config, bpy.context.object, layer, self.material, use_keymesh)
 
             elif self.config["convert_paint"] == "GPENCIL" or self.config["convert_paint"] == "GREASEPENCIL":
@@ -102,7 +102,7 @@ class QuillImporter:
                 else:
                     bpy.ops.object.grease_pencil_add()
 
-                self.setup_obj(layer, parent_layer, parent_obj, layer_path)
+                self.setup_obj(layer, parent_obj, layer_path)
                 self.setup_animation(layer, offset)
                 gpencil_paint.convert(bpy.context.object, layer)
 
@@ -112,19 +112,19 @@ class QuillImporter:
                 obj = bpy.data.objects.new(layer.name, curve_data)
                 bpy.context.collection.objects.link(obj)
                 bpy.context.view_layer.objects.active = obj
-                self.setup_obj(layer, parent_layer, parent_obj, layer_path)
+                self.setup_obj(layer, parent_obj, layer_path)
                 self.setup_animation(layer, offset)
                 curve_paint.convert(obj, layer)
 
         elif layer.type == "Viewpoint":
             bpy.ops.object.camera_add()
-            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
+            self.setup_obj(layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
 
         elif layer.type == "Camera":
             bpy.ops.object.camera_add()
             layer.transform.scale = 1.0
-            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
+            self.setup_obj(layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
             obj = bpy.context.object
             # FIXME FOV isn't an exact match between Quill and Blender.
@@ -134,17 +134,17 @@ class QuillImporter:
         elif layer.type == "Sound":
             bpy.ops.object.speaker_add()
             layer.transform.scale = 1.0
-            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
+            self.setup_obj(layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
 
         elif layer.type == "Model":
             bpy.ops.object.empty_add(type='CUBE')
-            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
+            self.setup_obj(layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
 
         elif layer.type == "Picture":
             bpy.ops.object.empty_add(type='IMAGE')
-            self.setup_obj(layer, parent_layer, parent_obj, layer_path)
+            self.setup_obj(layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
             obj = bpy.context.object
 
@@ -172,8 +172,11 @@ class QuillImporter:
         else:
             logging.warning("Unsupported Quill layer type: %s", layer.type)
 
-    def setup_obj(self, layer, parent_layer=None, parent_obj=None, layer_path=""):
-        """Basic configuration of the resulting Blender object, common to all layer types."""
+    def setup_obj(self, layer, parent_obj=None, layer_path=""):
+        """
+        Configure the Blender object representing the Quill layer, common to all layer types.
+        """
+
         obj = bpy.context.object
         obj.name = layer.name
         obj.parent = parent_obj

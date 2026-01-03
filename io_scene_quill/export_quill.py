@@ -404,7 +404,7 @@ class QuillExporter:
 
                 # If we do create it, create it with constant interpolation.
                 # Any interpolation style on Blender side is already accounted for from the
-                # fact that we get the transform at every frame. The only remaning case is a frame-hold.
+                # fact that we get the transform at every frame. The only remaining case is a frame-hold.
                 time = frame * ticks_per_frame
                 keyframe = sequence.Keyframe("None", time, transform)
                 kktt.append(keyframe)
