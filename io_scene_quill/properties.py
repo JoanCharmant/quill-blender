@@ -31,15 +31,9 @@ class OBJECT_PG_quill(bpy.types.PropertyGroup):
         name = "Path to Layer",
     )
 
-    # Set on mesh objects created from individual drawings.
-    # drawing_index: bpy.props.IntProperty(
-    #     name = "Drawing Index",
-    #     options = set(),
-    #     default = 0,
-    # )
-
 
 class DATA_PG_quill(bpy.types.PropertyGroup):
+
     # DATA-level PROPERTIES
 
     # File system path to the Quill scene project folder this drawing comes from.
@@ -67,6 +61,7 @@ def register():
     bpy.utils.register_class(DATA_PG_quill)
     bpy.types.Object.quill = bpy.props.PointerProperty(type=OBJECT_PG_quill, name="Quill")
     bpy.types.Mesh.quill = bpy.props.PointerProperty(type=DATA_PG_quill, name="Quill")
+
 
 def unregister():
     bpy.utils.unregister_class(DATA_PG_quill)

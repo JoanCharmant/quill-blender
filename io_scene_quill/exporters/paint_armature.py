@@ -7,7 +7,7 @@ from . import utils
 
 
 def convert(obj, config):
-    """Convert an armature to a series of paint strokes"""
+    """Converts the rest pose of an armature to a paint layer"""
 
     layer = make_rest_pose(obj, config)
 
@@ -15,7 +15,7 @@ def convert(obj, config):
 
 
 def make_rest_pose(obj, config):
-    
+
     # Create a default paint layer and drawing.
     paint_layer = quill_utils .create_paint_layer(obj.name)
     drawing = quill_utils.create_drawing()
@@ -47,7 +47,7 @@ def make_rest_pose(obj, config):
             continue
 
         drawing.data.strokes.append(stroke)
-        drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
+        drawing.bounding_box = quill_utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
 
     return paint_layer
 
@@ -97,7 +97,7 @@ def make_bone_stroke(head, tail, color, config):
             add_vertex(head.lerp(tail, (i + 1) / segments), length / 10)
         add_vertex(tail, 0)
 
-    bounding_box = utils.bbox_from_points(head, tail)
+    bounding_box = quill_utils.bbox_from_points(head, tail)
 
     id = 0
     stroke = paint.Stroke(id, bounding_box, brush_type, disable_rotational_opacity, vertices)

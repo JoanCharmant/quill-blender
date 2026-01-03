@@ -5,8 +5,9 @@ import mathutils
 from ..model import paint, quill_utils, sequence
 from . import utils
 
+
 def convert(obj, config):
-    """Convert from Grease pencil to Quill paint strokes."""
+    """Converts a Grease pencil object to a Quill paint layer."""
 
     gpencil_data = obj.data
 
@@ -132,7 +133,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale, config):
                 if stroke is None:
                     continue
                 drawing.data.strokes.append(stroke)
-                drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
+                drawing.bounding_box = quill_utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
 
             if material.show_fill:
                 # This requires special handling.
@@ -140,7 +141,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale, config):
                 if stroke is None:
                     continue
                 drawing.data.strokes.append(stroke)
-                drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
+                drawing.bounding_box = quill_utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
 
     # Animation frame list.
     if len(gpencil_layer.frames) == 1:
@@ -179,6 +180,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale, config):
     paint_layer.animation.keys.visibility[0].time = int(in_ticks)
 
     return paint_layer
+
 
 def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, config):
 
@@ -220,7 +222,7 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
         camera_position = bpy.context.scene.camera.matrix_world.to_translation()
         camera_position = utils.swizzle_yup_location(camera_position)
 
-    bbox = utils.bbox_empty()
+    bbox = quill_utils.bbox_empty()
     vertices = []
     for i in range(len(gp_stroke.points)):
 
@@ -233,7 +235,7 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
         normal = (camera_position - p).normalized()
         if brush_type == paint.BrushType.RIBBON:
             normal = mathutils.Vector((0, 1, 0))
-        
+
         tangent = compute_tangent(gp_stroke, i, p)
 
         # Mix between the vertex color and the base color.
@@ -263,7 +265,7 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
 
         vertex = paint.Vertex(p, normal, tangent, color, opacity, width)
         vertices.append(vertex)
-        bbox = utils.bbox_add_point(bbox, p)
+        bbox = quill_utils.bbox_add_point(bbox, p)
 
     # TODO: add an extra vertex at the start if the stroke is marked "cyclic".
     # This happens for the rectangle and circle tools.
@@ -284,6 +286,7 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
 
     id = 0
     return paint.Stroke(id, bbox, brush_type, disable_rotational_opacity, vertices)
+
 
 def compute_tangent(gp_stroke, i, p):
 
@@ -324,6 +327,7 @@ def compute_tangent(gp_stroke, i, p):
     first = utils.swizzle_yup_location(first_location)
     yaxis = (last - first + mathutils.Vector((0.000001, 0.000002, 0.000003))).normalized()
     return yaxis
+
 
 def add_caps(vertices, caps_type, bbox):
 
@@ -398,10 +402,10 @@ def add_caps(vertices, caps_type, bbox):
         width = 0
         vertex = paint.Vertex(p, normal, tangent, color, opacity, width)
         vertices.insert(0, vertex)
-        bbox = utils.bbox_add_point(bbox, p)
+        bbox = quill_utils.bbox_add_point(bbox, p)
         extra_vertices = make_hemisphere(vertices, 1, 0, vertices[1].width, round_cap_segments)
         for i in range(len(extra_vertices)):
-            bbox = utils.bbox_add_point(bbox, extra_vertices[i].position)
+            bbox = quill_utils.bbox_add_point(bbox, extra_vertices[i].position)
             vertices.insert(1, extra_vertices[i])
 
         # End cap
@@ -413,11 +417,12 @@ def add_caps(vertices, caps_type, bbox):
         width = 0
         vertex = paint.Vertex(p, normal, tangent, color, opacity, width)
         vertices.append(vertex)
-        bbox = utils.bbox_add_point(bbox, p)
+        bbox = quill_utils.bbox_add_point(bbox, p)
         extra_vertices = make_hemisphere(vertices, len(vertices) - 2, len(vertices) - 1, vertices[-2].width, round_cap_segments)
         for i in range(len(extra_vertices)):
-            bbox = utils.bbox_add_point(bbox, extra_vertices[i].position)
+            bbox = quill_utils.bbox_add_point(bbox, extra_vertices[i].position)
             vertices.insert(len(vertices) - 1, extra_vertices[i])
+
 
 def make_fill_stroke(gp_stroke, material):
 

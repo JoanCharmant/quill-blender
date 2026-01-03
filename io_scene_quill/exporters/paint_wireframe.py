@@ -5,8 +5,9 @@ import mathutils
 from ..model import paint, quill_utils, sequence
 from . import utils
 
+
 def convert(obj, config):
-    """Convert a mesh wireframe into a series of paint strokes"""
+    """Convert a mesh object into a paint layer with its wireframe"""
 
     # Create a default paint layer and drawing.
     paint_layer = quill_utils.create_paint_layer(obj.name)
@@ -25,10 +26,11 @@ def convert(obj, config):
         if stroke is None:
             continue
         drawing.data.strokes.append(stroke)
-        drawing.bounding_box = utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
+        drawing.bounding_box = quill_utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
         stroke_id += 1
 
     return paint_layer
+
 
 def make_edge_stroke(start, end, id, config):
 
@@ -73,7 +75,7 @@ def make_edge_stroke(start, end, id, config):
         vertex = paint.Vertex(p, normal, tangent, color, opacity, width)
         vertices.append(vertex)
 
-    bounding_box = utils.bbox_from_points(start, end)
+    bounding_box = quill_utils.bbox_from_points(start, end)
 
     stroke = paint.Stroke(id, bounding_box, brush_type, disable_rotational_opacity, vertices)
     return stroke

@@ -182,7 +182,7 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         name="Brush type",
         items=(("CYLINDER", "Cylinder", ""),
                ("RIBBON", "Ribbon", "")),
-        description="Brush type of exported strokes. When using 'Ribbon' the flat side will be facing up.",
+        description="Quill brush type used when exporting Grease Pencil drawings. When using 'Ribbon' the flat side will be facing up.",
         default="CYLINDER",
     )
 

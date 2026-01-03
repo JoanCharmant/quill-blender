@@ -281,13 +281,12 @@ def connect_parents(layer_group):
 
 
 def bbox_empty():
-    # Makes a bounding box initialized to reversed inifinity values
-    # so the first added point will always update the bounding box.
-    return [float('inf'), float('inf'), float('inf'), float('-inf'), float('-inf'), float('-inf')]
+   """ Returns a bounding box initialized to reversed inifinity values so the first point added will always update it."""
+   return [float('inf'), float('inf'), float('inf'), float('-inf'), float('-inf'), float('-inf')]
 
 
 def bbox_add(a, b):
-    """Augment bounding box a with bounding box b and return a."""
+    """Augments bounding box `a` with bounding box `b` and returns `a`."""
     a[0] = min(a[0], b[0])
     a[1] = min(a[1], b[1])
     a[2] = min(a[2], b[2])
@@ -298,7 +297,7 @@ def bbox_add(a, b):
 
 
 def bbox_add_point(a, p):
-    """Expand bounding box a with point p and return a."""
+    """Expands bounding box `a` with point `p` and returns `a`."""
     a[0] = min(a[0], p[0])
     a[1] = min(a[1], p[1])
     a[2] = min(a[2], p[2])
@@ -306,3 +305,16 @@ def bbox_add_point(a, p):
     a[4] = max(a[4], p[1])
     a[5] = max(a[5], p[2])
     return a
+
+
+def bbox_from_points(p1, p2):
+    """Makes a bounding box from two points."""
+    return [
+        min(p1[0], p2[0]),
+        min(p1[1], p2[1]),
+        min(p1[2], p2[2]),
+        max(p1[0], p2[0]),
+        max(p1[1], p2[1]),
+        max(p1[2], p2[2]),
+    ]
+
