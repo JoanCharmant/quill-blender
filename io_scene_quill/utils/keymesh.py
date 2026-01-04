@@ -34,7 +34,7 @@ def keymesh_import(parent_obj, drawing_objs):
     """
     index = 0
     for obj in drawing_objs:
-        # Give the block Keymesh properties.
+        # Keymesh properties.
         block = obj.data
         block.keymesh["ID"] = parent_obj.keymesh["ID"]
         block.keymesh["Data"] = index
@@ -50,10 +50,52 @@ def keymesh_import(parent_obj, drawing_objs):
     # Delete the individual drawing objects since their data is now in Keymesh blocks.
     bpy.ops.object.select_all(action='DESELECT')
     for obj in drawing_objs:
-        obj.select_set(True)
-        bpy.ops.object.delete()
+        bpy.data.objects.remove(obj)
 
     bpy.context.view_layer.objects.active = parent_obj
+
+
+def keymesh_get_blank(parent_obj):
+    """
+    Get the index of the blank block, create it if it doesn't exist.
+    """
+
+    # Check if the blank block has already been added.
+    # It can only be added at the end.
+    if len(parent_obj.keymesh.blocks) > 0:
+        last_block_registry = parent_obj.keymesh.blocks[-1]
+        last_block = last_block_registry.block
+        if last_block.quill.drawing_index == -1:
+            return len(parent_obj.keymesh.blocks) - 1
+
+    index = len(parent_obj.keymesh.blocks)
+
+    # Create a new mesh object to hold the blank block.
+    mesh = bpy.data.meshes.new(name=f"{parent_obj.name}_blank")
+    blank_obj = bpy.data.objects.new(mesh.name, mesh)
+
+    # Quill properties.
+    blank_obj.quill.active = True
+    blank_obj.data.quill.scene_path = parent_obj.quill.scene_path
+    blank_obj.data.quill.layer_path = parent_obj.quill.layer_path
+    blank_obj.data.quill.drawing_index = -1
+
+    # Keymesh properties.
+    block = blank_obj.data
+    block.keymesh["ID"] = parent_obj.keymesh["ID"]
+    block.keymesh["Data"] = index
+    block.use_fake_user = True
+
+    # Assign the block to the parent object.
+    block_registry = parent_obj.keymesh.blocks.add()
+    block_registry.block = block
+    block_registry.name = blank_obj.name
+
+    # Delete the temporary object since its data is now in Keymesh blocks.
+    bpy.data.objects.remove(blank_obj)
+
+    return index
+
 
 
 def keymesh_keyframe(parent_obj, frame, index):

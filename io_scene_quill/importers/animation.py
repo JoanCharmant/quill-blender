@@ -1,5 +1,5 @@
 import bpy
-from ..utils.keymesh import keymesh_keyframe
+from ..utils.keymesh import keymesh_keyframe, keymesh_get_blank
 
 
 def animate(drawing_to_obj, layer, use_keymesh, parent_obj):
@@ -189,9 +189,10 @@ def animate(drawing_to_obj, layer, use_keymesh, parent_obj):
                  continue
 
             if use_keymesh:
-                # TODO: if use_keymesh we need to hide all blocks which is not possible.
-                # We need to create a blank block and activate it.
-                pass
+                # For Keymesh we would need to hide all blocks which is not possible.
+                # Create a blank block if it doesn't exist and activate it.
+                blank_index = keymesh_get_blank(parent_obj)
+                keymesh_keyframe(parent_obj, frame_target, blank_index)
             else:
                 hide_drawing(active_drawing_index, frame_target, drawing_to_obj)
 
