@@ -156,25 +156,24 @@ class QuillImporter:
             file_path = layer.implementation.import_file_path
 
             if not os.path.exists(file_path):
-                # TODO: only if config option enabled to extract sound from Qbin.
+                # Look for the .wav file in the Quill project folder
+                # in case we extracted it earlier.
+                file_name = os.path.basename(layer.implementation.import_file_path)
+                file_name = os.path.splitext(file_name)[0] + ".wav"
+                file_path = os.path.join(self.path, file_name)
 
-                # Extract the sound data from the Qbin.
+            if not os.path.exists(file_path):
+                # Still not found, extract the data from the Qbin.
                 qbin_path = os.path.join(self.path, "Quill.qbin")
                 qbin = open(qbin_path, "rb")
                 data_file_offset = layer.implementation.data_file_offset
                 sound_data = quill_utils.read_sound_data(qbin, data_file_offset)
                 qbin.close()
-
                 if sound_data:
-                    # Write the sound data to a .wav file inside the Quill project folder.
-                    file_name = os.path.basename(layer.implementation.import_file_path)
-                    file_name = os.path.splitext(file_name)[0] + ".wav"
-                    wav_path = os.path.join(self.path, file_name)
-                    written = quill_utils.export_sound_data(sound_data, wav_path)
-                    if written:
-                        file_path = wav_path
+                    quill_utils.export_sound_data(sound_data, file_path)
 
             if not os.path.exists(file_path):
+                # Still not found, bail out.
                 logging.warning("Audio file not found: %s", file_path)
                 obj.show_name = True
                 return

@@ -193,7 +193,7 @@ def animate(drawing_to_obj, layer, use_keymesh, parent_obj):
                 # We need to create a blank block and activate it.
                 pass
             else:
-                hide_drawing(active_drawing_index, frame_target, drawing_to_obj, True)
+                hide_drawing(active_drawing_index, frame_target, drawing_to_obj)
 
             active_drawing_index = -1
             was_visible = False
