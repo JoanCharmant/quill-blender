@@ -120,8 +120,15 @@ class QuillImporter:
 
         elif layer.type == "Viewpoint":
             bpy.ops.object.camera_add()
+            layer.transform.scale = 1.0
             self.setup_obj(layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
+
+            # There is no FOV info in viewpoint layers as they are for VR viewing.
+            # Set the FOV to a relatively large value to simulate a wide angle lens.
+            obj = bpy.context.object
+            obj.data.lens_unit = 'FOV'
+            obj.data.angle = radians(90.0)
 
         elif layer.type == "Camera":
             bpy.ops.object.camera_add()
