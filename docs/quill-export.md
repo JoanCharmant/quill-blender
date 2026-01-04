@@ -19,7 +19,7 @@ Quill FBX and ABC exporters don't weld the cross sections of strokes, this can c
 
 ## Bake Transforms
 
-Applies the layer-level transform to the strokes. 
+Applies the layer-level transform to the strokes.
 
 The add-on doesn't have an equivalent option at the moment.
 
@@ -57,7 +57,8 @@ The add-on importer generates a mesh for each drawing and then run through the B
 | Transform key frames | ❌ | ❌ | ✅
 | Opacity key frames | ❌ | ❌ | ❌
 | Base animation | ⚠️¹ | ✅ | ✅
-| Base animation looping | ❌ | ⚠️² | ✅
+| Base animation in a single object | ❌ | ✅ | ⚠️²
+| Base animation looping | ❌ | ⚠️³ | ✅
 | Clips of the animation | ❌ | ❌ | ✅
 | Parent sequence looping | ❌ | ❌ | ✅
 | Clips in parent sequences | ❌ | ❌ | ✅
@@ -68,14 +69,16 @@ The add-on importer generates a mesh for each drawing and then run through the B
 
 ¹ Blender loads the exported FBX and creates one mesh per drawing but doesn't animate the visibility so all the frames are visible at the same time.
 
-² Looping can be done by animating the frame number with a driver.
+² If the Keymesh add-on is installed paint layers will be loaded as animated Keymesh objects.
+
+³ Looping can be done by animating the frame number with a driver.
 
 To work with the features that are not supported you need to bake the animation to a new paint layer in Quill.
 
 
 ## Material Per Layer (Only for FBX)
 
-If this option is checked Quill creates a material slot for each layer.
+If this option is checked in the Quill exporter it creates a separate material slot for each layer.
 
 The add-on doesn't have this option and always creates a single material for all layers.
 
@@ -98,4 +101,4 @@ The add-on doesn't have this option and always creates a single four-channel att
 
 ## Other assets
 
-The add-on also imports cameras and images.
+The add-on also imports cameras, images and sounds.

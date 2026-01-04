@@ -3,7 +3,7 @@
 
 [Quill](https://quill.art/) scenes import and export add-on for [Blender](https://www.blender.org).
 
-Philosophy: some things are easier to work on in VR and other things are easier to work on with a flat screen and a pen. This add-on aims at minimizing the friction of moving from one technology to the other and enabling you to create workflows that best suits the strength of each.
+Philosophy: some things are easier to do in VR and other things are easier to do on a computer. This add-on aims at minimizing the friction of moving from one technology to the other and enabling you to create workflows that best suits the strength of each.
 
 ## Installation
 
@@ -27,20 +27,21 @@ The import/export dialogs have options on the right hand side.
 
 The add-on reads and writes native Quill file format.
 
-### Import
+### Import (Quill → Blender)
 
 - Import Quill layer hierarchy to Blender objects.
     - Quill groups become "Empties" with transform and children.
     - Quill paint layers become Mesh or Grease Pencil objects.
     - Quill cameras become Camera objects.
     - Quill image layers become Image objects.
+    - Quill sound layers become sound strips in the sequencer.
 - Import frame by frame animation as Mesh sequences or Grease Pencil frames.
 - Import transform keyframes.
 
 
 [Detailed status of supported Quill features during import](docs/import.md)
 
-### Export
+### Export (Blender → Quill)
 
 - Export the Blender scene to Quill layers
     - Grease Pencil objects to paint layers.
@@ -54,6 +55,20 @@ The add-on reads and writes native Quill file format.
 
 [Detailed status of supported Blender features during export](docs/export.md)
 
+### Round trip (Quill → Blender → Quill)
+
+When importing paint layers as Mesh the created Blender objects keep track of the Quill scene they were imported from. During export the add-on detects this and tries to swap back the original Quill drawings in the output. This link is preserved even when you copy the objects around or import them into other scenes.
+
+This enables workflows to animate or re-organize paint layers or use them as libraries of building blocks. Some limitations apply.
+
+### Keymesh integration
+
+It is not required but if you also have the [Keymesh add-on](https://extensions.blender.org/add-ons/keymesh/) installed it will detect it and use it.
+
+In this case paint layers will be converted to Keymesh objects and the frame-by-frame animation imported. This is a more natural fit than having the drawings as children of an Empty.
+
+Using this we can manipulate the paint layer as a single object and use the Blender timeline as a proxy for the Quill timeline to move key frames around. This also enables "whole part replacement" workflows.
+
 ## Inherent limitations
 
 Quill and Blender cannot always be converted correctly back and forth as the underlying models are not fully compatible. This impacts both [import](docs/import.md) and [export](docs/export.md).
@@ -65,7 +80,7 @@ Here are the main pain points.
 ![](docs/images/venn-paint-strokes.png)
 
 
-⚠️ Quill sequence hierarchy with spans and loops. These are not supported yet.
+⚠️ Quill sequence hierarchy with looping and clips. The resulting visibility for any given drawing is baked into the created mesh object.
 
 ⚠️ Opacity keyframes and layer-level opacity. This is not supported.
 

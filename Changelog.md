@@ -1,12 +1,26 @@
 # Changelog
 
 
+## 1.4.0
+
+Importer
+- Mesh: keep track of the Quill project, layer and drawing the mesh was imported from.
+- Mesh: if the Keymesh add-on is installed, convert Paint layers to animated Keymesh objects.
+- Import sound layers as speaker objects and create sound strips in the sequence editor.
+- Sound: if the original audio file is not found, extract the sound data from the Qbin file into a local .wav file.
+
+Exporter
+- When exporting Mesh objects imported from Quill, use the original Quill drawing.
+- When exporting Empty objects imported from Quill paint layers, reconstruct the animation.
+- When exporting Keymesh objects containing blocks imported from Quill, use the original Quill drawings and reconstruct the  animation.
+
+
 ## 1.3.1
 
 Importer
 - Fix: local time calculation could result in an out of bound error.
 - Fix: non-looping paint layer were always imported as looping.
-- Fix: single-frame paint layer were hidden.
+- Fix: paint layers with single-frame clips were hidden.
 
 ## 1.3.0
 

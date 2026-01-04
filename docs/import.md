@@ -101,7 +101,7 @@ When importing, the Quill timeline is remapped to the Blender frame range. Quill
 
 For the base frame by frame animation the addon creates a separate mesh object for each drawing and animate the visibility of these objects so that only one object is visible on a particular frame.
 
-Looping of the base frame by frame animation is supported, as well as clips, both on the paint layer itself and on parent sequences. Clip offsets (left-trim) are also supported. 
+Looping of the base frame by frame animation is supported, as well as clips, both on the paint layer itself and on parent sequences. Clip offsets (left-trim) are also supported.
 
 Note that currently the looping and clipping of transform key frames is not supported.
 
@@ -174,13 +174,36 @@ Quill picture layers are imported as Images.
 | ------------- |:---:|
 | Import image from file path    | ✅ |
 | Import image from QBIN | ❌ |
-| Position and scale | ✅ |
+| Position, orientation and scale | ✅ |
 | 360° images    | ❌ |
 | Viewer locked    | ❌ |
 
 Quill file format contains both the image data in the QBIN file and the original path the image was loaded from. Only the path is used by the importer, so the file must still be on disk at the same location.
 
 Only type = `2D` is supported. `360 Equirectangular Mono` and `360 Equirectangular Stereo` are not supported.
+
+## Quill sound layers
+
+Quill sound layers are imported as Speaker objects and channels with sound strips in Blender sequencer.
+
+| Feature |Status|
+| ------------- |:---:|
+| Import sound from file path    | ✅ |
+| Import sound from QBIN | ✅ |
+| Spatial audio | ❌ |
+| Gain    | ❌ |
+| Attenuation    | ❌ |
+| Loop    | ❌ |
+| Clips in the sound layer | ✅ |
+| Clips in parent layers  | ❌ |
+
+Quill file format contains both the sound data in the QBIN file and the original path the data was loaded from. If the file is not found, the add-on will extract the data from the QBIN file and write it to a new .wav file in the Quill project folder.
+
+A speaker object is created to match the sound layer position and animation but it is not linked with the audio file.
+
+Clips created in the sound layer itself are recreated as sound strips in Blender video sequencer so the sound should start and stop at the correct times and with the correct offset. Looping is not supported as it doesn't seem to be supported in Blender strips.
+
+In Quill making a sound layer invisible does not mute the sound so sound layers are always loaded even if the option to include hidden layers is unchecked. To mute the sound you can mute it from the video sequencer. However, if the sound layer is inside a hidden group it will not be loaded as the group will be excluded.
 
 
 ## Import dialog
@@ -195,7 +218,7 @@ If checked it will import layers that are marked as hidden in Quill, and make th
 
 **Cameras**
 
-Import Quill cameras and viewpoints as Blender Camera objects. 
+Import Quill cameras and viewpoints as Blender Camera objects.
 
 ### Paint layers
 
