@@ -12,7 +12,7 @@ class QuillImporter:
         self.path = os.path.dirname(path)
         self.config = kwargs
         self.material = None
-        self.sound_channels = 0
+        self.next_empty_channel = -1
 
     def __enter__(self):
         return self
@@ -152,24 +152,49 @@ class QuillImporter:
             obj = bpy.context.object
 
             # Quill stores both the data in Qbin and the file path in JSON.
-            # We just support the path for now, so the file has to be on disk.
-            filepath = layer.implementation.import_file_path
-            if not os.path.exists(filepath):
-                logging.warning("Audio file not found: %s", filepath)
+            # If we don't find the file on disk try to extract it from the QBin data.
+            file_path = layer.implementation.import_file_path
+
+            if not os.path.exists(file_path):
+                # TODO: only if config option enabled to extract sound from Qbin.
+
+                # Extract the sound data from the Qbin.
+                qbin_path = os.path.join(self.path, "Quill.qbin")
+                qbin = open(qbin_path, "rb")
+                data_file_offset = layer.implementation.data_file_offset
+                sound_data = quill_utils.read_sound_data(qbin, data_file_offset)
+                qbin.close()
+
+                if sound_data:
+                    # Write the sound data to a .wav file inside the Quill project folder.
+                    file_name = os.path.basename(layer.implementation.import_file_path)
+                    file_name = os.path.splitext(file_name)[0] + ".wav"
+                    wav_path = os.path.join(self.path, file_name)
+                    written = quill_utils.export_sound_data(sound_data, wav_path)
+                    if written:
+                        file_path = wav_path
+
+            if not os.path.exists(file_path):
+                logging.warning("Audio file not found: %s", file_path)
                 obj.show_name = True
                 return
 
-            # Don't set the sound for now. Will handle this if we can somehow link it to the sound strip object.
+            # Don't set the sound for now. We will handle this if we can somehow link it to the sound strip object.
             #sound = bpy.data.sounds.load(filepath, check_existing=False)
             #obj.data.sound = sound
 
             # Create a sound strip in the Video Sequence Editor on a new channel.
-            channel = self.sound_channels + 1
-            self.sound_channels += 1
-            sound_sound.convert(layer, channel)
+            # Find the next empty channel.
+            sequences = bpy.context.scene.sequence_editor.sequences_all
+            if len(sequences) == 0:
+                self.next_empty_channel = 1
+            elif self.next_empty_channel == -1:
+                max_channel = max((seq.channel for seq in bpy.context.scene.sequence_editor.sequences_all))
+                self.next_empty_channel = max_channel + 1
+            else:
+                self.next_empty_channel += 1
 
-
-
+            sound_sound.convert(layer, file_path, self.next_empty_channel)
 
         elif layer.type == "Model":
             bpy.ops.object.empty_add(type='CUBE')
@@ -185,14 +210,14 @@ class QuillImporter:
             # Quill stores both the data in Qbin and the file path in JSON.
             # We just support the path for now, so the file has to be on disk.
             # Note: some characters in the file path may be unsupported like em dash.
-            filepath = layer.implementation.import_file_path
-            if not os.path.exists(filepath):
-                logging.warning("Image file not found: %s", filepath)
+            file_path = layer.implementation.import_file_path
+            if not os.path.exists(file_path):
+                logging.warning("Image file not found: %s", file_path)
                 obj.show_name = True
                 return
 
             # Load the image.
-            img = bpy.data.images.load(filepath, check_existing=False)
+            img = bpy.data.images.load(file_path, check_existing=False)
             obj.data = img
 
             # To get the correct size we need to do some shenanigans.

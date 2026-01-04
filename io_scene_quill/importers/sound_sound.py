@@ -1,6 +1,6 @@
 import bpy
 
-def convert(layer, channel):
+def convert(layer, path, channel):
     """Convert a Quill Sound layer to Blender sound strips."""
 
     scn = bpy.context.scene
@@ -10,7 +10,6 @@ def convert(layer, channel):
     ticks_per_second = 12600
     ticks_per_frame = int(ticks_per_second / scn.render.fps)
 
-    filepath = layer.implementation.import_file_path
     name = layer.name
 
     #----------------------------------------------------------
@@ -54,7 +53,7 @@ def convert(layer, channel):
             scn.frame_end = max_frame
 
         # Create the sound strip.
-        sound_strip = scn.sequence_editor.sequences.new_sound(name=name, filepath=filepath, channel=channel, frame_start=frame_start)
+        sound_strip = scn.sequence_editor.sequences.new_sound(name=name, filepath=path, channel=channel, frame_start=frame_start)
         sound_strip.frame_offset_start = frame_offset_start
         if time_end is not None:
             sound_strip.frame_final_end = frame_end

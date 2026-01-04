@@ -2,7 +2,7 @@ import json
 import os
 import re
 import struct
-from . import paint, picture, sequence, state
+from . import paint, picture, sound, sequence, state
 
 
 def create_scene():
@@ -162,6 +162,18 @@ def load_drawing_data(layer, qbin):
         for drawing in layer.implementation.drawings:
             qbin.seek(int(drawing.data_file_offset, 16))
             drawing.data = paint.read_drawing_data(qbin)
+
+
+def read_sound_data(qbin, data_file_offset):
+    """Load sound data at the passed QBin file offset."""
+    qbin.seek(int(data_file_offset, 16))
+    sound_data = sound.read_sound_data(qbin)
+    return sound_data
+
+
+def export_sound_data(data, path):
+    """Write sound data to an external file (.wav)."""
+    return sound.export_sound_data(data, path)
 
 
 def write_qbin_data(layer, qbin):

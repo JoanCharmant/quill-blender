@@ -219,7 +219,7 @@ class KeepAlive:
 
 class Attenuation:
     def __init__(self, mode, minimum, maximum):
-        self.mode = mode
+        self.mode = mode # None, Linear, Logarithmic.
         self.minimum = minimum
         self.maximum = maximum
 
@@ -241,7 +241,7 @@ class Attenuation:
 
 class Modifier:
     def __init__(self, type):
-        self.type = type
+        self.type = type # None, DirectionalCone, DirectionFrus.
 
     @staticmethod
     def from_dict(obj):
@@ -447,7 +447,7 @@ class SoundLayerImplementation:
     def __init__(self, data_file_offset, import_file_path, type, gain, loop, attenuation, modifiers):
         self.data_file_offset = data_file_offset
         self.import_file_path = import_file_path
-        self.type = type
+        self.type = type # Flat, Ambisonic, Positional.
         self.gain = gain
         self.loop = loop
         self.attenuation = attenuation
