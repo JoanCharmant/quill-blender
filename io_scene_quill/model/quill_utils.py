@@ -105,7 +105,9 @@ def delete_hidden(layer):
             if child.type == "Group" and child.visible:
                 delete_hidden(child)
 
-        layer.implementation.children = [child for child in layer.implementation.children if child.visible]
+        # In Quill hiding a sound layer just makes the speaker gizmo invisible but the audio still plays,
+        # so we don't remove hidden sound layers here.
+        layer.implementation.children = [child for child in layer.implementation.children if child.visible or child.type == "Sound"]
 
 
 def delete_type(layer, type):

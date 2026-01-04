@@ -217,6 +217,44 @@ class KeepAlive:
         return KeepAlive(type)
 
 
+class Attenuation:
+    def __init__(self, mode, minimum, maximum):
+        self.mode = mode
+        self.minimum = minimum
+        self.maximum = maximum
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        mode = from_str(obj.get("Mode"))
+        minimum = from_float(obj.get("Minimum"))
+        maximum = from_float(obj.get("Maximum"))
+        return Attenuation(mode, minimum, maximum)
+
+    def to_dict(self):
+        result = {}
+        result["Mode"] = from_str(self.mode)
+        result["Minimum"] = to_float(self.minimum)
+        result["Maximum"] = to_float(self.maximum)
+        return result
+
+
+class Modifier:
+    def __init__(self, type):
+        self.type = type
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        type = from_str(obj.get("Type"))
+        return Modifier(type)
+
+    def to_dict(self):
+        result = {}
+        result["Type"] = from_str(self.type)
+        return result
+
+
 class Transform:
     def __init__(self, flip, rotation, scale, translation):
         self.flip = flip
@@ -229,7 +267,6 @@ class Transform:
             return NotImplemented
 
         return self.flip == other.flip and self.rotation == other.rotation and self.scale == other.scale and self.translation == other.translation
-
 
 
     @staticmethod
@@ -275,10 +312,9 @@ class GroupLayerImplementation:
 
 
 class ViewpointLayerImplementation:
-    
-    # Note: there is also a DataFileOffset field that points to a 512 x 512 RGB image
-    # for the thumbnail.
-    
+
+    # Note: there is also a DataFileOffset field that points to a 512 x 512 RGB thumbnail.
+
     def __init__(self, allow_translation_x, allow_translation_y, allow_translation_z, color, exporting, showing_volume, sphere, type_str, version):
         self.allow_translation_x = allow_translation_x
         self.allow_translation_y = allow_translation_y
@@ -398,12 +434,52 @@ class PictureLayerImplementation:
         result["Type"] = from_str(self.type)
         result["ViewerLocked"] = from_bool(self.viewer_locked)
         result["DataFileOffset"] = from_str(self.data_file_offset)
-        
+
         filepath = from_str(self.import_file_path)
         # Quill uses single forward slashes as separator.
         filepath = filepath.replace("\\", "/")
         result["ImportFilePath"] = filepath
-        
+
+        return result
+
+
+class SoundLayerImplementation:
+    def __init__(self, data_file_offset, import_file_path, type, gain, loop, attenuation, modifiers):
+        self.data_file_offset = data_file_offset
+        self.import_file_path = import_file_path
+        self.type = type
+        self.gain = gain
+        self.loop = loop
+        self.attenuation = attenuation
+        self.modifiers = modifiers
+        self.data = None
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        data_file_offset = from_str(obj.get("DataFileOffset"))
+        import_file_path = from_str(obj.get("ImportFilePath"))
+        type = from_str(obj.get("Type"))
+        gain = from_float(obj.get("Gain"))
+        loop = from_bool(obj.get("Loop"))
+        attenuation = from_union([Attenuation.from_dict, from_none], obj.get("Attenuation"))
+        modifiers = from_union([lambda x: from_list(Modifier.from_dict, x), from_none], obj.get("Modifiers"))
+        return SoundLayerImplementation(data_file_offset, import_file_path, type, gain, loop, attenuation, modifiers)
+
+    def to_dict(self):
+        result = {}
+        result["DataFileOffset"] = from_str(self.data_file_offset)
+        result["Type"] = from_str(self.type)
+        result["Gain"] = from_float(self.gain)
+        result["Loop"] = from_bool(self.loop)
+        result["Attenuation"] = from_union([lambda x: to_class(Attenuation, x), from_none], self.attenuation)
+        result["Modifiers"] = from_union([lambda x: from_list(lambda x: to_class(Modifier, x), x), from_none], self.modifiers)
+
+        filepath = from_str(self.import_file_path)
+        # Quill uses single forward slashes as separator.
+        filepath = filepath.replace("\\", "/")
+        result["ImportFilePath"] = filepath
+
         return result
 
 
@@ -468,6 +544,8 @@ class Layer:
             implementation = PaintLayerImplementation.from_dict(obj.get("Implementation"))
         elif type == "Picture":
             implementation = PictureLayerImplementation.from_dict(obj.get("Implementation"))
+        elif type == "Sound":
+            implementation = SoundLayerImplementation.from_dict(obj.get("Implementation"))
         else:
             implementation = LayerImplementation.from_dict(obj.get("Implementation"))
 
@@ -503,9 +581,12 @@ class Layer:
         elif self.type == "Picture" and self.implementation.data != None:
             logging.info("Exporting picture layer: %s", self.name)
             result["Implementation"] = to_class(PictureLayerImplementation, self.implementation)
+        elif self.type == "Sound" and self.implementation.data != None:
+            logging.info("Exporting sound layer: %s", self.name)
+            result["Implementation"] = to_class(SoundLayerImplementation, self.implementation)
         else:
             logging.error("Exporting unsupported layer type: %s", self.type)
-            # Sound and Model layers have QBin data that we don't know how to export.
+
             # Export an empty Group layer to avoid a crash.
             result["Type"] = "Group"
             implementation = GroupLayerImplementation.from_dict({
@@ -532,7 +613,7 @@ class Layer:
     def add_child(self, layer):
         if self.type != "Group":
             return
-        
+
         self.implementation.children.append(layer)
         layer.parent = self
 
@@ -561,7 +642,7 @@ class Sequence:
         gallery = from_union([Gallery.from_dict, from_none], obj.get("Gallery"))
         metadata = from_union([Metadata.from_dict, from_none], obj.get("Metadata"))
         root_layer = Layer.from_dict(obj.get("RootLayer"))
-        
+
         return Sequence(background_color, camera_resolution, default_viewpoint, export_end, export_start, framerate, gallery, metadata, root_layer)
 
     def to_dict(self):
@@ -617,7 +698,7 @@ class QuillScene:
 #-----------------------------------------------
 
 class Thumbnails:
-    
+
     def __init__(self, ):
         pass
 
@@ -636,7 +717,7 @@ class Thumbnails:
 
 
 class PictureMetadata:
-    
+
     def __init__(self, ):
         pass
 
@@ -651,9 +732,9 @@ class PictureMetadata:
 
 
 class Picture:
-    
+
     # This is only for the old Gallery feature, not for picture layers.
-    
+
     def __init__(self, type, data_file_offset, metadata):
         self.type = type
         self.data_file_offset = data_file_offset
@@ -676,7 +757,7 @@ class Picture:
 
 
 class Gallery:
-    
+
     def __init__(self, pictures, thumbnails):
         self.pictures = pictures
         self.thumbnails = thumbnails

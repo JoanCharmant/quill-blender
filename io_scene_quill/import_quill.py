@@ -3,7 +3,7 @@ import bpy
 import logging
 import mathutils
 from math import floor, radians
-from .importers import gpencil_paint, mesh_material, mesh_paint, curve_paint
+from .importers import gpencil_paint, mesh_material, mesh_paint, curve_paint, sound_sound
 from .model import quill_utils
 
 class QuillImporter:
@@ -11,6 +11,8 @@ class QuillImporter:
     def __init__(self, path, kwargs, operator):
         self.path = os.path.dirname(path)
         self.config = kwargs
+        self.material = None
+        self.sound_channels = 0
 
     def __enter__(self):
         return self
@@ -132,10 +134,42 @@ class QuillImporter:
             obj.data.angle = radians(layer.implementation.fov)
 
         elif layer.type == "Sound":
+
+            # TODO: handle hidden sound layers properly.
+            # TODO: handle scaling in a way that reproduce the Quill gizmo size.
+            # TODO: link sound strip to speaker object.
+            #layer.transform.scale = 1.0
+
+            # For now it's not clear if it's possible to link the sound strip to the speaker object.
+            # The speaker object lets us see where the sound is in space and how it is animated.
+            # The sound strip lets us start the sound at the correct time.
+            # For this first implementation we favor the sound strip to work on lip sync.
+
+            # Create the speaker object.
             bpy.ops.object.speaker_add()
-            layer.transform.scale = 1.0
             self.setup_obj(layer, parent_obj, layer_path)
             self.setup_animation(layer, offset, False)
+            obj = bpy.context.object
+
+            # Quill stores both the data in Qbin and the file path in JSON.
+            # We just support the path for now, so the file has to be on disk.
+            filepath = layer.implementation.import_file_path
+            if not os.path.exists(filepath):
+                logging.warning("Audio file not found: %s", filepath)
+                obj.show_name = True
+                return
+
+            # Don't set the sound for now. Will handle this if we can somehow link it to the sound strip object.
+            #sound = bpy.data.sounds.load(filepath, check_existing=False)
+            #obj.data.sound = sound
+
+            # Create a sound strip in the Video Sequence Editor on a new channel.
+            channel = self.sound_channels + 1
+            self.sound_channels += 1
+            sound_sound.convert(layer, channel)
+
+
+
 
         elif layer.type == "Model":
             bpy.ops.object.empty_add(type='CUBE')
@@ -148,8 +182,8 @@ class QuillImporter:
             self.setup_animation(layer, offset, False)
             obj = bpy.context.object
 
-            # Quill stores both the image data and the original path.
-            # We just support the path for now, so the image has to be on disk.
+            # Quill stores both the data in Qbin and the file path in JSON.
+            # We just support the path for now, so the file has to be on disk.
             # Note: some characters in the file path may be unsupported like em dash.
             filepath = layer.implementation.import_file_path
             if not os.path.exists(filepath):
