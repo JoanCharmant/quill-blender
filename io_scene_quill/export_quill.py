@@ -13,10 +13,9 @@ class QuillExporter:
 
     def __init__(self, path, kwargs, operator):
         self.path = path
-        self.operator = operator
-        self.scene = bpy.context.scene
         self.config = kwargs
 
+        self.scene = bpy.context.scene
         self.original_quill_scenes = {}
         self.quill_scene = None
         self.quill_state = None
@@ -34,11 +33,10 @@ class QuillExporter:
         """Begin the export"""
 
         # Create a default scene with a viewpoint and no paint layer.
-        scene = quill_utils.create_scene()
-        root_layer = scene.sequence.root_layer
+        self.quill_scene = quill_utils.create_scene()
+        root_layer = self.quill_scene.sequence.root_layer
         viewpoint_layer = root_layer.implementation.children[0]
         viewpoint_layer.visible = False
-        self.quill_scene = scene
 
         # Create a default application state.
         # Note: this references a "Root/Paint" layer that doesn't exist yet.
@@ -80,7 +78,7 @@ class QuillExporter:
                 self.export_object(obj, root_layer)
 
         # Remove empty hierarchies if needed.
-        if self.config["use_non_empty"]:
+        if self.config["only_non_empty"]:
             quill_utils.delete_empty_groups(root_layer)
 
         if memo_edit_mode:
@@ -96,10 +94,10 @@ class QuillExporter:
         if obj.type == "EMPTY" and obj.empty_display_type == "IMAGE" and "IMAGE" not in self.config["object_types"]:
             return False
 
-        if self.config["use_selection"] and not obj.select_get():
+        if self.config["only_selection"] and not obj.select_get():
             return False
 
-        if self.config["use_visible"]:
+        if self.config["only_visible"]:
             view_layer = bpy.context.view_layer
             if obj.name not in view_layer.objects:
                 return False
@@ -175,7 +173,7 @@ class QuillExporter:
     def export_empty(self, obj, parent_layer):
 
         # Bail out if it's going to create an empty group and the user doesn't want that.
-        if len(obj.children) == 0 and self.config["use_non_empty"]:
+        if len(obj.children) == 0 and self.config["only_non_empty"]:
             return
 
         if obj.quill.active and obj.quill.paint_layer:

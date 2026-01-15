@@ -174,19 +174,19 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         default={gp, 'CAMERA', 'MESH', 'ARMATURE', 'IMAGE'},
     )
 
-    use_selection: BoolProperty(
+    only_selection: BoolProperty(
         name="Selected Objects",
         description="Only export selected objects to Quill",
         default=False,
     )
 
-    use_visible: BoolProperty(
+    only_visible: BoolProperty(
         name="Visible Objects",
         description="Only export visible objects to Quill",
         default=True,
     )
 
-    use_non_empty: BoolProperty(
+    only_non_empty: BoolProperty(
         name="Non-empty",
         description="Do not create groups without children",
         default=True,
@@ -273,9 +273,9 @@ class QUILL_PT_export_include(bpy.types.Panel):
 
         layout.column().prop(operator, "object_types")
         sublayout = layout.column(heading="Limit to")
-        sublayout.prop(operator, "use_selection")
-        sublayout.prop(operator, "use_visible")
-        sublayout.prop(operator, "use_non_empty")
+        sublayout.prop(operator, "only_selection")
+        sublayout.prop(operator, "only_visible")
+        sublayout.prop(operator, "only_non_empty")
 
 
 class QUILL_PT_export_greasepencil(bpy.types.Panel):
