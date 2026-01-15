@@ -145,7 +145,7 @@ def animate(drawing_to_obj, layer, use_keymesh, parent_obj):
         parent = parent.parent
 
     # Loop through the Blender frames and show the corresponding drawing.
-    was_visible = False
+    was_visible = True
     ticks_per_second = 12600
     ticks_per_frame = int(ticks_per_second / scn.render.fps)
     active_drawing_index = -1
