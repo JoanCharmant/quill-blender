@@ -41,6 +41,12 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
     filename_ext = ".json"
     filter_glob: StringProperty(default="*.json", options={"HIDDEN"})
 
+    configure_shading: BoolProperty(
+        name="Configure Shading",
+        description="Configure 3D viewport shading settings to match Quill.",
+        default=True,
+    )
+
     layer_types: EnumProperty(
         name="Layer Types",
         options={'ENUM_FLAG'},
@@ -96,6 +102,30 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
         keywords = self.as_keywords(ignore=("filter_glob", "filepath"))
 
         return import_quill.load(self, context, filepath=self.filepath, **keywords)
+
+
+class QUILL_PT_import_general(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "General"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+        return operator.bl_idname == "IMPORT_SCENE_OT_quill"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "configure_shading")
+
 
 
 class QUILL_PT_import_include(bpy.types.Panel):
@@ -359,6 +389,7 @@ def menu_func_export(self, context):
 
 classes = (
     ImportQuill,
+    QUILL_PT_import_general,
     QUILL_PT_import_include,
     QUILL_PT_import_paint,
     ExportQuill,

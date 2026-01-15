@@ -51,6 +51,18 @@ class QuillImporter:
         self.import_layer(root_layer, 0)
         bpy.context.view_layer.update()
 
+        # Configure 3D viewport solid shading to match Quill.
+        if self.config["configure_shading"]:
+            # Flat solid shading
+            for area in bpy.context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.spaces[0].shading.light = 'FLAT'
+                    area.spaces[0].shading.color_type = 'VERTEX'
+                    area.spaces[0].shading.show_object_outline = False
+            # View transform to standard.
+            bpy.context.scene.view_settings.view_transform = 'Standard'
+
+
     def import_layer(self, layer, offset, parent_layer=None, parent_obj=None, layer_path=""):
 
         logging.info("Importing Quill layer: %s (%s).", layer.name, layer.type)
