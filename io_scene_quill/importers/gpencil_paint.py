@@ -29,15 +29,8 @@ def convert(obj, layer):
         gpencil_data.stroke_thickness_space = 'WORLDSPACE'
 
     # Put everything on a single GPencil layer.
-    gpencil_layer = gpencil_data.layers[0]
+    gpencil_layer = gpencil_data.layers.new(name=layer.name, set_active=True)
     gpencil_layer.opacity = layer.opacity
-
-    # Delete the default frame, we'll create our own.
-    if bpy.app.version < (4, 3, 0):
-        gpencil_layer.frames.remove(gpencil_layer.frames[0])
-    else:
-        gpencil_layer.frames.remove(gpencil_layer.frames[0].frame_number)
-
 
     # Blender frame range vs Quill animation range.
     # We will loop through Blender frames and show the corresponding drawing.

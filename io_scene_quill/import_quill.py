@@ -11,6 +11,7 @@ class QuillImporter:
     def __init__(self, path, kwargs, operator):
         self.path = os.path.dirname(path)
         self.config = kwargs
+
         self.material = None
         self.next_empty_channel = -1
 
@@ -25,13 +26,11 @@ class QuillImporter:
         # Import the Quill scene to memory, including scene graph and drawing data.
         quill_scene = quill_utils.import_scene(self.path, self.config["layer_types"], self.config["only_visible"], self.config["only_non_empty"])
 
-        # Reset the context.
-        # Should we backup and restore afterwards?
-        if bpy.context.object:
-            bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+        # Deselect everything.
+        for obj in bpy.context.view_layer.objects:
+            obj.select_set(False)
 
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.context.scene.frame_set(1)
+        #bpy.context.scene.frame_set(1)
 
         # Find the last visible frame to extend the Blender timeline.
         # This is commented out for now since it may result in very long loading times.
@@ -59,11 +58,9 @@ class QuillImporter:
         if layer.type == "Group":
 
             # Group layers are converted to empty objects.
-            # Since Blender doesn't inherit visibility, hidden layers will be visible.
-            # The user can choose to not import these layers at all from the importer configuration.
-            bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0, 0, 0))
-            self.setup_obj(layer, parent_obj, layer_path)
-            self.setup_animation(layer, offset)
+            obj = bpy.data.objects.new(layer.name, None)
+            self.setup_obj(obj, layer, parent_obj, layer_path)
+            self.setup_animation(obj, layer, offset)
 
             # If we are a sequence the times of children are relative to our start point.
             if layer.animation.timeline:
@@ -71,7 +68,6 @@ class QuillImporter:
                 if kkvv and len(kkvv) > 0:
                     offset += kkvv[0].time
 
-            obj = bpy.context.object
             for child in layer.implementation.children:
                 layer_path = layer_path + "/" + layer.name
                 self.import_layer(child, offset, layer, obj, layer_path)
@@ -82,72 +78,80 @@ class QuillImporter:
                 obj.matrix_local = mat_rot @ obj.matrix_local
 
         elif layer.type == "Paint":
-            # Quill paint layers are converted to Mesh objects or Grease Pencil objects.
+
+            # Quill paint layers are converted to Mesh, Grease Pencil or Curves.
 
             if self.config["convert_paint"] == "MESH":
 
                 use_keymesh = hasattr(parent_obj, "keymesh")
 
+                # For Keymesh, create a mesh object that will become the Keymesh mesh.
+                # Otherwise create an Empty that will become the parent of the individual drawings.
+                data = None
                 if use_keymesh:
-                    # Create the mesh object that will become the Keymesh mesh.
-                    mesh_data = bpy.data.meshes.new(layer.name)
-                    obj = bpy.data.objects.new(layer.name, mesh_data)
-                    bpy.context.collection.objects.link(obj)
-                    bpy.context.view_layer.objects.active = obj
-                else:
-                    # Create an Empty that will become the parent of the individual drawings.
-                    bpy.ops.object.empty_add(type='PLAIN_AXES')
+                    data = bpy.data.meshes.new(layer.name)
 
-                self.setup_obj(layer, parent_obj, layer_path)
-                self.setup_animation(layer, offset)
+                obj = bpy.data.objects.new(layer.name, data)
+                self.setup_obj(obj, layer, parent_obj, layer_path)
+                self.setup_animation(obj, layer, offset)
 
                 # Import the drawings and animate them.
-                mesh_paint.convert(self.config, bpy.context.object, layer, self.material, use_keymesh)
+                mesh_paint.convert(self.config, obj, layer, self.material, use_keymesh)
 
             elif self.config["convert_paint"] == "GPENCIL" or self.config["convert_paint"] == "GREASEPENCIL":
 
+                data = None
                 if bpy.app.version < (4, 3, 0):
-                    bpy.ops.object.gpencil_add()
+                    data = bpy.data.grease_pencils.new(layer.name)
+                elif bpy.app.version < (5, 0, 0):
+                    data = bpy.data.grease_pencils_v3.new(layer.name)
                 else:
-                    bpy.ops.object.grease_pencil_add()
+                    data = bpy.data.grease_pencils.new(layer.name)
 
-                self.setup_obj(layer, parent_obj, layer_path)
-                self.setup_animation(layer, offset)
-                gpencil_paint.convert(bpy.context.object, layer)
+                obj = bpy.data.objects.new(layer.name, data)
+                self.setup_obj(obj, layer, parent_obj, layer_path)
+                self.setup_animation(obj, layer, offset)
+
+                gpencil_paint.convert(obj, layer)
 
             elif self.config["convert_paint"] == "CURVE":
 
-                curve_data = bpy.data.curves.new(layer.name, type='CURVE')
-                obj = bpy.data.objects.new(layer.name, curve_data)
-                bpy.context.collection.objects.link(obj)
-                bpy.context.view_layer.objects.active = obj
-                self.setup_obj(layer, parent_obj, layer_path)
-                self.setup_animation(layer, offset)
+                data = bpy.data.curves.new(layer.name, type='CURVE')
+                obj = bpy.data.objects.new(layer.name, data)
+                self.setup_obj(obj, layer, parent_obj, layer_path)
+                self.setup_animation(obj, layer, offset)
+
                 curve_paint.convert(obj, layer)
 
         elif layer.type == "Viewpoint":
-            bpy.ops.object.camera_add()
+
             layer.transform.scale = 1.0
-            self.setup_obj(layer, parent_obj, layer_path)
-            self.setup_animation(layer, offset, False)
+
+            data = bpy.data.cameras.new(name=layer.name)
+            obj = bpy.data.objects.new(layer.name, data)
+            self.setup_obj(obj, layer, parent_obj, layer_path)
+            self.setup_animation(obj, layer, offset, False)
 
             # There is no FOV info in viewpoint layers as they are for VR viewing.
             # Set the FOV to a relatively large value to simulate a wide angle lens.
-            obj = bpy.context.object
-            obj.data.lens_unit = 'FOV'
-            obj.data.angle = radians(90.0)
+            data.lens_unit = 'FOV'
+            data.angle = radians(90.0)
 
         elif layer.type == "Camera":
-            bpy.ops.object.camera_add()
+
             layer.transform.scale = 1.0
-            self.setup_obj(layer, parent_obj, layer_path)
-            self.setup_animation(layer, offset, False)
-            obj = bpy.context.object
+
+            data = bpy.data.cameras.new(name=layer.name)
+            obj = bpy.data.objects.new(layer.name, data)
+            self.setup_obj(obj, layer, parent_obj, layer_path)
+            self.setup_animation(obj, layer, offset, False)
+
             # FIXME FOV isn't an exact match between Quill and Blender.
-            obj.data.lens_unit = 'FOV'
-            obj.data.angle = radians(layer.implementation.fov)
+            data.lens_unit = 'FOV'
+            data.angle = radians(layer.implementation.fov)
 
         elif layer.type == "Sound":
+
 
             # TODO: handle hidden sound layers properly.
             # TODO: handle scaling in a way that reproduce the Quill gizmo size.
@@ -160,10 +164,10 @@ class QuillImporter:
             # For this first implementation we favor the sound strip to work on lip sync.
 
             # Create the speaker object.
-            bpy.ops.object.speaker_add()
-            self.setup_obj(layer, parent_obj, layer_path)
-            self.setup_animation(layer, offset, False)
-            obj = bpy.context.object
+            data = bpy.data.speakers.new(name=layer.name)
+            obj = bpy.data.objects.new(layer.name, data)
+            self.setup_obj(obj, layer, parent_obj, layer_path)
+            self.setup_animation(obj, layer, offset, False)
 
             # Quill stores both the data in Qbin and the file path in JSON.
             # If we don't find the file on disk try to extract it from the QBin data.
@@ -192,7 +196,8 @@ class QuillImporter:
                 obj.show_name = True
                 return
 
-            # Don't set the sound for now. We will handle this if we can somehow link it to the sound strip object.
+            # We don't actually set the sound on the speaker data.
+            # Everything is handled through the sound strip in the Video Sequence Editor.
             #sound = bpy.data.sounds.load(filepath, check_existing=False)
             #obj.data.sound = sound
 
@@ -210,16 +215,21 @@ class QuillImporter:
             sound_sound.convert(layer, file_path, self.next_empty_channel)
 
         elif layer.type == "Model":
-            bpy.ops.object.empty_add(type='CUBE')
-            self.setup_obj(layer, parent_obj, layer_path)
-            self.setup_animation(layer, offset, False)
+
+            obj = bpy.data.objects.new(layer.name, None)
+            obj.empty_display_type = 'CUBE'
+            self.setup_obj(obj, layer, parent_obj, layer_path)
+            self.setup_animation(obj, layer, obj, offset, False)
 
         elif layer.type == "Picture":
-            bpy.ops.object.empty_add(type='IMAGE')
-            self.setup_obj(layer, parent_obj, layer_path)
-            self.setup_animation(layer, offset, False)
-            obj = bpy.context.object
 
+            # Start by creating an empty, we'll load image data into it if possible.
+            obj = bpy.data.objects.new(layer.name, None)
+            obj.empty_display_type = 'IMAGE'
+            self.setup_obj(obj, layer, parent_obj, layer_path)
+            self.setup_animation(obj, layer, offset, False)
+
+            # Load the image data.
             # Quill stores both the data in Qbin and the file path in JSON.
             # We just support the path for now, so the file has to be on disk.
             # Note: some characters in the file path may be unsupported like em dash.
@@ -229,44 +239,35 @@ class QuillImporter:
                 obj.show_name = True
                 return
 
-            # Load the image.
-            img = bpy.data.images.load(file_path, check_existing=False)
-            obj.data = img
+            image_data = bpy.data.images.load(file_path, check_existing=False)
+            obj.data = image_data
 
             # To get the correct size we need to do some shenanigans.
             # This was found by trial and error with images of various aspect ratio.
             # The correct size is twice the aspect ratio for landscape images,
             # and for portrait images the aspect ratio is aliased to 1.0.
-            aspect_ratio = img.size[0] / img.size[1]
+            aspect_ratio = image_data.size[0] / image_data.size[1]
             aspect_ratio = max(1.0, aspect_ratio)
             obj.empty_display_size = aspect_ratio * 2.0
 
         else:
             logging.warning("Unsupported Quill layer type: %s", layer.type)
 
-    def setup_obj(self, layer, parent_obj=None, layer_path=""):
+    def setup_obj(self, obj, layer, parent_obj=None, layer_path=""):
         """
         Configure the Blender object representing the Quill layer, common to all layer types.
         """
 
-        obj = bpy.context.object
-        obj.name = layer.name
+        bpy.context.collection.objects.link(obj)
         obj.parent = parent_obj
         obj.matrix_local = self.get_transform(layer.transform)
         # TODO: pivot.
 
-        # Store link to original Quill project and layer.
+        # Store a reference to the original Quill project and layer.
         # This is used during export, to swap back the original Quill data.
         obj.quill.active = True
         obj.quill.scene_path = self.path
         obj.quill.layer_path = layer_path + "/" + layer.name
-
-        # Visibility inheritance.
-        # In Quill if the parent group is hidden the whole subtree is hidden,
-        # even if the individual layers are marked as visible.
-        # In Blender each object has its own visibility independent of the parent.
-        # At the moment we don't have a satisfying way to handle this so we just
-        # ignore visibility for hidden groups and let the user manually fix it.
 
     def get_transform(self, t):
         """Convert a Quill transform to a Blender matrix."""
@@ -288,25 +289,24 @@ class QuillImporter:
             else:
                 return mat
 
-    def setup_animation(self, layer, offset, do_scale=True):
+    def setup_animation(self, obj, layer, offset, do_scale=True):
         """Setup the animation of the object."""
 
-        # Key frame times are stored relative to the parent Sequence.
-        # Bare groups do not alter the time of their children.
-        # Quill uses a time base of 1/12600 (nicely divisible).
-        # Never animate visibility since Blender doesn't inherit visibility.
-        # We will handle it while importing the leaf layers.
-        self.animate_transform(layer, offset, do_scale)
+        # Quill has several types of key frames.
+        # Visibility and Offset key frames are used for clips and spans.
+        # Opacity key frames are used for fading layers in and out, not supported.
+        # Transform key frames are supported.
+        self.animate_transform(obj, layer, offset, do_scale)
 
-    def animate_transform(self, layer, offset=0, do_scale=True):
+    def animate_transform(self, obj, layer, offset=0, do_scale=True):
 
         # Transform key frames.
         # This is set up on all layer types, including groups.
+        # This only handles the base animation for now, not looping and clips.
         kktt = layer.animation.keys.transform
         if kktt == None or len(kktt) == 0:
             return
 
-        obj = bpy.context.object
         fps = bpy.context.scene.render.fps
         time_base = 1/12600
 

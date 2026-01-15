@@ -21,6 +21,9 @@ def keymesh_init(obj):
     """
     Turns `obj` into a Keymesh object.
     """
+    if not hasattr(obj, "keymesh"):
+        return
+
     obj.keymesh.active = True
     obj.keymesh["ID"] = new_object_id()
     obj.keymesh.animated = True
@@ -48,11 +51,8 @@ def keymesh_import(parent_obj, drawing_objs):
         index += 1
 
     # Delete the individual drawing objects since their data is now in Keymesh blocks.
-    bpy.ops.object.select_all(action='DESELECT')
     for obj in drawing_objs:
         bpy.data.objects.remove(obj)
-
-    bpy.context.view_layer.objects.active = parent_obj
 
 
 def keymesh_get_blank(parent_obj):

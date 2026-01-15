@@ -79,6 +79,7 @@ def convert(config, parent_obj, layer, material, use_keymesh):
     if use_keymesh:
         keymesh_init(parent_obj)
         keymesh_import(parent_obj, drawing_to_obj.values())
+        bpy.context.view_layer.objects.active = parent_obj
 
     animate(drawing_to_obj, layer, use_keymesh, parent_obj)
 
