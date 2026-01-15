@@ -15,7 +15,6 @@ class QuillExporter:
         self.path = path
         self.config = kwargs
 
-        self.scene = bpy.context.scene
         self.original_quill_scenes = {}
         self.quill_scene = None
         self.quill_state = None
@@ -54,7 +53,9 @@ class QuillExporter:
         quill_utils.export_scene(folder_path, self.quill_scene, self.quill_state)
 
     def export_scene(self):
-        logging.info("Exporting scene: %s", self.scene.name)
+
+        scn = bpy.context.scene
+        logging.info("Exporting scene: %s", scn.name)
 
         # Temporary toggle off edit mode if necessary.
         memo_edit_mode = False
@@ -63,7 +64,7 @@ class QuillExporter:
             bpy.ops.object.editmode_toggle()
 
         # Loop through the Blender objects and decide which objects to export.
-        for obj in self.scene.objects:
+        for obj in scn.objects:
             if obj in self.exporting_objects:
                 continue
             if self.should_export_object(obj):
@@ -73,7 +74,7 @@ class QuillExporter:
 
         # Loop through the Blender objects and export them.
         root_layer = self.quill_scene.sequence.root_layer
-        for obj in self.scene.objects:
+        for obj in scn.objects:
             if obj in self.exporting_objects and obj.parent is None:
                 self.export_object(obj, root_layer)
 
