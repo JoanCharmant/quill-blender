@@ -154,6 +154,9 @@ class Keys:
 
 
 class Animation:
+    """
+    Animation data structure for all layer types.
+    """
     def __init__(self, duration, keys, max_repeat_count, start_offset, timeline):
         self.duration = duration
         self.keys = keys

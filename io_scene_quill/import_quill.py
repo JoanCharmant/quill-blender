@@ -66,7 +66,6 @@ class QuillImporter:
             # View transform to standard.
             bpy.context.scene.view_settings.view_transform = 'Standard'
 
-
     def import_layer(self, layer, offset, parent_layer=None, parent_obj=None, layer_path=""):
 
         logging.info("Importing Quill layer: %s (%s).", layer.name, layer.type)
@@ -79,6 +78,12 @@ class QuillImporter:
             self.setup_animation(obj, layer, offset)
 
             # If we are a sequence the times of children are relative to our start point.
+            # FIXME: it's more complicated than that. Clips and loops in parent sequence layers
+            # are restarting the timeline for children and the key frames should be duplicated
+            # and adjusted accordingly.
+            # It's not actually possible to handle everything with sparse key frames since a clip
+            # may end in the middle of two key frames and the next clip restart before the next.
+            # The following only handles the case where the first clip doesn't start at time 0.
             if layer.animation.timeline:
                 kkvv = layer.animation.keys.visibility
                 if kkvv and len(kkvv) > 0:

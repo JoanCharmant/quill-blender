@@ -237,10 +237,11 @@ def get_local_time(stack, global_time, ticks_per_frame):
     for i in range(len(stack) - 1, -1, -1):
 
         layer = stack[i]
+
+
+        # Find the key at or before the current time.
         kkvv = layer.animation.keys.visibility
         kkoo = layer.animation.keys.offset
-
-        # Find the key before the current time.
         last_key = None
         for i in range(len(kkvv)):
             if kkvv[i].time > local_time:
