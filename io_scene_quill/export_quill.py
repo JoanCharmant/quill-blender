@@ -294,6 +294,11 @@ class QuillExporter:
 
         if hasattr(obj, "keymesh") and obj.keymesh.active:
 
+            # The blocks in Keymesh may have been reordered compared to the original drawings.
+            # Map the Keymesh block indices to the Quill drawings.
+            # This handles the blank drawing case as well.
+            keymesh_to_quill = {}
+
             # Export all Keymesh blocks as the original drawings they were imported from.
             for block_registry in obj.keymesh.blocks:
                 block = block_registry.block
@@ -304,9 +309,25 @@ class QuillExporter:
                     continue
 
                 drawing_index = block.quill.drawing_index
-                if drawing_index is not None and drawing_index >= 0 and drawing_index < len(original_layer.implementation.drawings):
+                if drawing_index >= len(original_layer.implementation.drawings):
+                    logging.warning("Skipping Quill drawing %s with invalid drawing index %d in paint layer %s", block.name, drawing_index, obj.name)
+                    continue
+
+                if drawing_index == -1:
+                    # This is the special blank block created for gaps between clips.
+                    # Create an empty drawing and add it to the paint layer.
+                    blank_drawing = quill_utils.create_drawing()
+                    paint_layer.implementation.drawings.append(blank_drawing)
+
+                else:
                     original_drawing = original_layer.implementation.drawings[drawing_index]
                     paint_layer.implementation.drawings.append(original_drawing)
+
+                # Update the mapping from Keymesh block to Quill drawing.
+                # Note that this is not indexed by the keymesh block index but by the block "data" value
+                # which is the original creation index of the block and what is used in key frames.
+                keymesh_data = block.keymesh["Data"]
+                keymesh_to_quill[keymesh_data] = len(paint_layer.implementation.drawings) - 1
 
             # Recreate the base animation from the Blender keyframes.
             # Note that this is not a non-descructive round trip, the looping flag and clips
@@ -318,19 +339,22 @@ class QuillExporter:
                 paint_layer.implementation.frames = [0]
 
             else:
-
-                # The returned frame sequence is sparse while Quill needs a dense one.
-                # Fill in the gaps with frame holds.
+                # The Keymesh frame sequence is sparse while Quill uses a dense one.
                 last_frame = frame_sequence[-1][0]
-                current_index = frame_sequence[0][1]
+                block_value = frame_sequence[0][1]
                 paint_layer.implementation.frames.clear()
+
                 for frame in range(0, last_frame + 1):
-                    # Update the current drawing index if we have a keyframe at this frame otherwise hold.
+                    # Update the block value if we have a keyframe at this frame, otherwise hold.
                     for kf in frame_sequence:
                         if kf[0] == frame:
-                            current_index = kf[1]
+                            block_value = kf[1]
                             break
-                    paint_layer.implementation.frames.append(current_index)
+                        if kf[0] > frame:
+                            break
+
+                    drawing_index = keymesh_to_quill[block_value]
+                    paint_layer.implementation.frames.append(drawing_index)
 
         else:
             # A single mesh imported from Quill but is not a Keymesh object.

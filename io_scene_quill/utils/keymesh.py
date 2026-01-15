@@ -97,7 +97,6 @@ def keymesh_get_blank(parent_obj):
     return index
 
 
-
 def keymesh_keyframe(parent_obj, frame, index):
     """
     Adds a keyframe to show the drawing at `index`.
@@ -125,7 +124,10 @@ def keymesh_keyframe(parent_obj, frame, index):
 
 def keymesh_get_frame_sequence(obj):
     """
-    Returns a list of (frame, drawing_index) tuples for each keyframe in the Keymesh object `obj`.
+    Returns a list of (frame, value) tuples for each keyframe in the Keymesh object `obj`.
+
+    Note that the values refers to Keymesh block values, not indices in the block list,
+    and they may have been reordered compared to the Quill drawing indices.
     """
 
     frame_sequence = []
@@ -135,8 +137,8 @@ def keymesh_get_frame_sequence(obj):
     if fcurve:
         for kf in fcurve.keyframe_points:
             frame = int(kf.co.x)
-            drawing_index = int(kf.co.y)
-            frame_sequence.append((frame, drawing_index))
+            value = int(kf.co.y)
+            frame_sequence.append((frame, value))
 
     return frame_sequence
 
