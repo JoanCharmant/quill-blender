@@ -4,15 +4,20 @@
 ## 1.4.0
 
 Importer
-- Mesh: keep track of the Quill project, layer and drawing the mesh was imported from.
+- Fixes for Blender 5.0.0.
+- Added option to auto-configure solid shading to match Quill.
+- Added option to select which layer types are imported.
+- Added option to not include groups with no children.
+- Mesh: keep track of the Quill scene, layer and drawing the mesh was imported from.
 - Mesh: if the Keymesh add-on is installed, convert Paint layers to animated Keymesh objects.
-- Import sound layers as speaker objects and create sound strips in the sequence editor.
-- Sound: if the original audio file is not found, extract the sound data from the Qbin file into a local .wav file.
+- Support sound layers. Create a speaker object and sound strips in the sequence editor.
+- Sound layers: if the original audio file is not found, extract the sound data from the QBIN data into a local .wav file.
+- Viewpoints: increased field of view of the created camera.
 
 Exporter
 - When exporting Mesh objects imported from Quill, use the original Quill drawing.
 - When exporting Empty objects imported from Quill paint layers, reconstruct the animation.
-- When exporting Keymesh objects containing blocks imported from Quill, use the original Quill drawings and reconstruct the  animation.
+- When exporting Keymesh objects containing blocks imported from Quill, use the original Quill drawings and reconstruct the animation.
 
 
 ## 1.3.1

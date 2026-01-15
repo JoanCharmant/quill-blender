@@ -18,9 +18,9 @@ The following layer types are converted to Blender objects with matching data
 - Camera layer
 - Viewpoint layer (spawn area)
 - Picture layer
+- Sound layer
 
 The following layer types are converted to Empty objects with no data
-- Sound layer
 - Model layer
 
 
