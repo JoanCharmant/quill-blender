@@ -35,6 +35,15 @@ class QuillImporter:
         bpy.ops.object.select_all(action='DESELECT')
         bpy.context.scene.frame_set(1)
 
+        # Find the last visible frame to extend the Blender timeline.
+        # This is commented out for now since it may result in very long loading times.
+        # ticks_per_second = 12600
+        # ticks_per_frame = int(ticks_per_second / quill_scene.sequence.framerate)
+        # frame_end = quill_utils.find_last_visible_frame(quill_scene.sequence.root_layer, ticks_per_frame)
+        # if (frame_end > 0 and frame_end > bpy.context.scene.frame_end):
+        #     logging.info("Extending Blender timeline to frame %d.", frame_end)
+        #     bpy.context.scene.frame_end = frame_end
+
         # Create the shared material.
         self.material = None
         if self.config["convert_paint"] == "MESH":

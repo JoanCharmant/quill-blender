@@ -294,6 +294,43 @@ def connect_parents(layer_group):
         child.parent = layer_group
 
 
+def find_last_visible_frame(layer, ticks_per_frame):
+    """
+    Recursively find the last visible frame in the layer and its children.
+
+    This is based on visibility keyframes (clips), not transform keyframes.
+    """
+
+    # Find the last "visibility off" keyframe on this layer, if any.
+    kkvv = layer.animation.keys.visibility
+    last_kv_off = 0
+    if len(kkvv) > 0 and kkvv[-1].value == False:
+        last_kv_off = kkvv[-1].time
+
+    last_frame_layer = int(last_kv_off / ticks_per_frame)
+
+    # If we are not a group we are done.
+    if layer.type != "Group":
+        return last_frame_layer
+
+    # If we are a group it's more subtle.
+    # None of the children are visible after the parent is hidden,
+    # but it's possible that all the children are hidden before the parent is hidden.
+    # In that case we need to find the last visible frame among the children.
+    last_frame_children = 0
+    for child in layer.implementation.children:
+        last_frame = find_last_visible_frame(child, ticks_per_frame)
+        if last_frame > last_frame_children:
+            last_frame_children = last_frame
+
+    if last_frame_layer == 0:
+        return last_frame_children
+    elif last_frame_children == 0:
+        return last_frame_layer
+    else:
+        return min(last_frame_layer, last_frame_children)
+
+
 def bbox_empty():
    """ Returns a bounding box initialized to reversed inifinity values so the first point added will always update it."""
    return [float('inf'), float('inf'), float('inf'), float('-inf'), float('-inf'), float('-inf')]
