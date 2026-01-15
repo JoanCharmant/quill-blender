@@ -101,7 +101,7 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
 
         keywords = self.as_keywords(ignore=("filter_glob", "filepath"))
 
-        return import_quill.load(self, context, filepath=self.filepath, **keywords)
+        return import_quill.load(self, filepath=self.filepath, **keywords)
 
 
 class QUILL_PT_import_general(bpy.types.Panel):
@@ -125,7 +125,6 @@ class QUILL_PT_import_general(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "configure_shading")
-
 
 
 class QUILL_PT_import_include(bpy.types.Panel):

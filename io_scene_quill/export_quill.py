@@ -523,10 +523,13 @@ class QuillExporter:
 
 
 def save(operator, filepath="", **kwargs):
-    """Begin the export"""
-
-    with QuillExporter(filepath, kwargs, operator) as exp:
-        exp.export()
+    """Save the current Blender scene as a Quill scene"""
+    with QuillExporter(filepath, kwargs, operator) as exporter:
+        try:
+            exporter.export()
+        except Exception as e:
+            operator.report({'ERROR'}, f"Failed to export Quill scene: {str(e)}")
+            return {'CANCELLED'}
 
     return {'FINISHED'}
 

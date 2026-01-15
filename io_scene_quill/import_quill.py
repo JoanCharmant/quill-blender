@@ -21,7 +21,7 @@ class QuillImporter:
     def __exit__(self, *exc):
         pass
 
-    def import_scene(self, context):
+    def import_scene(self):
 
         # Import the Quill scene to memory, including scene graph and drawing data.
         quill_scene = quill_utils.import_scene(self.path, self.config["layer_types"], self.config["only_visible"], self.config["only_non_empty"])
@@ -359,10 +359,13 @@ class QuillImporter:
             return 'LINEAR', 'AUTO'
 
 
-def load(operator, context, filepath="", **kwargs):
-    """Load a Quill scene"""
+def load(operator, filepath="", **kwargs):
 
     with QuillImporter(filepath, kwargs, operator) as importer:
-        importer.import_scene(context)
+        try:
+            importer.import_scene()
+        except Exception as e:
+            operator.report({'ERROR'}, f"Failed to import Quill scene: {str(e)}")
+            return {'CANCELLED'}
 
     return {'FINISHED'}
