@@ -58,9 +58,9 @@ class QuillImporter:
                 if area.type == 'VIEW_3D':
                     area.spaces[0].shading.light = 'FLAT'
                     area.spaces[0].shading.color_type = 'VERTEX'
-                    area.spaces[0].shading.show_object_outline = False
                     area.spaces[0].shading.background_type = 'VIEWPORT'
                     area.spaces[0].shading.background_color = quill_scene.sequence.background_color
+                    area.spaces[0].shading.show_object_outline = False
 
             # View transform to standard.
             bpy.context.scene.view_settings.view_transform = 'Standard'
