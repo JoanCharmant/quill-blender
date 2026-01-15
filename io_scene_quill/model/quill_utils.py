@@ -204,8 +204,8 @@ def write_json(json_obj, folder_path, file_name):
     file.close()
 
 
-def import_scene(path, include_hidden=True, include_cameras=True):
-    """Load a Quill scene graph and drawing data."""
+def import_scene(path, layer_types, only_visible=False, only_non_empty=False):
+    """Load a Quill scene graph and its data."""
 
     scene_path = os.path.join(path, "Quill.json")
     qbin_path = os.path.join(path, "Quill.qbin")
@@ -226,12 +226,22 @@ def import_scene(path, include_hidden=True, include_cameras=True):
         raise ValueError(f"Failed to load Quill sequence: {scene_path}")
 
     # Filter out unwanted layers.
-    if not include_hidden:
+    if only_visible:
         delete_hidden(scene.sequence.root_layer)
 
-    if not include_cameras:
+    if 'PAINT' not in layer_types:
+        delete_type(scene.sequence.root_layer, "Paint")
+    if 'VIEWPOINT' not in layer_types:
         delete_type(scene.sequence.root_layer, "Viewpoint")
+    if 'CAMERA' not in layer_types:
         delete_type(scene.sequence.root_layer, "Camera")
+    if 'PICTURE' not in layer_types:
+        delete_type(scene.sequence.root_layer, "Picture")
+    if 'SOUND' not in layer_types:
+        delete_type(scene.sequence.root_layer, "Sound")
+
+    if only_non_empty:
+        delete_empty_groups(scene.sequence.root_layer)
 
     # Load the drawing data.
     qbin = open(qbin_path, "rb")

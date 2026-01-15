@@ -41,17 +41,30 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
     filename_ext = ".json"
     filter_glob: StringProperty(default="*.json", options={"HIDDEN"})
 
-    load_hidden_layers: BoolProperty(
-            name="Hidden Layers",
-            description="Load hidden layers from the Quill scene",
-            default=False,
-            )
+    layer_types: EnumProperty(
+        name="Layer Types",
+        options={'ENUM_FLAG'},
+        items=(('PAINT', "Paint", ""),
+               ('VIEWPOINT', "Viewpoint", ""),
+               ('CAMERA', "Camera", ""),
+               ('PICTURE', "Picture", ""),
+               ('SOUND', "Sound", "")
+        ),
+        description="Which kind of layers to import",
+        default={'PAINT', 'VIEWPOINT', 'CAMERA', 'PICTURE', 'SOUND'},
+    )
 
-    load_cameras: BoolProperty(
-            name="Cameras",
-            description="Load Quill cameras and viewpoints as Blender cameras",
-            default=True,
-            )
+    only_visible: BoolProperty(
+        name="Visible Layers",
+        description="Only import visible layers from the Quill scene. Sound layers ignore this setting.",
+        default=True,
+    )
+
+    only_non_empty: BoolProperty(
+        name="Non-empty",
+        description="Do not create groups without children",
+        default=True,
+    )
 
     convert_paint: EnumProperty(
         name="Convert to",
@@ -105,8 +118,10 @@ class QUILL_PT_import_include(bpy.types.Panel):
         sfile = context.space_data
         operator = sfile.active_operator
 
-        layout.prop(operator, "load_hidden_layers")
-        layout.prop(operator, "load_cameras")
+        layout.column().prop(operator, "layer_types")
+        sublayout = layout.column(heading="Limit to")
+        sublayout.prop(operator, "only_visible")
+        sublayout.prop(operator, "only_non_empty")
 
 
 class QUILL_PT_import_paint(bpy.types.Panel):
@@ -146,7 +161,6 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
     filename_ext = ".zip"
     filter_glob: StringProperty(default="*.zip", options={"HIDDEN"})
 
-    # List of operator properties.
     object_types: EnumProperty(
         name="Object Types",
         options={'ENUM_FLAG'},
@@ -162,13 +176,13 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
 
     use_selection: BoolProperty(
         name="Selected Objects",
-        description="Export selected and visible objects only",
+        description="Only export selected objects to Quill",
         default=False,
     )
 
     use_visible: BoolProperty(
         name="Visible Objects",
-        description="Export visible objects only",
+        description="Only export visible objects to Quill",
         default=True,
     )
 
@@ -342,6 +356,7 @@ def menu_func_import(self, context):
 def menu_func_export(self, context):
     self.layout.operator(ExportQuill.bl_idname, text="Quill scene")
 
+
 classes = (
     ImportQuill,
     QUILL_PT_import_include,
@@ -352,6 +367,7 @@ classes = (
     QUILL_PT_export_wireframe,
     QUILL_PT_export_armature,
 )
+
 
 def register():
 

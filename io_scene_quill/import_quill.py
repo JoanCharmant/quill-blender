@@ -23,9 +23,7 @@ class QuillImporter:
     def import_scene(self, context):
 
         # Import the Quill scene to memory, including scene graph and drawing data.
-        include_hidden = self.config["load_hidden_layers"]
-        include_cameras = self.config["load_cameras"]
-        quill_scene = quill_utils.import_scene(self.path, include_hidden, include_cameras)
+        quill_scene = quill_utils.import_scene(self.path, self.config["layer_types"], self.config["only_visible"], self.config["only_non_empty"])
 
         # Reset the context.
         # Should we backup and restore afterwards?

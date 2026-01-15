@@ -513,7 +513,8 @@ class QuillExporter:
         if scene_path in self.original_quill_scenes:
             return self.original_quill_scenes[scene_path]
 
-        original_quill_scene = quill_utils.import_scene(scene_path)
+        layer_types = {'PAINT', 'VIEWPOINT', 'CAMERA', 'PICTURE', 'SOUND'}
+        original_quill_scene = quill_utils.import_scene(scene_path, layer_types)
         if original_quill_scene is None:
             logging.warning("Could not load original Quill scene at %s for object %s", scene_path, obj.name)
             return None
