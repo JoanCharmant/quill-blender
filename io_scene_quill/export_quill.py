@@ -127,7 +127,7 @@ class QuillExporter:
         if obj.type == "EMPTY":
 
             if obj.empty_display_type == "IMAGE":
-                self.export_image(obj)
+                self.export_image(obj, parent_layer)
             else:
                 self.export_empty(obj, parent_layer)
 
