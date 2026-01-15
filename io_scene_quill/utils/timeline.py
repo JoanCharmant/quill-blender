@@ -1,5 +1,6 @@
 import bpy
 
+
 def ensure_channelbag(data_block):
     """
     Returns the channelbag of f-curves for a given ID, or `None` if the ID doesn't

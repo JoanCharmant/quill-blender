@@ -5,6 +5,7 @@ import mathutils
 from math import floor, radians
 from .importers import gpencil_paint, mesh_material, mesh_paint, curve_paint, sound_sound
 from .model import quill_utils
+from .utils import timeline
 
 class QuillImporter:
 
@@ -218,16 +219,27 @@ class QuillImporter:
 
             # Create a sound strip in the Video Sequence Editor on a new channel.
             # Find the next empty channel.
-            sequences = bpy.context.scene.sequence_editor.sequences_all
-            if len(sequences) == 0:
+            sequencer_scene = None
+            strips = None
+            if bpy.app.version < (5, 0, 0):
+                sequencer_scene = bpy.context.scene
+                strips = sequencer_scene.sequence_editor.sequences_all
+            else:
+                if bpy.context.workspace.sequencer_scene is None:
+                    bpy.context.workspace.sequencer_scene = bpy.context.scene
+
+                sequencer_scene = bpy.context.workspace.sequencer_scene
+                strips = sequencer_scene.sequence_editor.strips_all
+
+            if len(strips) == 0:
                 self.next_empty_channel = 1
             elif self.next_empty_channel == -1:
-                max_channel = max((seq.channel for seq in bpy.context.scene.sequence_editor.sequences_all))
+                max_channel = max((strip.channel for strip in strips))
                 self.next_empty_channel = max_channel + 1
             else:
                 self.next_empty_channel += 1
 
-            sound_sound.convert(layer, file_path, self.next_empty_channel)
+            sound_sound.convert(layer, file_path, sequencer_scene, self.next_empty_channel)
 
         elif layer.type == "Model":
 
@@ -325,26 +337,39 @@ class QuillImporter:
         fps = bpy.context.scene.render.fps
         time_base = 1/12600
 
-        # Create the key frames.
+        # First pass, create the key frames with default interpolation.
         for key in kktt:
             time = key.time + offset
             frame = floor(time * time_base * fps + 0.5)
 
-            # Name of the channels is from the F-Curve panel in the Graph Editor.
+            # Set the object transform for this key frame.
             obj.matrix_local = self.get_transform(key.value)
+
+            # Insert the key frame.
+            # Name of the channels is from the F-Curve panel in the Graph Editor.
             obj.keyframe_insert(data_path="location", frame=frame)
             obj.keyframe_insert(data_path="rotation_euler", frame=frame)
             if do_scale:
                 obj.keyframe_insert(data_path="scale", frame=frame)
 
-        # Go through the key frames we just created and set the interpolation type.
-        # https://docs.blender.org/api/current/bpy.types.Keyframe.html
-        for fcurve in obj.animation_data.action.fcurves:
+        # Second pass, set the interpolation.
+        # Note that we change the interpolation of every f-curve on the object.
+        # This will work as long as these are the first key frames set on the object.
+        # This approach makes it simpler to find all the axes at once and avoid
+        # scanning all the previous key frame for each key frame.
+        fcurves = None
+        if bpy.app.version < (5, 0, 0):
+            fcurves = obj.animation_data.action.fcurves
+        else:
+            channelbag = timeline.ensure_channelbag(obj)
+            fcurves = channelbag.fcurves
+
+        for fcurve in fcurves:
             for i in range(len(fcurve.keyframe_points)):
-                keyframe = fcurve.keyframe_points[i]
+                kp = fcurve.keyframe_points[i]
                 interp, easing = self.get_interpolation(kktt[i].interpolation)
-                keyframe.interpolation = interp
-                keyframe.easing = easing
+                kp.interpolation = interp
+                kp.easing = easing
 
     def get_interpolation(self, interpolation):
         """Convert Quill interpolation to Blender f-curve interpolation"""
