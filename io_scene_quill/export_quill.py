@@ -139,7 +139,6 @@ class QuillExporter:
             else:
                 self.export_mesh_wireframe(obj, parent_layer)
 
-
         elif obj.type == "CAMERA":
             layer = quill_utils.create_camera_layer(obj.name)
 
@@ -241,6 +240,7 @@ class QuillExporter:
             frame_start = scn.frame_start
             frame_end = scn.frame_end
             paint_layer.implementation.frames = []
+            blank_drawing_index = -1
             for frame in range(frame_start, frame_end + 1):
                 scn.frame_set(frame)
 
@@ -252,20 +252,19 @@ class QuillExporter:
                         blender_drawing_index = i
                         break
 
-                # If no suitable drawing is visible, use the special empty drawing.
-                # This may happen when the original Quill layer or parents have clips that
-                # start after frame 0 or there are gaps between the clips.
-                # Normally we can't rebuild a base animation with gaps, but we can
-                # create a special empty drawing to represent those gaps.
                 quill_drawing_index = -1
                 if blender_drawing_index == -1:
-                    # TODO: check if we already added the empty drawing to the paint layer.
-                    # add it if not, and set the visible_drawing_index to it.
-                    # empty_drawing = quill_utils.create_empty_drawing()
-                    # paint_layer.implementation.drawings.append(empty_drawing)
-                    # visible_drawing_index = drawing_count
-                    # drawing_count += 1
-                    pass
+                    # No drawing is visible, use a special empty drawing.
+                    # This may happen when the original Quill layer or parents have gaps between clips.
+                    # Normally we can't rebuild a base animation with gaps, but we can
+                    # create a special empty drawing and keep it on hold.
+                    if blank_drawing_index == -1:
+                        blank_drawing = quill_utils.create_drawing()
+                        paint_layer.implementation.drawings.append(blank_drawing)
+                        blank_drawing_index = len(paint_layer.implementation.drawings) - 1
+
+                    quill_drawing_index = blank_drawing_index
+
                 else:
                     # We found a visible drawing on this frame.
                     # Map from blender child index to Quill drawing index.
@@ -279,7 +278,7 @@ class QuillExporter:
         # Export a mesh object that is marked as imported from Quill.
         # This could be:
         # - a Keymesh object containing drawings as blocks.
-        # - a single mesh extracted or duplicated out of a paint layer group container,
+        # - a single mesh extracted or duplicated out of a paint layer group container.
 
         # Mark the object as a "paint layer" if it's not already.
         # This is used later to export the transform.
