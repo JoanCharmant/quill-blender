@@ -251,7 +251,7 @@ class QuillImporter:
             obj = bpy.data.objects.new(layer.name, None)
             obj.empty_display_type = 'CUBE'
             self.setup_obj(obj, layer, parent_obj, layer_path)
-            self.setup_animation(obj, layer, obj, offset, False)
+            self.setup_animation(obj, layer, offset, False)
 
         elif layer.type == "Picture":
 
