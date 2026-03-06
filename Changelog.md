@@ -1,6 +1,17 @@
 # Changelog
 
 
+## 1.4.2
+
+- Fix: the add-on could not be installed on versions prior to 4.5.0.
+
+
+## 1.4.1
+
+Importer
+- Fix: importing scenes with model layers could fail.
+
+
 ## 1.4.0
 
 Importer
@@ -27,6 +38,7 @@ Importer
 - Fix: non-looping paint layer were always imported as looping.
 - Fix: paint layers with single-frame clips were hidden.
 
+
 ## 1.3.0
 
 Importer
@@ -36,6 +48,7 @@ Importer
 
 Exporter
 - Export Blender Image references to Image layers.
+
 
 ## 1.2.0
 

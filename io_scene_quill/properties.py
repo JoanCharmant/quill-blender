@@ -1,6 +1,13 @@
 import bpy
 
 
+def path_options():
+    if bpy.app.version >= (4, 5, 0):
+        return {'PATH_SUPPORTS_BLEND_RELATIVE'}
+    else:
+        return set()
+
+
 class OBJECT_PG_quill(bpy.types.PropertyGroup):
 
     # OBJECT-level PROPERTIES
@@ -23,7 +30,7 @@ class OBJECT_PG_quill(bpy.types.PropertyGroup):
     scene_path: bpy.props.StringProperty(
         name = "Path to Quill Scene",
         subtype = 'FILE_PATH',
-        options = {'PATH_SUPPORTS_BLEND_RELATIVE'},
+        options = path_options(),
     )
 
     # Internal path to the layer this object was imported from.
@@ -40,7 +47,7 @@ class DATA_PG_quill(bpy.types.PropertyGroup):
     scene_path: bpy.props.StringProperty(
         name = "Path to Quill Scene",
         subtype = 'FILE_PATH',
-        options = {'PATH_SUPPORTS_BLEND_RELATIVE'},
+        options = path_options(),
     )
 
     # Internal path to the layer containing the drawing this mesh was imported from.
