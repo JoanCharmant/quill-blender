@@ -31,7 +31,7 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
 
     configure_shading: BoolProperty(
         name="Configure Shading",
-        description="Configure 3D viewport shading settings to match Quill.",
+        description="Configure 3D viewport shading settings to match Quill",
         default=True,
     )
 
@@ -50,7 +50,7 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
 
     only_visible: BoolProperty(
         name="Visible Layers",
-        description="Only import visible layers from the Quill scene. Sound layers ignore this setting.",
+        description="Only import visible layers from the Quill scene. Sound layers ignore this setting",
         default=True,
     )
 
@@ -70,7 +70,7 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
 
     smart_project: BoolProperty(
             name="Smart UV Project",
-            description="Creates UVs on meshes by running Smart UV Project at the drawing level.",
+            description="Creates UVs on meshes by running Smart UV Project at the drawing level",
             default=False,
             )
 
@@ -213,13 +213,13 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         name="Brush type",
         items=(("CYLINDER", "Cylinder", ""),
                ("RIBBON", "Ribbon", "")),
-        description="Quill brush type used when exporting Grease Pencil drawings. When using 'Ribbon' the flat side will be facing up.",
+        description="Quill brush type used when exporting Grease Pencil drawings. When using 'Ribbon' the flat side will be facing up",
         default="CYLINDER",
     )
 
     match_round_caps: BoolProperty(
         name="Match round caps",
-        description="Add extra vertices to the end of strokes to match Blender caps. This is only used if the strokes are created with Round caps in the first place.",
+        description="Add extra vertices to the end of strokes to match Blender caps. This is only used if the strokes are created with Round caps in the first place",
         default=True,
     )
 
