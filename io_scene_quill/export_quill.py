@@ -157,9 +157,13 @@ class QuillExporter:
             self.animate_layer(layer, obj)
 
         elif obj.type == "ARMATURE":
+            # Export the armature itself.
             layer = paint_armature.convert(obj, self.config)
             self.setup_layer(layer, obj, parent_layer)
-
+            
+            # Export the armature hierarchy.
+            self.export_empty(obj, parent_layer)
+            
         bpy.context.view_layer.objects.active = memo_active
 
     def export_image(self, obj, parent_layer):
@@ -183,7 +187,10 @@ class QuillExporter:
             # Otherwise it's a normal Empty, representing a group or sequence.
             # Either imported from Quill or created in Blender.
             # Make a group layer and process the children recursively.
-            layer = quill_utils.create_group_layer(obj.name)
+            # We may come here to export an armature hierarchy that has already 
+            # been exported as a paint layer so we need to ensure the name is unique.
+            name = quill_utils.get_unique_layer_name(obj.name, parent_layer)
+            layer = quill_utils.create_group_layer(name)
             self.setup_layer(layer, obj, parent_layer)
             self.animate_layer(layer, obj)
             for child in obj.children:

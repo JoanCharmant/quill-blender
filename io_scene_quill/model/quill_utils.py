@@ -147,6 +147,20 @@ def sanitize_name(name):
         return re.sub(r'[^A-Za-z0-9-_]+', '-', name)
 
 
+def get_unique_layer_name(name, parent_layer):
+    """Get a unique layer name among the children of the parent layer."""
+    existing_names = set(child.name for child in parent_layer.implementation.children)
+    if name not in existing_names:
+        return name
+
+    i = 1
+    while True:
+        new_name = f"{name}_{i}"
+        if new_name not in existing_names:
+            return new_name
+        i += 1
+
+
 def load_drawing_data(layer, qbin):
     """Load drawing data for the layer and its children."""
 
