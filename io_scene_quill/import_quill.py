@@ -90,8 +90,8 @@ class QuillImporter:
                     offset += kkvv[0].time
 
             for child in layer.implementation.children:
-                layer_path = layer_path + "/" + layer.name
-                self.import_layer(child, offset, layer, obj, layer_path)
+                child_layer_path = layer_path + "/" + layer.name
+                self.import_layer(child, offset, layer, obj, child_layer_path)
 
             # Apply a 90° rotation on the root object to match Blender coordinate system.
             if parent_layer is None:
