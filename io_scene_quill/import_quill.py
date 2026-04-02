@@ -386,7 +386,7 @@ class QuillImporter:
             return 'CUBIC', 'EASE_IN'
         elif interpolation == "EaseOut":
             return 'CUBIC', 'EASE_OUT'
-        elif interpolation == "EeaseInOut":
+        elif interpolation == "Smoothstep":
             return 'CUBIC', 'EASE_IN_OUT'
         else:
             return 'LINEAR', 'AUTO'
