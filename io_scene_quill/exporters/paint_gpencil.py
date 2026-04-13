@@ -36,9 +36,14 @@ def convert(obj, config):
     # This is necessary to support the layer-level transform that can be different from the object level one.
     group_layer = quill_utils.create_group_layer(obj.name)
     for gpencil_layer in gpencil_layers:
+        
+        if gpencil_layer.hide:
+            continue
+        
         paint_layer = make_paint_layer(gpencil_layer, gpencil_materials, gpencil_stroke_thickness_scale, config)
         if paint_layer is None:
             continue
+        
         group_layer.add_child(paint_layer)
 
     return group_layer
