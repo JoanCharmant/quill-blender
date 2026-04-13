@@ -195,11 +195,13 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
     disable_rotational_opacity = True
 
     # Always default to Cylinder brush.
-    # Ribbon brush is not appropriate as it has a directional component whereas the
-    # Grease pencil stroke is always facing the viewer.
+    # TODO: for ribbon and cube we could have an option to try to figure out the 
+    # drawing plane by looking at the points distribution.
     brush_type = paint.BrushType.CYLINDER
     if config["greasepencil_brush_type"] == "RIBBON":
         brush_type = paint.BrushType.RIBBON
+    elif config["greasepencil_brush_type"] == "CUBE":
+        brush_type = paint.BrushType.CUBE
 
     # Ignore cap modes (ROUND, FLAT).
     # gpencil_stroke.start_cap_mode, gpencil_stroke.end_cap_mode.
@@ -230,10 +232,9 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
         location = gp_point.position if gpv3 else gp_point.co
         p = utils.swizzle_yup_location(location)
 
-        # Set the normal to be in the direction of the camera,
-        # or towards Y-axis for Ribbon.
+        # Set the normal to be in the direction of the camera, or towards Y-axis.
         normal = (camera_position - p).normalized()
-        if brush_type == paint.BrushType.RIBBON:
+        if brush_type == paint.BrushType.RIBBON or brush_type == paint.BrushType.CUBE:
             normal = mathutils.Vector((0, 1, 0))
 
         tangent = compute_tangent(gp_stroke, i, p)

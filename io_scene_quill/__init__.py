@@ -212,8 +212,9 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
     greasepencil_brush_type: EnumProperty(
         name="Brush type",
         items=(("CYLINDER", "Cylinder", ""),
+               ("CUBE", "Cube", ""),
                ("RIBBON", "Ribbon", "")),
-        description="Quill brush type used when exporting Grease Pencil drawings. When using 'Ribbon' the flat side will be facing up",
+        description="Quill brush type used when exporting Grease Pencil drawings. When using 'Cube' or 'Ribbon' the flat side will be facing up",
         default="CYLINDER",
     )
 
