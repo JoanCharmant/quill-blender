@@ -212,13 +212,20 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
     greasepencil_brush_type: EnumProperty(
         name="Brush type",
         items=(("CYLINDER", "Cylinder", ""),
+               ("ELLIPSE", "Ellipse", ""),
                ("CUBE", "Cube", ""),
                ("RIBBON", "Ribbon", "")),
-        description="Quill brush type used when exporting Grease Pencil drawings. When using 'Cube' or 'Ribbon' the flat side will be facing up",
+        description="Quill brush type used when exporting Grease Pencil drawings.",
         default="CYLINDER",
     )
+    
+    greasepencil_guess_drawing_plane: BoolProperty(
+        name="Guess planes",
+        description="Assume the grease pencil strokes are drawn on their own 2D plane and guess their normals from the points. If disabled the normals points towards the camera.",
+        default=True,
+    )
 
-    match_round_caps: BoolProperty(
+    greasepencil_match_round_caps: BoolProperty(
         name="Match round caps",
         description="Add extra vertices to the end of strokes to match Blender caps. This is only used if the strokes are created with Round caps in the first place",
         default=True,
@@ -317,7 +324,8 @@ class QUILL_PT_export_greasepencil(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "greasepencil_brush_type")
-        layout.prop(operator, "match_round_caps")
+        layout.prop(operator, "greasepencil_guess_drawing_plane")
+        layout.prop(operator, "greasepencil_match_round_caps")
 
 
 class QUILL_PT_export_wireframe(bpy.types.Panel):

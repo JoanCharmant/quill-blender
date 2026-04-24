@@ -199,14 +199,14 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
 
     disable_rotational_opacity = True
 
-    # Always default to Cylinder brush.
-    # TODO: for ribbon and cube we could have an option to try to figure out the 
-    # drawing plane by looking at the points distribution.
+    # Default to Cylinder brush.
     brush_type = paint.BrushType.CYLINDER
-    if config["greasepencil_brush_type"] == "RIBBON":
-        brush_type = paint.BrushType.RIBBON
+    if config["greasepencil_brush_type"] == "ELLIPSE":
+        brush_type = paint.BrushType.ELLIPSE
     elif config["greasepencil_brush_type"] == "CUBE":
         brush_type = paint.BrushType.CUBE
+    elif config["greasepencil_brush_type"] == "RIBBON":
+        brush_type = paint.BrushType.RIBBON
 
     # Ignore cap modes (ROUND, FLAT).
     # gpencil_stroke.start_cap_mode, gpencil_stroke.end_cap_mode.
@@ -222,26 +222,57 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
     # GPencil > Layers > Adjustments > Tint Color + Factor.
     base_color = material.color
 
-    # Location of the blender camera, used to get a normal.
+    # Option to guess the drawing plane by looking at the points.
+    # If false we fall back to the camera position to compute a normal at each point.
+    # If there is no camera we fallback to the origin.
+    guess_drawing_plane = config["greasepencil_guess_drawing_plane"]
+    guessed_normal = mathutils.Vector((0, 1, 0))
     camera_position = mathutils.Vector((0, 0, 0))
-    camera = bpy.context.scene.camera
-    if camera is not None:
-        camera_position = bpy.context.scene.camera.matrix_world.to_translation()
-        camera_position = utils.swizzle_yup_location(camera_position)
+
+    if guess_drawing_plane:
+        # Guess the drawing plane by looking at 3 points from the stroke.
+        # This assumes all the points are on the same plane (we don't fit a plane).
+        # If the user has drawn a stroke in 3D space, or imported from Quill, they should not 
+        # check that export option.
+        # FIXME: this also assumes the points are not colinear, this could fail for the line tool.
+        if len(gp_stroke.points) > 2:
+            start = gp_stroke.points[0].position if gpv3 else gp_stroke.points[0].co
+            mid_idx = len(gp_stroke.points) // 2
+            mid = gp_stroke.points[mid_idx].position if gpv3 else gp_stroke.points[mid_idx].co
+            end = gp_stroke.points[-1].position if gpv3 else gp_stroke.points[-1].co
+            p = utils.swizzle_yup_location(start)
+            p2 = utils.swizzle_yup_location(mid)
+            p3 = utils.swizzle_yup_location(end)
+            guessed_normal = (p2 - p).cross(p3 - p)
+            if guessed_normal.length > 0.000001:
+                guessed_normal.normalize()
+            else:
+                # If the points are colinear assume up axis.
+                guessed_normal = mathutils.Vector((0, 1, 0))
+        else:
+            # If we don't have enough points fallback to the up axis.
+            guessed_normal = mathutils.Vector((0, 1, 0))
+    else:
+        camera = bpy.context.scene.camera
+        if camera is not None:
+            camera_position = bpy.context.scene.camera.matrix_world.to_translation()
+            camera_position = utils.swizzle_yup_location(camera_position)
 
     bbox = quill_utils.bbox_empty()
     vertices = []
+    
+    
     for i in range(len(gp_stroke.points)):
 
         gp_point = gp_stroke.points[i]
         location = gp_point.position if gpv3 else gp_point.co
         p = utils.swizzle_yup_location(location)
 
-        # Set the normal to be in the direction of the camera, or towards Y-axis.
-        normal = (camera_position - p).normalized()
-        if brush_type == paint.BrushType.RIBBON or brush_type == paint.BrushType.CUBE:
-            normal = mathutils.Vector((0, 1, 0))
-
+        if guess_drawing_plane:
+            normal = guessed_normal
+        else:
+            normal = (camera_position - p).normalized()
+        
         tangent = compute_tangent(gp_stroke, i, p)
 
         # Mix between the vertex color and the base color.
@@ -286,7 +317,7 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
     if vertices[0].width > 0:
         caps_type = "FLAT"
         has_round_caps = (gpv3 and gp_stroke.start_cap == 0) or (not gpv3 and gp_stroke.start_cap_mode == 'ROUND')
-        if has_round_caps and config["match_round_caps"]:
+        if has_round_caps and config["greasepencil_match_round_caps"]:
             caps_type = "ROUND"
         add_caps(vertices, caps_type, bbox)
 
