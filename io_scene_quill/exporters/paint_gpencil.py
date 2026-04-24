@@ -304,8 +304,10 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
         vertices.append(vertex)
         bbox = quill_utils.bbox_add_point(bbox, p)
 
-    # TODO: add an extra vertex at the start if the stroke is marked "cyclic".
-    # This happens for the rectangle and circle tools.
+    # Add an extra vertex at the start if the stroke is marked "cyclic" (rectangle and circle tools)
+    if (gpv3 and gp_stroke.cyclic) or (not gpv3 and gp_stroke.use_cyclic):
+        vertex = paint.Vertex(vertices[0].position, vertices[0].normal, vertices[0].tangent, vertices[0].color, vertices[0].opacity, vertices[0].width)
+        vertices.append(vertex)
 
     # Add extra vertices for caps if needed.
     # Heuristic:
