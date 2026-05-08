@@ -2,46 +2,74 @@
 import bpy
 import mathutils
 import random
-from ..model import paint, quill_utils
+
+from ..model import paint, quill_utils, sequence
 from . import utils
 
-
 def convert(obj, config):
-    """Converts the rest pose of an armature to a paint layer"""
+    """Converts a Blender armature object to a hierarchy of groups and layers.
+    Create a sub-group for each bone, and add a paint layer with a stroke representing the bone."""
 
-    layer = make_rest_pose(obj, config)
+    armature_group_layer = quill_utils.create_group_layer(obj.name)
+    
+    # We work everything out in Blender's coordinate system and then apply a single transform at the end
+    # to convert to Quill's coordinate system. This is easier to debug.
+    # The extra transform is done upstream in export_quill.py.
+    bone_groups = {}
+    for pose_bone in obj.pose.bones:
+        
+        # Create a group for this bone.
+        bone_group_layer = quill_utils.create_group_layer(pose_bone.name)
+        bone_group_layer.animation.timeline = False
+        bone_groups[pose_bone.name] = bone_group_layer
+        
+        # Add a paint layer for the bone stick.
+        bone_paint_layer = quill_utils .create_paint_layer(pose_bone.name)
+        drawing = quill_utils.create_drawing()
+        bone_paint_layer.implementation.drawings.append(drawing)
+        bone_group_layer.implementation.children.append(bone_paint_layer)
+       
+        # Find the rest pose of the bone in the space of the parent bone rest pose.
+        if pose_bone.parent is not None:
+            rest_pose_in_armature = pose_bone.bone.matrix_local
+            parent_rest_pose_in_armature = pose_bone.parent.bone.matrix_local
+            rest_pose_in_parent = parent_rest_pose_in_armature.inverted() @ rest_pose_in_armature
 
-    return layer
+        else:
+            rest_pose_in_parent = pose_bone.bone.matrix_local
+            
+        # Apply the current pose to the rest pose to get the final pose.
+        # Ommiting this step exports the rest pose for the whole armature.
+        pose_in_parent = rest_pose_in_parent @ pose_bone.matrix_basis
 
-
-def make_rest_pose(obj, config):
-
-    # Create a default paint layer and drawing.
-    paint_layer = quill_utils .create_paint_layer(obj.name)
-    drawing = quill_utils.create_drawing()
-    paint_layer.implementation.drawings.append(drawing)
-
-    # Produce a paint stroke for each bone.
-    # https://docs.blender.org/api/current/bpy.types.Armature.html
-    # https://docs.blender.org/api/current/bpy.types.Bone.html
-    armature = obj.data
-
-    # For the flattened armature case we don’t care about the hierarchy, naming, etc.
-    # Just create one stroke per bone.
-    for bone in armature.bones:
-        deforming = bone.use_deform
-        if not deforming:
-            continue
-
-        # bone.head_local is relative to the armature (bone.head is relative to the parent bone).
-        head = utils.swizzle_yup_location(bone.head_local)
-        tail = utils.swizzle_yup_location(bone.tail_local)
-
-        # FIXME: How do we go from bone.color.palette (ex: "THEME01") to the actual color?
-        #bone_color = bone.color.palette
-        #bone_color_sets = bpy.context.preferences.themes["Default"].bone_color_sets
+        # Convert the pose to a transform for the group layer.
+        translation, rotation, scale, flip = utils.convert_transform_raw(pose_in_parent)
+        transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+        bone_group_layer.transform = transform
+        
+        # Parenting of the group layer.
+        # Normally the hierarchy is traversed depth first so the parent should already be created.
+        if (pose_bone.parent is None):
+            armature_group_layer.implementation.children.append(bone_group_layer)
+        else:
+            if pose_bone.parent.name not in bone_groups:
+                print(f"Error: bone {pose_bone.name} has parent {pose_bone.parent.name} which was not found.")
+            else:
+                bone_groups[pose_bone.parent.name].implementation.children.append(bone_group_layer)
+            
+        # Drawing the bone itself is different because it defines the local space.
+        # To draw it we need head and tail in the space of the layer itself.
+        # matrix_local and tail_local are both in armature space.
+        head = mathutils.Vector((0, 0, 0))
+        tail = pose_bone.bone.matrix_local.inverted() @ pose_bone.bone.tail_local
+        
+        # The pivot should be at the bone head which is the origin so we don't need to set it explicitly.
+        # TODO: is this still true for disconnected nodes?
+        #bone_group_layer.implementation.pivot = head
+        
+        # Random color for the bone.
         bone_color = list([random.random() for i in range(3)])
-
+        
         stroke = make_bone_stroke(head, tail, bone_color, config)
         if stroke is None:
             continue
@@ -49,11 +77,16 @@ def make_rest_pose(obj, config):
         drawing.data.strokes.append(stroke)
         drawing.bounding_box = quill_utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
 
-    return paint_layer
+    # TODO: go through the armature hierarchy and find objects that are parented to bones,
+    # and put them in the correct group layer.
+
+    return armature_group_layer
 
 
 def make_bone_stroke(head, tail, color, config):
-
+    """Make a stroke representing a bone, from head to tail.
+    Head and tail already converted to the correct coordinate system."""
+    
     brush_type = paint.BrushType.CYLINDER
     disable_rotational_opacity = True
     length = (tail - head).length

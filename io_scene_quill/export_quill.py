@@ -157,12 +157,10 @@ class QuillExporter:
             self.animate_layer(layer, obj)
 
         elif obj.type == "ARMATURE":
-            # Export the armature itself.
+            # Export the armature hierarchy.
             layer = paint_armature.convert(obj, self.config)
             self.setup_layer(layer, obj, parent_layer)
-            
-            # Export the armature hierarchy.
-            self.export_empty(obj, parent_layer)
+            self.animate_layer(layer, obj)
             
         bpy.context.view_layer.objects.active = memo_active
 
@@ -499,6 +497,13 @@ class QuillExporter:
             # This approach means that every time we import and export we accumulate rotations around X.
             # The other approach would be to modify the original drawing data on the fly at the vertex level
             # just to counter the rotation done in `convert_transform`.
+            mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
+            translation, rotation, scale, flip = utils.convert_transform(mat)
+            transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+
+        elif obj.type == "ARMATURE":
+            # The hierarchy of bones is set up in Blender space
+            # and we apply a single transform at the top level.
             mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
             translation, rotation, scale, flip = utils.convert_transform(mat)
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))

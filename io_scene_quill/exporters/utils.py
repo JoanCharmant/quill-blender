@@ -32,6 +32,16 @@ def convert_transform(m: Matrix):
 
     return translation, rotation, scale, flip
 
+def convert_transform_raw(m: Matrix):
+    """Convert a Blender matrix to a Quill transform, without swizzling axes."""
+    translation, rotation, scale = m.decompose()
+
+    # Don't change the axes but do change the quat format.
+    rotation = swizzle_quaternion(rotation)
+    flip = "N"
+
+    return translation, rotation, scale, flip
+    
 
 def transform_equals(m1: Matrix, m2: Matrix, epsilon=1e-6):
     """Compare two matrices for equality, with a tolerance."""

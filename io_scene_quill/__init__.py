@@ -221,7 +221,7 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
     
     greasepencil_guess_drawing_plane: BoolProperty(
         name="Guess planes",
-        description="Assume the grease pencil strokes are drawn on their own 2D plane and guess their normals from the points. If disabled the normals points towards the camera.",
+        description="Assume the grease pencil strokes are drawn on their own 2D planes and guess their orientation. If disabled the normals point towards the camera.",
         default=True,
     )
 

@@ -33,7 +33,7 @@ def convert(obj, config):
 
 
 def make_edge_stroke(start, end, id, config):
-
+    # Expects start and end to be in Quill's coordinate system (Y up, Z forward)."""
     brush_type = paint.BrushType.CYLINDER
     disable_rotational_opacity = True
 
