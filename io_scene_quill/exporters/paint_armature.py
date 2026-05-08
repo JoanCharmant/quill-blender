@@ -148,7 +148,7 @@ def make_bone_stroke(head, tail, color, config):
         # p1 is the main driver of the shape and p2 is just a support point.
         add_vertex(head, 0)
         p1 = head.lerp(tail, 0.1)
-        p1_width = length / 4
+        p1_width = length / 8
         add_vertex(p1, p1_width)
         p2 = head.lerp(tail, 0.9)
         p2_width = ((length * 0.1) * p1_width) / length
