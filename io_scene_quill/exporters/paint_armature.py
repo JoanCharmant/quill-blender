@@ -29,25 +29,7 @@ def convert(obj, config):
         bone_paint_layer.implementation.drawings.append(drawing)
         bone_group_layer.implementation.children.append(bone_paint_layer)
        
-        # Find the rest pose of the bone in the space of the parent bone rest pose.
-        if pose_bone.parent is not None:
-            rest_pose_in_armature = pose_bone.bone.matrix_local
-            parent_rest_pose_in_armature = pose_bone.parent.bone.matrix_local
-            rest_pose_in_parent = parent_rest_pose_in_armature.inverted() @ rest_pose_in_armature
-
-        else:
-            rest_pose_in_parent = pose_bone.bone.matrix_local
-            
-        # Apply the current pose to the rest pose to get the final pose.
-        # Ommiting this step exports the rest pose for the whole armature.
-        pose_in_parent = rest_pose_in_parent @ pose_bone.matrix_basis
-
-        # Convert the pose to a transform for the group layer.
-        translation, rotation, scale, flip = utils.convert_transform_raw(pose_in_parent)
-        transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
-        bone_group_layer.transform = transform
-        
-        # Parenting of the group layer.
+        # Parenting.
         # Normally the hierarchy is traversed depth first so the parent should already be created.
         if (pose_bone.parent is None):
             armature_group_layer.implementation.children.append(bone_group_layer)
@@ -56,17 +38,15 @@ def convert(obj, config):
                 print(f"Error: bone {pose_bone.name} has parent {pose_bone.parent.name} which was not found.")
             else:
                 bone_groups[pose_bone.parent.name].implementation.children.append(bone_group_layer)
-            
-        # Drawing the bone itself is different because it defines the local space.
-        # To draw it we need head and tail in the space of the layer itself.
+       
+        # Draw the bone, this happens in the space of the bone basis itself.
+        # Since the paint layer is a child of the bone group onto which we'll apply the transform, 
+        # we draw the bone in its own local space.
         # matrix_local and tail_local are both in armature space.
+        # TODO: check if this holds true for disconnected bones.
         head = mathutils.Vector((0, 0, 0))
         tail = pose_bone.bone.matrix_local.inverted() @ pose_bone.bone.tail_local
-        
-        # The pivot should be at the bone head which is the origin so we don't need to set it explicitly.
-        # TODO: is this still true for disconnected nodes?
-        #bone_group_layer.implementation.pivot = head
-        
+       
         # Random color for the bone.
         bone_color = list([random.random() for i in range(3)])
         
@@ -76,6 +56,57 @@ def convert(obj, config):
 
         drawing.data.strokes.append(stroke)
         drawing.bounding_box = quill_utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
+        
+        
+    # Now go through the timeline and apply the correct transform to each bone group at each frame.
+    scn = bpy.context.scene
+    frame_start = max(scn.frame_start, 0)
+    frame_end = max(scn.frame_end, 0)
+    ticks_per_second = 12600
+    ticks_per_frame = int(ticks_per_second / scn.render.fps)
+    memo_current_frame = scn.frame_current
+    
+    for frame in range(frame_start, frame_end + 1):
+        scn.frame_set(frame)
+        time = frame * ticks_per_frame
+    
+        for pose_bone in obj.pose.bones:
+            
+            if pose_bone.name not in bone_groups:
+                print(f"Error: bone {pose_bone.name} not found in bone groups.")
+                continue
+            
+            bone_group_layer = bone_groups[pose_bone.name]
+        
+            # Find the rest pose of the bone in the space of the rest pose of its parent.
+            if pose_bone.parent is not None:
+                rest_pose_in_armature = pose_bone.bone.matrix_local
+                parent_rest_pose_in_armature = pose_bone.parent.bone.matrix_local
+                rest_pose_in_parent = parent_rest_pose_in_armature.inverted() @ rest_pose_in_armature
+
+            else:
+                rest_pose_in_parent = pose_bone.bone.matrix_local
+                
+            # Apply the current pose to the rest pose to get the final pose.
+            # Ommiting this step exports the rest pose for the whole armature.
+            pose_in_parent = rest_pose_in_parent @ pose_bone.matrix_basis
+
+            # Convert the transform and apply to the group layer.
+            translation, rotation, scale, flip = utils.convert_transform_raw(pose_in_parent)
+            transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+            
+            keyframe = sequence.Keyframe("None", time, transform)
+            kktt = bone_group_layer.animation.keys.transform
+            kktt.append(keyframe)
+            
+            #bone_group_layer.transform = transform
+            
+            # The pivot should be at the bone head which is the origin so we don't need to set it explicitly.
+            # TODO: is this still true for disconnected nodes?
+            #bone_group_layer.implementation.pivot = head
+        
+    # Restore the active frame
+    scn.frame_set(memo_current_frame)
 
     # TODO: go through the armature hierarchy and find objects that are parented to bones,
     # and put them in the correct group layer.
