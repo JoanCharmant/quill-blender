@@ -1,6 +1,25 @@
 # Changelog
 
 
+## 1.5.0
+
+Importer
+- Fix: import of the ease in/out interpolation mode was broken.
+
+Exporter
+- Armature: export a hierarchy of layers creating a rigged stick figure.
+- Armature: export animation to key frames.
+- Grease Pencil: guess stroke orientation.
+- Grease Pencil: support all Quill brush types.
+- Grease Pencil: do not export hidden layers.
+- Grease Pencil: fix cyclic strokes.
+
+
+## 1.4.3
+
+- Fix round trip for group layers with multiple children.
+
+
 ## 1.4.2
 
 - Fix: the add-on could not be installed on versions prior to 4.5.0.
