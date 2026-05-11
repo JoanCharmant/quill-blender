@@ -66,7 +66,11 @@ def convert(obj, config):
     ticks_per_frame = int(ticks_per_second / scn.render.fps)
     memo_current_frame = scn.frame_current
     
-    for frame in range(frame_start, frame_end + 1):
+    frame_range = range(frame_start, frame_end + 1)
+    if not config["armature_animation"]:
+        frame_range = [memo_current_frame]
+    
+    for frame in frame_range:
         scn.frame_set(frame)
         time = frame * ticks_per_frame
     
@@ -95,21 +99,23 @@ def convert(obj, config):
             translation, rotation, scale, flip = utils.convert_transform_raw(pose_in_parent)
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
             
-            keyframe = sequence.Keyframe("None", time, transform)
-            kktt = bone_group_layer.animation.keys.transform
-            kktt.append(keyframe)
-            
-            #bone_group_layer.transform = transform
+            if config["armature_animation"]:
+                keyframe = sequence.Keyframe("None", time, transform)
+                kktt = bone_group_layer.animation.keys.transform
+                kktt.append(keyframe)
+            else:
+                bone_group_layer.transform = transform
             
             # The pivot should be at the bone head which is the origin so we don't need to set it explicitly.
-            # TODO: is this still true for disconnected nodes?
+            # TODO: still true for disconnected nodes? 
+            # TODO: should it be set from the rest pose?
             #bone_group_layer.implementation.pivot = head
         
     # Restore the active frame
     scn.frame_set(memo_current_frame)
 
-    # TODO: go through the armature hierarchy and find objects that are parented to bones,
-    # and put them in the correct group layer.
+    # TODO: go through the armature children, find objects that are parented to bones,
+    # convert them and put them in the correct group.
 
     return armature_group_layer
 

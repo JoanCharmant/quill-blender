@@ -252,7 +252,13 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         items=(("OCTAHEDRAL", "Octahedral", ""),
                 ("STICK", "Stick", "")),
         description="Shape of paint strokes used to represent bones",
-        default="STICK",
+        default="OCTAHEDRAL",
+    )
+    
+    armature_animation: BoolProperty(
+        name="Animation",
+        description="Export animation",
+        default=True,
     )
 
     def draw(self, context):
@@ -373,6 +379,7 @@ class QUILL_PT_export_armature(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "armature_bone_shape")
+        layout.prop(operator, "armature_animation")
 
 
 def menu_func_import(self, context):
