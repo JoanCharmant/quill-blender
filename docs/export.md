@@ -107,10 +107,17 @@ The options under Line type and Line style are ignored and forced to Quill model
 - Line type: `Line`
 - Line style: `Solid`
 
-By default the generated paint strokes use Quill brush type `Cylinder` which most closely match the behavior of the Grease Pencil strokes (always facing the viewer). When using the option `Ribbon` in the exporter dialog, ribbon strokes are created instead, with the flat side up, as if laying on the floor. This is best used for flat drawings or hand writing created on the Blender floor plane.
-
 The final color is a mix between the base color and the vertex color.
 
+### Flat side orientation
+
+You can select the Quill brush type to use for all the strokes converted from Grease Pencil.
+
+For Quill brush types that have a flat side the option `Guess planes` in the exporter dialog is important. If checked (default) the strokes are assumed to have been painted on a plane, the orientation of the plane is calculated and used for all the strokes so that the flat side matches the plane. For example you can use this to paint on the floor plane with a ribbon brush.
+
+This orientation is calculated for each stroke individually so you may use multiple drawing planes in the same Grease Pencil layer.
+
+Disable this option if the Grease Pencil strokes are actually in 3D, for example when using the option `Stroke placement: Surface` that lay the strokes on a mesh in the scene.
 
 ### Grease Pencil stroke caps
 
@@ -130,9 +137,7 @@ Single-point stroke with Round caps will generate a sphere in Quill.
 
 Grease Pencil doesn't have a concept of "normal" for vertices while Quill uses it to rotate the cross section of the brushes (particularly evident for Ribbon and Cube brushes) and for directional opacity. In Quill this is based on the orientation of the controller.
 
-When exporting with Brush type `Cylinder`, the exporter uses the camera as the general direction of the normal. You don't normally need to worry about this but if you don't have a camera in the scene the exporter will use the origin, and for certain strokes that happen to be on a plane crossing the origin this can cause random twisting of the paint strokes when imported back in Blender from Quill after a round-trip. To solve this issue make sure to have a camera in the scene at export time, ideally away from any strokes. This issue is only visible when exporting Grease Pencil and importing back as Mesh.
-
-When exporting with Brush type `Ribbon` the exporter uses the up axis for the normal.
+When exporting without `Guess planes` enabled, the exporter may use the camera as the general direction of the normal. You don't normally need to worry about this but if you don't have a camera in the scene the exporter will use the origin, and for certain strokes that happen to be on a plane crossing the origin this can cause random twisting of the paint strokes when imported back in Blender from Quill after a round-trip. To solve this issue make sure to have a camera in the scene at export time, ideally away from any strokes. This issue is only visible when exporting Grease Pencil and importing back as Mesh.
 
 
 ### Grease Pencil frame by frame animation
@@ -149,7 +154,10 @@ Each Grease Pencil layer can have multiple key frames with independent drawings 
 
 
 ## Mesh
-Meshes are automatically converted to a wireframe representation. Each edge of each polygon is converted to a paint stroke.
+
+Meshes that were created in Blender are converted to a wireframe representation. Each edge of each polygon is converted to a paint stroke.
+
+Meshes that were imported from Quill are exported back as their original Quill strokes.
 
 Non-uniform scaling is not supported in Quill. You should apply the scale before exporting. (Menu Object > Apply > Scale).
 
@@ -160,11 +168,12 @@ Non-uniform scaling is not supported in Quill. You should apply the scale before
 
 ## Armature
 
-Armature objects (hierarchies of bones) are converted to a single paint layer with one stroke per bone.
+Armature objects (hierarchies of bones) are converted to a matching hierarchy of groups and layers in order to create a "rig".
+Each bone is converted to a group with the appropriate transform and pivot, and a representation of the bone is created on a paint layer parented to the group.
 
-Animation is not currently supported.
+Animation of the armature is exported as transform key frames. Key frames are generated for the length of the Blender timeline at the moment of the export. If the option `Animation` is unchecked in the export dialog only the pose of the current frame is exported.
 
-The bones can be produced as octahedral or stick-like paint strokes. The color of the generated strokes is random.
+The bones can be created as octahedral or stick-like paint strokes. The color of the generated strokes is random.
 
 ## Image
 
@@ -190,7 +199,7 @@ Blender has many animation features, some are acting on the object transform and
 | ------------- |:---:|
 | Animated transform (key frames) | ✅ |
 | Parenting to animated object | ✅ |
-| Parenting to armature bones| ✅ |
+| Parenting to armature bones| ⚠️ |
 | Deformation from armature (weight painting) | ⚠️ |
 | Lattice | ❌ |
 | Constraints (Follow Path, Track To, etc.) | ✅ |
@@ -232,7 +241,13 @@ Behavior when exporting objects.
 
 Brush type used for all paint strokes.
 - Cylinder
-- Ribbon (forced orientation: flat side up)
+- Ellipse
+- Cube
+- Ribbon
+
+**Guess planes**
+
+If enabled it assumes the grease pencil strokes are drawn on their own 2D planes and it guesses their orientation. If disabled the normals point towards the camera.
 
 **Match round caps**
 
@@ -252,8 +267,12 @@ Density of paint strokes, in number of points per stroke.
 
 ### Armature
 
-Armature objects are flattened converted to a single paint layer. These options control the generation of the armature paint strokes.
+Armature objects are converted to rigs.
 
 **Bone shape**
 - Octahedral
 - Stick
+
+**Animation**
+
+If true the animated poses are converted to key frames. Otherwise only the pose of the current frame is exported.
