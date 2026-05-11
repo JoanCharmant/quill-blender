@@ -3,7 +3,7 @@ import bpy
 import logging
 import mathutils
 from math import floor, radians
-from .importers import armature_group, curve_paint, gpencil_paint, mesh_material, mesh_paint, sound_sound
+from .importers import curve_paint, gpencil_paint, mesh_material, mesh_paint, sound_sound
 from .model import quill_utils
 from .utils import timeline
 

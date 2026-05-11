@@ -100,7 +100,8 @@ def convert(obj, config):
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
             
             if config["armature_animation"]:
-                keyframe = sequence.Keyframe("None", time, transform)
+                interpolation = "None" if config["armature_interpolation"] == "STEPPED" else "Linear"
+                keyframe = sequence.Keyframe(interpolation, time, transform)
                 kktt = bone_group_layer.animation.keys.transform
                 kktt.append(keyframe)
             else:

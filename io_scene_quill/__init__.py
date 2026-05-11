@@ -260,6 +260,14 @@ class ExportQuill(bpy.types.Operator, ExportHelper):
         description="Export animation",
         default=True,
     )
+    
+    armature_interpolation: EnumProperty(
+        name="Interpolation",
+        items=(("STEPPED", "Stepped", ""),
+               ("LINEAR", "Linear", "")),
+        description="Interpolation method for armature animation",
+        default="STEPPED",
+    )
 
     def draw(self, context):
         pass
@@ -380,6 +388,7 @@ class QUILL_PT_export_armature(bpy.types.Panel):
 
         layout.prop(operator, "armature_bone_shape")
         layout.prop(operator, "armature_animation")
+        layout.prop(operator, "armature_interpolation")
 
 
 def menu_func_import(self, context):
