@@ -12,53 +12,79 @@ def convert(obj, config):
 
     armature_group_layer = quill_utils.create_group_layer(obj.name)
     
-    # We work everything out in Blender's coordinate system and then apply a single transform at the end
-    # to convert to Quill's coordinate system. This is easier to debug.
-    # The extra transform is done upstream in export_quill.py.
-    bone_groups = {}
+    # Map from bone name to the Quill group layer.
+    bone_group_layers = {}
+    
+    # Create the rig.
     for pose_bone in obj.pose.bones:
-        
-        # Create a group for this bone.
-        bone_group_layer = quill_utils.create_group_layer(pose_bone.name)
-        bone_group_layer.animation.timeline = False
-        bone_groups[pose_bone.name] = bone_group_layer
-        
-        # Add a paint layer for the bone stick.
-        bone_paint_layer = quill_utils .create_paint_layer(pose_bone.name)
-        drawing = quill_utils.create_drawing()
-        bone_paint_layer.implementation.drawings.append(drawing)
-        bone_group_layer.implementation.children.append(bone_paint_layer)
-       
-        # Parenting.
-        # Normally the hierarchy is traversed depth first so the parent should already be created.
-        if (pose_bone.parent is None):
-            armature_group_layer.implementation.children.append(bone_group_layer)
-        else:
-            if pose_bone.parent.name not in bone_groups:
-                print(f"Error: bone {pose_bone.name} has parent {pose_bone.parent.name} which was not found.")
-            else:
-                bone_groups[pose_bone.parent.name].implementation.children.append(bone_group_layer)
-       
-        # Draw the bone, this happens in the space of the bone basis itself.
-        # Since the paint layer is a child of the bone group onto which we'll apply the transform, 
-        # we draw the bone in its own local space.
-        # matrix_local and tail_local are both in armature space.
-        # TODO: check if this holds true for disconnected bones.
-        head = mathutils.Vector((0, 0, 0))
-        tail = pose_bone.bone.matrix_local.inverted() @ pose_bone.bone.tail_local
-       
-        # Random color for the bone.
-        bone_color = list([random.random() for i in range(3)])
-        
-        stroke = make_bone_stroke(head, tail, bone_color, config)
-        if stroke is None:
-            continue
+        make_bone_layer(pose_bone, armature_group_layer, bone_group_layers, config)
+    
+    pose_armature(obj, bone_group_layers, config)
 
-        drawing.data.strokes.append(stroke)
-        drawing.bounding_box = quill_utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
-        
-        
-    # Now go through the timeline and apply the correct transform to each bone group at each frame.
+    # TODO: go through the armature children, find objects that are parented to bones,
+    # convert them and put them in the correct group.
+
+    return armature_group_layer
+
+
+def make_bone_layer(pose_bone, armature_group_layer, bone_group_layers, config):
+    
+    # Create a group and paint layer for this bone.
+    # We work everything out in Blender's coordinate system and we will apply a single 
+    # transform at the armature level, to convert to Quill's coordinate system. 
+    # This is easier to debug. The extra transform is done upstream in export_quill.py.
+    
+    # Add a group for the bone transform.
+    bone_group_layer = quill_utils.create_group_layer(pose_bone.name)
+    bone_group_layer.animation.timeline = False
+    bone_group_layers[pose_bone.name] = bone_group_layer
+    
+    # Add a paint layer for the bone stick.
+    bone_paint_layer = quill_utils .create_paint_layer(pose_bone.name)
+    drawing = quill_utils.create_drawing()
+    bone_paint_layer.implementation.drawings.append(drawing)
+    bone_group_layer.implementation.children.append(bone_paint_layer)
+    
+    # Parenting.
+    # Normally the hierarchy is traversed depth first so the parent should already be created.
+    if (pose_bone.parent is None):
+        armature_group_layer.implementation.children.append(bone_group_layer)
+    else:
+        if pose_bone.parent.name not in bone_group_layers:
+            print(f"Error: bone {pose_bone.name} has parent {pose_bone.parent.name} which was not found.")
+        else:
+            bone_group_layers[pose_bone.parent.name].implementation.children.append(bone_group_layer)
+    
+    # Draw the bone, this happens in the space of the bone basis itself.
+    # Since the paint layer is a child of the bone group onto which we'll apply the transform, 
+    # we draw the bone in its own local space.
+    # matrix_local and tail_local are both in armature space.
+    # TODO: check if this holds true for disconnected bones.
+    head = mathutils.Vector((0, 0, 0))
+    tail = pose_bone.bone.matrix_local.inverted() @ pose_bone.bone.tail_local
+    
+    # Random color for the bone.
+    bone_color = list([random.random() for i in range(3)])
+    
+    stroke = make_bone_stroke(head, tail, bone_color, config)
+    if stroke is None:
+        return
+
+    drawing.data.strokes.append(stroke)
+    drawing.bounding_box = quill_utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
+
+
+def pose_armature(obj, bone_group_layers, config):
+    
+    if not config["armature_animation"]:
+        # Just set the pose at the current frame, no keyframes.
+        for pose_bone in obj.pose.bones:
+            set_pose(pose_bone, bone_group_layers, {}, 0, config)
+        return
+    
+    # Animation.
+    # Go through the Blender timeline and apply the pose to each bone group.
+    
     scn = bpy.context.scene
     frame_start = max(scn.frame_start, 0)
     frame_end = max(scn.frame_end, 0)
@@ -66,60 +92,66 @@ def convert(obj, config):
     ticks_per_frame = int(ticks_per_second / scn.render.fps)
     memo_current_frame = scn.frame_current
     
-    frame_range = range(frame_start, frame_end + 1)
-    if not config["armature_animation"]:
-        frame_range = [memo_current_frame]
+    # Map from bone name to the previous transform, to detect if we actually need a keyframe.
+    previous_poses = {}
     
-    for frame in frame_range:
+    # Note: the time is calculated based on Blender fps, and may not match the Quill scene fps.
+    # Quill is happy to create the keyframes at the right time even if they don't align with frames.
+    for frame in range(frame_start, frame_end + 1):
         scn.frame_set(frame)
         time = frame * ticks_per_frame
-    
-        for pose_bone in obj.pose.bones:
-            
-            if pose_bone.name not in bone_groups:
-                print(f"Error: bone {pose_bone.name} not found in bone groups.")
-                continue
-            
-            bone_group_layer = bone_groups[pose_bone.name]
         
-            # Find the rest pose of the bone in the space of the rest pose of its parent.
-            if pose_bone.parent is not None:
-                rest_pose_in_armature = pose_bone.bone.matrix_local
-                parent_rest_pose_in_armature = pose_bone.parent.bone.matrix_local
-                rest_pose_in_parent = parent_rest_pose_in_armature.inverted() @ rest_pose_in_armature
-
-            else:
-                rest_pose_in_parent = pose_bone.bone.matrix_local
-                
-            # Apply the current pose to the rest pose to get the final pose.
-            # Ommiting this step exports the rest pose for the whole armature.
-            pose_in_parent = rest_pose_in_parent @ pose_bone.matrix_basis
-
-            # Convert the transform and apply to the group layer.
-            translation, rotation, scale, flip = utils.convert_transform_raw(pose_in_parent)
-            transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
-            
-            if config["armature_animation"]:
-                interpolation = "None" if config["armature_interpolation"] == "STEPPED" else "Linear"
-                keyframe = sequence.Keyframe(interpolation, time, transform)
-                kktt = bone_group_layer.animation.keys.transform
-                kktt.append(keyframe)
-            else:
-                bone_group_layer.transform = transform
-            
-            # The pivot should be at the bone head which is the origin so we don't need to set it explicitly.
-            # TODO: still true for disconnected nodes? 
-            # TODO: should it be set from the rest pose?
-            #bone_group_layer.implementation.pivot = head
+        # Go through the armature and set the transform of each bone group.
+        for pose_bone in obj.pose.bones:
+            set_pose(pose_bone, bone_group_layers, previous_poses, time, config)
         
     # Restore the active frame
     scn.frame_set(memo_current_frame)
 
-    # TODO: go through the armature children, find objects that are parented to bones,
-    # convert them and put them in the correct group.
 
-    return armature_group_layer
+def set_pose(pose_bone, bone_group_layers, previous_poses, time, config):
+    
+    if pose_bone.name not in bone_group_layers:
+        print(f"Error: bone {pose_bone.name} not found in bone groups.")
+        return
+    
+    bone_group_layer = bone_group_layers[pose_bone.name]
 
+    # Find the rest pose of the bone in the space of the rest pose of its parent.
+    if pose_bone.parent is not None:
+        rest_pose_in_armature = pose_bone.bone.matrix_local
+        parent_rest_pose_in_armature = pose_bone.parent.bone.matrix_local
+        rest_pose_in_parent = parent_rest_pose_in_armature.inverted() @ rest_pose_in_armature
+    else:
+        rest_pose_in_parent = pose_bone.bone.matrix_local
+        
+    # Apply the current pose to the rest pose to get the final pose.
+    pose_in_parent = rest_pose_in_parent @ pose_bone.matrix_basis
+
+    # Convert the transform.
+    translation, rotation, scale, flip = utils.convert_transform_raw(pose_in_parent)
+    transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
+    
+    if not config["armature_animation"]:
+        bone_group_layer.transform = transform
+        return
+    
+    # Only add a keyframe if the pose has changed since the last frame.
+    epsilon = 1e-5
+    if pose_bone.name in previous_poses and utils.transform_equals(previous_poses[pose_bone.name], pose_in_parent, epsilon):
+        return
+
+    previous_poses[pose_bone.name] = pose_in_parent
+    
+    interpolation = "None" if config["armature_interpolation"] == "STEPPED" else "Linear"
+    keyframe = sequence.Keyframe(interpolation, time, transform)
+    bone_group_layer.animation.keys.transform.append(keyframe)
+
+    # The pivot should be at the bone head which is the origin so we don't need to set it explicitly.
+    # TODO: still true for disconnected nodes?
+    # TODO: should it be set from the rest pose?
+    #bone_group_layer.implementation.pivot = head
+            
 
 def make_bone_stroke(head, tail, color, config):
     """Make a stroke representing a bone, from head to tail.
