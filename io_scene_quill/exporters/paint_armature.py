@@ -104,6 +104,12 @@ def pose_armature(obj, bone_group_layers, config):
         # Go through the armature and set the transform of each bone group.
         for pose_bone in obj.pose.bones:
             set_pose(pose_bone, bone_group_layers, previous_poses, time, config)
+            
+    # Go through the rig and clean up single keyframes.
+    for bone_group_layer in bone_group_layers.values():
+        if len(bone_group_layer.animation.keys.transform) == 1:
+            bone_group_layer.transform = bone_group_layer.animation.keys.transform[0].value
+            bone_group_layer.animation.keys.transform = []
         
     # Restore the active frame
     scn.frame_set(memo_current_frame)
