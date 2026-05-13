@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1
+
+Exporter
+- Armature: avoid exporting unecessary key frames.
 
 ## 1.5.0
 
