@@ -203,13 +203,8 @@ class QuillImporter:
 
             if not os.path.exists(file_path):
                 # Still not found, extract the data from the Qbin.
-                qbin_path = os.path.join(self.path, "Quill.qbin")
-                qbin = open(qbin_path, "rb")
-                data_file_offset = layer.implementation.data_file_offset
-                sound_data = quill_utils.read_sound_data(qbin, data_file_offset)
-                qbin.close()
-                if sound_data:
-                    quill_utils.export_sound_data(sound_data, file_path)
+                if layer.implementation.data:
+                    quill_utils.export_sound_data(layer.implementation.data, file_path)
 
             if not os.path.exists(file_path):
                 # Still not found, bail out.

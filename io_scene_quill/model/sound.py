@@ -39,6 +39,25 @@ def read_sound_data(qbin):
     return data
 
 
+def write_sound_data(data:SoundData, qbin):
+    """Write sound data to the passed QBin file object."""
+
+    # version (4 bytes), unknown (2 bytes), num_channels (1 byte), bits (1 byte),
+    # rate (4 bytes), num_samples (8 bytes), samples (num_samples * num_channels * bits/8 bytes).
+    # version.
+    qbin.write(struct.pack("<I", 0))
+    
+    # unused.
+    qbin.write(struct.pack("<h", 0))
+    
+    # fields.
+    qbin.write(struct.pack("<B", data.num_channels))
+    qbin.write(struct.pack("<B", data.bits))
+    qbin.write(struct.pack("<I", data.rate))
+    qbin.write(struct.pack("<Q", data.num_samples))
+    qbin.write(data.samples)
+
+
 def export_sound_data(data:SoundData, path):
     """Write sound data to an external file (.wav)."""
     # https://docs.python.org/3/library/wave.html

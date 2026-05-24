@@ -161,12 +161,12 @@ def get_unique_layer_name(name, parent_layer):
         i += 1
 
 
-def load_drawing_data(layer, qbin):
+def load_qbin_data(layer, qbin):
     """Load drawing data for the layer and its children."""
 
     if layer.type == "Group":
         for child in layer.implementation.children:
-            load_drawing_data(child, qbin)
+            load_qbin_data(child, qbin)
 
     elif layer.type == "Paint":
         drawings = layer.implementation.drawings
@@ -176,13 +176,14 @@ def load_drawing_data(layer, qbin):
         for drawing in layer.implementation.drawings:
             qbin.seek(int(drawing.data_file_offset, 16))
             drawing.data = paint.read_drawing_data(qbin)
-
-
-def read_sound_data(qbin, data_file_offset):
-    """Load sound data at the passed QBin file offset."""
-    qbin.seek(int(data_file_offset, 16))
-    sound_data = sound.read_sound_data(qbin)
-    return sound_data
+    
+    # elif layer.type == "Picture" and layer.implementation.data_file_offset != None:
+    #     qbin.seek(int(layer.implementation.data_file_offset, 16))
+    #     layer.implementation.data = picture.read_picture_data(qbin)
+    
+    elif layer.type == "Sound" and layer.implementation.data_file_offset != None:
+        qbin.seek(int(layer.implementation.data_file_offset, 16))
+        layer.implementation.data = sound.read_sound_data(qbin)
 
 
 def export_sound_data(data, path):
@@ -207,6 +208,11 @@ def write_qbin_data(layer, qbin):
         offset = hex(qbin.tell())[2:].upper().zfill(8)
         layer.implementation.data_file_offset = offset
         picture.write_picture_data(layer.implementation.data, qbin)
+        
+    elif layer.type == "Sound" and layer.implementation.data != None:
+        offset = hex(qbin.tell())[2:].upper().zfill(8)
+        layer.implementation.data_file_offset = offset
+        sound.write_sound_data(layer.implementation.data, qbin)
 
 
 def write_json(json_obj, folder_path, file_name):
@@ -257,9 +263,9 @@ def import_scene(path, layer_types, only_visible=False, only_non_empty=False):
     if only_non_empty:
         delete_empty_groups(scene.sequence.root_layer)
 
-    # Load the drawing data.
+    # Load the QBin data.
     qbin = open(qbin_path, "rb")
-    load_drawing_data(scene.sequence.root_layer, qbin)
+    load_qbin_data(scene.sequence.root_layer, qbin)
     qbin.close()
 
     return scene
