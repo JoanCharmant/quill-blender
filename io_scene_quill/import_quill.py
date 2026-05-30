@@ -15,6 +15,7 @@ class QuillImporter:
 
         self.material = None
         self.next_empty_channel = -1
+        self.lipsync_data = None
 
     def __enter__(self):
         return self
@@ -26,7 +27,8 @@ class QuillImporter:
 
         # Import the Quill scene to memory, including scene graph and drawing data.
         quill_scene = quill_utils.import_scene(self.path, self.config["layer_types"], self.config["only_visible"], self.config["only_non_empty"])
-
+        self.lipsync_data = quill_scene.lipsync_data
+        
         # Deselect everything.
         for obj in bpy.context.view_layer.objects:
             obj.select_set(False)
@@ -117,7 +119,7 @@ class QuillImporter:
                 self.setup_animation(obj, layer, offset)
 
                 # Import the drawings and animate them.
-                mesh_paint.convert(self.config, obj, layer, self.material, use_keymesh)
+                mesh_paint.convert(self.config, obj, layer, self.material, use_keymesh, self.lipsync_data)
 
             elif self.config["convert_paint"] == "GPENCIL" or self.config["convert_paint"] == "GREASEPENCIL":
 

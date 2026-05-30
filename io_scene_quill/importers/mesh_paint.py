@@ -2,11 +2,12 @@ import bpy
 import math
 import mathutils
 from .animation import animate
+from .lipsync import apply_lipsync
 from ..model.paint import BrushType
 from ..utils.keymesh import keymesh_init, keymesh_import
 
 
-def convert(config, parent_obj, layer, material, use_keymesh):
+def convert(config, parent_obj, layer, material, use_keymesh, lipsync_data):
     """Converts a Quill paint layer to Blender mesh objects and animates it."""
 
     drawings = layer.implementation.drawings
@@ -14,6 +15,9 @@ def convert(config, parent_obj, layer, material, use_keymesh):
         return
 
     # Mark the parent as a paint layer, for export.
+    # The parent_obj is the main representation of the layer.
+    # For non-keymesh the parent is an empty and the drawings are children mesh objects.
+    # For keymesh the parent is a single mesh object containing all the drawings.
     parent_obj.quill.paint_layer = True
 
     # Load all drawings into mesh objects.
@@ -82,6 +86,14 @@ def convert(config, parent_obj, layer, material, use_keymesh):
         bpy.context.view_layer.objects.active = parent_obj
 
     animate(drawing_to_obj, layer, use_keymesh, parent_obj)
+    
+    if use_keymesh and lipsync_data is not None:
+        # Check if the lipsync data has this layer.
+        # FIXME: look for the whole lineage of parent layers instead of just the current layer.
+        # or have the user explicitly specify the layer from a UI panel.
+        if layer.name in lipsync_data:
+            layer_lipsync_data = lipsync_data[layer.name]
+            apply_lipsync(drawing_to_obj, layer, parent_obj, layer_lipsync_data)
 
 
 def convert_stroke(stroke, vertices, edges, faces, attributes, base_vertex):

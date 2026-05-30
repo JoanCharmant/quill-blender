@@ -8,7 +8,9 @@ from .timeline import get_fcurve
 
 
 def new_object_id() -> int:
-    """Returns random unused number between 1-1000 to be used as Keymesh ID."""
+    """
+    Returns random unused number between 1-1000 to be used as Keymesh ID.
+    """
     id = random.randint(1, 1000)
     used_ids = {o.keymesh.get("ID") for o in bpy.data.objects if o.keymesh.get("ID") is not None}
     while id in used_ids:
@@ -141,4 +143,15 @@ def keymesh_get_frame_sequence(obj):
             frame_sequence.append((frame, value))
 
     return frame_sequence
+
+
+def keymesh_delete_all_keyframes(obj):
+    """
+    Deletes all keyframes on the Keymesh object `obj`.
+    """
+
+    data_path = 'keymesh["Keymesh Data"]'
+    fcurve = get_fcurve(obj, data_path)
+    if fcurve:
+        obj.animation_data.action.fcurves.remove(fcurve)
 

@@ -2,7 +2,8 @@ import json
 import os
 import re
 import struct
-from . import paint, picture, sound, sequence, state
+
+from . import paint, picture, sound, sequence, state, lipsync
 
 
 def create_scene():
@@ -267,6 +268,11 @@ def import_scene(path, layer_types, only_visible=False, only_non_empty=False):
     qbin = open(qbin_path, "rb")
     load_qbin_data(scene.sequence.root_layer, qbin)
     qbin.close()
+    
+    # Check for lipsync data.
+    lipsync_path = os.path.join(path, "lipsync")
+    if os.path.exists(lipsync_path) and os.path.isdir(lipsync_path):
+        scene.lipsync_data = lipsync.read_lipsync_data(lipsync_path)
 
     return scene
 
