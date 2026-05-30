@@ -162,6 +162,11 @@ class QuillExporter:
             self.setup_layer(layer, obj, parent_layer)
             self.animate_layer(layer, obj)
             
+        elif obj.type == "SPEAKER":
+            # Currently we only support exporting speaker objects that were created from Quill sound layers.
+            if obj.quill.active:
+                self.export_speaker_quill(obj, parent_layer)
+            
         bpy.context.view_layer.objects.active = memo_active
 
     def export_image(self, obj, parent_layer):
@@ -380,6 +385,21 @@ class QuillExporter:
         if layer is not None:
             self.setup_layer(layer, obj, parent_layer)
             self.animate_layer(layer, obj)
+
+    def export_speaker_quill(self, obj, parent_layer):
+
+        # Export a speaker object that is marked as imported from Quill.
+        
+        # Get the original Quill layer.
+        original_quill_scene = self.get_quill_scene(obj)
+        original_layer = quill_utils.get_layer(original_quill_scene, obj.quill.layer_path)
+        sound_layer = original_layer
+        sound_layer.name = obj.name
+
+        # Finalize the sound layer.
+        if sound_layer is not None:
+            self.setup_layer(sound_layer, obj, parent_layer)
+            self.animate_layer(sound_layer, obj)
 
     def setup_layer(self, layer, obj, parent_layer):
         """Common setup for all layers."""

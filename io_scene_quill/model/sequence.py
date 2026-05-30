@@ -128,6 +128,16 @@ class Keys:
         opacity = from_union([lambda x: from_list(Keyframe.from_dict, x), from_none], obj.get("Opacity"))
         transform = from_union([lambda x: from_list(Keyframe.from_dict, x), from_none], obj.get("Transform"))
         visibility = from_union([lambda x: from_list(Keyframe.from_dict, x), from_none], obj.get("Visibility"))
+        
+        if offset is None:
+            offset = []
+        if opacity is None:
+            opacity = []
+        if transform is None:
+            transform = []
+        if visibility is None:
+            visibility = []
+        
         return Keys(offset, opacity, transform, visibility)
 
     def to_dict(self):
