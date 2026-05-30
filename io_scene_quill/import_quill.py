@@ -27,7 +27,10 @@ class QuillImporter:
 
         # Import the Quill scene to memory, including scene graph and drawing data.
         quill_scene = quill_utils.import_scene(self.path, self.config["layer_types"], self.config["only_visible"], self.config["only_non_empty"])
-        self.lipsync_data = quill_scene.lipsync_data
+        
+        if quill_scene.lipsync_data is not None and len(quill_scene.lipsync_data) > 0:
+            logging.info("Found lipsync data for %d layers.", len(quill_scene.lipsync_data))
+            self.lipsync_data = quill_scene.lipsync_data
         
         # Deselect everything.
         for obj in bpy.context.view_layer.objects:

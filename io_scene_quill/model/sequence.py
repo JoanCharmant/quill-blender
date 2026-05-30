@@ -689,6 +689,7 @@ class QuillScene:
     def __init__(self, sequence, version):
         self.sequence = sequence
         self.version = version
+        self.lipsync_data = None
 
     @staticmethod
     def from_dict(obj):
