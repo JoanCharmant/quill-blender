@@ -124,15 +124,26 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale, config):
             flat_cap = (gp_stroke.start_cap == 1) if gpv3 else (gp_stroke.start_cap_mode == 'FLAT')
             if len(gp_stroke.points) < 2 and flat_cap:
                 continue
-
-            # Surface component (Stroke, Fill or both).
+            
             material = gpencil_materials[gp_stroke.material_index].grease_pencil
+            
+            # Stroke, Fill or both.
+            # Prior to Blender 5.10 this was an attribute of the material.
+            # After 5.10 it's an attribute of the stroke.
+            show_stroke = False
+            show_fill = False
+            if bpy.app.version >= (5, 1, 0):
+                show_stroke = not gp_stroke.hide_stroke
+                show_fill = gp_stroke.fill_id is not None and gp_stroke.fill_id != 0
+            else:
+                show_stroke = material.show_stroke 
+                show_fill = material.show_fill
 
             # Bypass if neither are enabled.
-            if not material.show_stroke and not material.show_fill:
+            if not show_stroke and not show_fill:
                 continue
 
-            if material.show_stroke:
+            if show_stroke:
                 # This can be represented by a normal Quill stroke.
                 stroke = make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, config)
                 if stroke is None:
@@ -140,7 +151,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale, config):
                 drawing.data.strokes.append(stroke)
                 drawing.bounding_box = quill_utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
 
-            if material.show_fill:
+            if show_fill:
                 # This requires special handling.
                 stroke = make_fill_stroke(gp_stroke, material)
                 if stroke is None:
@@ -464,14 +475,4 @@ def add_caps(vertices, caps_type, bbox):
 
 
 def make_fill_stroke(gp_stroke, material):
-
-    # TODO: make some sort of Quill stroke that emulates the fill.
-    # Store some metadata somewhere (in the layer title?) to be able to round trip.
-    brush_type = paint.BrushType.RIBBON
-    disable_rotational_opacity = True
-
-    triangles = gp_stroke.triangles
-    #is_nofill_stroke = gpencil_stroke.is_nofill_stroke
-    #vertex_color_fill = gpencil_stroke.vertex_color_fill
-
     return None
