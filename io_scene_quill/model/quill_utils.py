@@ -41,6 +41,7 @@ def create_viewpoint_layer(name):
         "AllowTranslationY": True,
         "AllowTranslationZ": True,
         "Color": [0.392336,0.942602,0.580318],
+        "DataFileOffset": None,
         "Exporting": True,
         "ShowingVolume": False,
         "Sphere": [0, 1, 0, 2],
@@ -163,7 +164,7 @@ def get_unique_layer_name(name, parent_layer):
 
 
 def load_qbin_data(layer, qbin):
-    """Load drawing data for the layer and its children."""
+    """Load qbin data for the layer and its children."""
 
     if layer.type == "Group":
         for child in layer.implementation.children:
@@ -185,6 +186,11 @@ def load_qbin_data(layer, qbin):
     elif layer.type == "Sound" and layer.implementation.data_file_offset != None:
         qbin.seek(int(layer.implementation.data_file_offset, 16))
         layer.implementation.data = sound.read_sound_data(qbin)
+    
+    elif layer.type == "Viewpoint" and layer.implementation.data_file_offset != None:
+        # Thumbnails of viewpoints.
+        qbin.seek(int(layer.implementation.data_file_offset, 16))
+        layer.implementation.data = picture.read_picture_data(qbin)
 
 
 def export_sound_data(data, path):
@@ -214,6 +220,14 @@ def write_qbin_data(layer, qbin):
         offset = hex(qbin.tell())[2:].upper().zfill(8)
         layer.implementation.data_file_offset = offset
         sound.write_sound_data(layer.implementation.data, qbin)
+        
+    elif layer.type == "Viewpoint" and layer.implementation.data != None:
+        # Thumbnails of viewpoints.
+        offset = hex(qbin.tell())[2:].upper().zfill(8)
+        layer.implementation.data_file_offset = offset
+        picture.write_picture_data(layer.implementation.data, qbin)
+        
+    
 
 
 def write_json(json_obj, folder_path, file_name):

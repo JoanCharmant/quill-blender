@@ -328,16 +328,18 @@ class ViewpointLayerImplementation:
 
     # Note: there is also a DataFileOffset field that points to a 512 x 512 RGB thumbnail.
 
-    def __init__(self, allow_translation_x, allow_translation_y, allow_translation_z, color, exporting, showing_volume, sphere, type_str, version):
+    def __init__(self, allow_translation_x, allow_translation_y, allow_translation_z, color, data_file_offset, exporting, showing_volume, sphere, type_str, version):
         self.allow_translation_x = allow_translation_x
         self.allow_translation_y = allow_translation_y
         self.allow_translation_z = allow_translation_z
         self.color = color
+        self.data_file_offset = data_file_offset
         self.exporting = exporting
         self.showing_volume = showing_volume
         self.sphere = sphere
         self.type_str = type_str
         self.version = version
+        self.data = None
 
     @staticmethod
     def from_dict(obj):
@@ -346,12 +348,13 @@ class ViewpointLayerImplementation:
         allow_translation_y = from_bool(obj.get("AllowTranslationY"))
         allow_translation_z = from_bool(obj.get("AllowTranslationZ"))
         color = from_list(from_float, obj.get("Color"))
+        data_file_offset = from_union([from_str, from_none], obj.get("DataFileOffset"))
         exporting = from_bool(obj.get("Exporting"))
         showing_volume = from_bool(obj.get("ShowingVolume"))
         sphere = from_list(from_float, obj.get("Sphere"))
         type_str = from_union([from_str, from_none], obj.get("TypeStr"))
         version = from_union([from_int, from_none], obj.get("Version"))
-        return ViewpointLayerImplementation(allow_translation_x, allow_translation_y, allow_translation_z, color, exporting, showing_volume, sphere, type_str, version)
+        return ViewpointLayerImplementation(allow_translation_x, allow_translation_y, allow_translation_z, color, data_file_offset, exporting, showing_volume, sphere, type_str, version)
 
     def to_dict(self):
         result = {}
@@ -359,6 +362,7 @@ class ViewpointLayerImplementation:
         result["AllowTranslationY"] = from_union([from_bool, from_none], self.allow_translation_y)
         result["AllowTranslationZ"] = from_union([from_bool, from_none], self.allow_translation_z)
         result["Color"] = from_union([lambda x: from_list(to_float, x), from_none], self.color)
+        result["DataFileOffset"] = from_union([from_str, from_none], self.data_file_offset)
         result["Exporting"] = from_union([from_bool, from_none], self.exporting)
         result["ShowingVolume"] = from_union([from_bool, from_none], self.showing_volume)
         result["Sphere"] = from_union([lambda x: from_list(to_float, x), from_none], self.sphere)
