@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.0
+
+Importer
+- Import lipsync data from Papagayo/Moho .dat format and apply it to keymesh target layer.
+- Import sound data into the sound layer structure and write it on export.
+- Import picture data of viewpoint thumbnails and write it on export.
+
+Exporter
+- Fix export of Grease Pencil for Blender 5.10.
+- Export speaker objects if they were created by the importer.
+
+
 ## 1.5.1
 
 Exporter
