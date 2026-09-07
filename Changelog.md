@@ -1,5 +1,12 @@
 # Changelog
 
+
+## 1.6.1
+
+Exporter
+- Fix export of Grease Pencil paint strokes that are perfectly vertical.
+
+
 ## 1.6.0
 
 Importer

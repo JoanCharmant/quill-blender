@@ -122,9 +122,10 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale, config):
             # Ignore single-point GPencil strokes using flat cap as they can't really be represented in Quill.
             # For round cap we will generate a perfect sphere.
             flat_cap = (gp_stroke.start_cap == 1) if gpv3 else (gp_stroke.start_cap_mode == 'FLAT')
-            if len(gp_stroke.points) < 2 and flat_cap:
+            point_count = len(gp_stroke.points)
+            if (point_count == 0) or (point_count == 1 and flat_cap):
                 continue
-            
+
             material = gpencil_materials[gp_stroke.material_index].grease_pencil
             
             # Stroke, Fill or both.
@@ -240,29 +241,49 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
     guessed_normal = mathutils.Vector((0, 1, 0))
     camera_position = mathutils.Vector((0, 0, 0))
 
+    point_count = len(gp_stroke.points)
+
     if guess_drawing_plane:
         # Guess the drawing plane by looking at 3 points from the stroke.
         # This assumes all the points are on the same plane (we don't fit a plane).
         # If the user has drawn a stroke in 3D space, or imported from Quill, they should not 
         # check that export option.
-        # FIXME: this also assumes the points are not colinear, this could fail for the line tool.
-        if len(gp_stroke.points) > 2:
-            start = gp_stroke.points[0].position if gpv3 else gp_stroke.points[0].co
-            mid_idx = len(gp_stroke.points) // 2
+        eps = 0.000001
+        start = gp_stroke.points[0].position if gpv3 else gp_stroke.points[0].co
+        end = gp_stroke.points[-1].position if gpv3 else gp_stroke.points[-1].co
+
+        if point_count >= 3:
+            
+            mid_idx = point_count // 2
             mid = gp_stroke.points[mid_idx].position if gpv3 else gp_stroke.points[mid_idx].co
-            end = gp_stroke.points[-1].position if gpv3 else gp_stroke.points[-1].co
+            
             p = utils.swizzle_yup_location(start)
             p2 = utils.swizzle_yup_location(mid)
             p3 = utils.swizzle_yup_location(end)
-            guessed_normal = (p2 - p).cross(p3 - p)
-            if guessed_normal.length > 0.000001:
+
+            v1 = p2 - p
+            v2 = p3 - p
+            
+            guessed_normal = (v1).cross(v2)
+
+            if guessed_normal.length_squared > eps:
                 guessed_normal.normalize()
             else:
-                # If the points are colinear assume up axis.
-                guessed_normal = mathutils.Vector((0, 1, 0))
-        else:
-            # If we don't have enough points fallback to the up axis.
+                # Colinear
+                direction = v1 if v1.length_squared > eps else v2
+                guessed_normal = get_arbitrary_normal(direction)
+                
+        elif point_count == 2:
+            
+            p = utils.swizzle_yup_location(start)
+            p2 = utils.swizzle_yup_location(end)
+            direction = p2 - p
+            guessed_normal = get_arbitrary_normal(direction)
+
+        elif point_count == 1:
+            # Single point, no orientation, fallback to up.
             guessed_normal = mathutils.Vector((0, 1, 0))
+            
     else:
         camera = bpy.context.scene.camera
         if camera is not None:
@@ -273,7 +294,7 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
     vertices = []
     
     
-    for i in range(len(gp_stroke.points)):
+    for i in range(point_count):
 
         gp_point = gp_stroke.points[i]
         location = gp_point.position if gpv3 else gp_point.co
@@ -336,6 +357,32 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
 
     id = 0
     return paint.Stroke(id, bbox, brush_type, disable_rotational_opacity, vertices)
+
+
+def get_arbitrary_normal(v):
+    # Return an arbitrary normal vector that is not colinear with v.
+
+    eps = 0.000001
+    if (v.length_squared < eps):
+        return mathutils.Vector((0, 1, 0))
+
+    v = v.normalized()
+
+    x_axis = mathutils.Vector((1, 0, 0))
+    y_axis = mathutils.Vector((0, 1, 0))
+    z_axis = mathutils.Vector((0, 0, 1))
+
+    # Pick the axis least aligned with v.
+    dot_x = abs(v.dot(x_axis))
+    dot_y = abs(v.dot(y_axis))
+    dot_z = abs(v.dot(z_axis))
+
+    if dot_x <= dot_y and dot_x <= dot_z:
+        return v.cross(x_axis).normalized()
+    elif dot_y <= dot_x and dot_y <= dot_z:
+        return v.cross(y_axis).normalized()
+    else:
+        return v.cross(z_axis).normalized()
 
 
 def compute_tangent(gp_stroke, i, p):
