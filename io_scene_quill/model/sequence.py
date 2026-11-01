@@ -205,7 +205,7 @@ class Animation:
         keys = Keys.from_default()
         max_repeat_count = 0
         start_offset = 0
-        timeline = True
+        timeline = False
         return Animation(duration, keys, max_repeat_count, start_offset, timeline)
 
 
