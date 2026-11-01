@@ -179,9 +179,9 @@ def load_qbin_data(layer, qbin):
             qbin.seek(int(drawing.data_file_offset, 16))
             drawing.data = paint.read_drawing_data(qbin)
     
-    # elif layer.type == "Picture" and layer.implementation.data_file_offset != None:
-    #     qbin.seek(int(layer.implementation.data_file_offset, 16))
-    #     layer.implementation.data = picture.read_picture_data(qbin)
+    elif layer.type == "Picture" and layer.implementation.data_file_offset != None:
+        qbin.seek(int(layer.implementation.data_file_offset, 16))
+        layer.implementation.data = picture.read_picture_data(qbin)
     
     elif layer.type == "Sound" and layer.implementation.data_file_offset != None:
         qbin.seek(int(layer.implementation.data_file_offset, 16))

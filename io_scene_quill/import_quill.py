@@ -2,8 +2,9 @@ import os
 import bpy
 import logging
 import mathutils
+import numpy as np
 from math import floor, radians
-from .importers import curve_paint, gpencil_paint, mesh_material, mesh_paint, sound_sound
+from .importers import curve_paint, gpencil_paint, image_picture, mesh_material, mesh_paint, sound_sound
 from .model import quill_utils
 from .utils import timeline
 
@@ -58,18 +59,8 @@ class QuillImporter:
         bpy.context.view_layer.update()
 
         # Configure 3D viewport solid shading to match Quill.
-        if self.config["configure_shading"]:
-            # Solid shading
-            for area in bpy.context.screen.areas:
-                if area.type == 'VIEW_3D':
-                    area.spaces[0].shading.light = 'FLAT'
-                    area.spaces[0].shading.color_type = 'VERTEX'
-                    area.spaces[0].shading.background_type = 'VIEWPORT'
-                    area.spaces[0].shading.background_color = quill_scene.sequence.background_color
-                    area.spaces[0].shading.show_object_outline = False
+        self.configure_viewport_shading(quill_scene)
 
-            # View transform to standard.
-            bpy.context.scene.view_settings.view_transform = 'Standard'
 
     def import_layer(self, layer, offset, parent_layer=None, parent_obj=None, layer_path=""):
 
@@ -261,17 +252,33 @@ class QuillImporter:
             self.setup_obj(obj, layer, parent_obj, layer_path)
             self.setup_animation(obj, layer, offset, False)
 
-            # Load the image data.
-            # Quill stores both the data in Qbin and the file path in JSON.
-            # We just support the path for now, so the file has to be on disk.
-            # Note: some characters in the file path may be unsupported like em dash.
-            file_path = layer.implementation.import_file_path
-            if not os.path.exists(file_path):
-                logging.warning("Image file not found: %s", file_path)
+            # Prefer the original file, but fall back to the pixels in Qbin.
+            file_path = layer.implementation.import_file_path or ""
+            image_data = None
+
+            if file_path and os.path.isfile(file_path):
+                try:
+                    image_data = bpy.data.images.load(file_path, check_existing=False)
+                except (OSError, RuntimeError) as e:
+                    logging.warning("Cannot load picture %s from disk: %s", file_path, e)
+
+            # Bail out if loading from disk succeeded with a zero-sized image buffer.
+            if image_data is not None and (image_data.size[0] == 0 or image_data.size[1] == 0):
+                bpy.data.images.remove(image_data)
+                image_data = None
+
+            # If the original file is not available, try to recover the picture from the Qbin data.
+            if image_data is None and layer.implementation.data is not None:
+                try:
+                    image_data = image_picture.convert(layer.name, layer.implementation.data)
+                except (ValueError, RuntimeError, TypeError, MemoryError) as e:
+                    logging.warning("Cannot decode Qbin picture %s: %s", layer.name, e)
+
+            if image_data is None:
+                logging.warning("Picture unavailable: %s (original: %s)", layer.name, file_path)
                 obj.show_name = True
                 return
 
-            image_data = bpy.data.images.load(file_path, check_existing=False)
             obj.data = image_data
 
             # To get the correct size we need to do some shenanigans.
@@ -390,6 +397,21 @@ class QuillImporter:
             return 'CUBIC', 'EASE_IN_OUT'
         else:
             return 'LINEAR', 'AUTO'
+
+    def configure_viewport_shading(self, quill_scene):
+            # Configure 3D viewport solid shading to match Quill.
+            if self.config["configure_shading"]:
+                # Solid shading
+                for area in bpy.context.screen.areas:
+                    if area.type == 'VIEW_3D':
+                        area.spaces[0].shading.light = 'FLAT'
+                        area.spaces[0].shading.color_type = 'VERTEX'
+                        area.spaces[0].shading.background_type = 'VIEWPORT'
+                        area.spaces[0].shading.background_color = quill_scene.sequence.background_color
+                        area.spaces[0].shading.show_object_outline = False
+    
+                # View transform to standard.
+                bpy.context.scene.view_settings.view_transform = 'Standard'
 
 
 def load(operator, filepath="", **kwargs):
