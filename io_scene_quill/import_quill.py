@@ -28,7 +28,8 @@ class QuillImporter:
 
         # Import the Quill scene to memory, including scene graph and drawing data.
         quill_scene = quill_utils.import_scene(self.path, self.config["layer_types"], self.config["only_visible"], self.config["only_non_empty"])
-        
+
+        # Copy lipsync data.
         if quill_scene.lipsync_data is not None and len(quill_scene.lipsync_data) > 0:
             logging.info("Found lipsync data for %d layers.", len(quill_scene.lipsync_data))
             self.lipsync_data = quill_scene.lipsync_data
@@ -67,6 +68,20 @@ class QuillImporter:
         logging.info("Importing Quill layer: %s (%s).", layer.name, layer.type)
 
         if layer.type == "Group":
+
+            if layer.is_model_top_layer:
+                # Special case for Model layers with multiple meshes (FBX).
+                # The group itself doesn't have the path of the file but each 
+                # children layer should have it.
+                if layer.implementation.children and len(layer.implementation.children) > 0:
+                    # Get the file path from the first child.
+                    model_file_path = layer.implementation.children[0].implementation.import_file_path
+                    self.import_model_layer_group(layer, model_file_path, offset, parent_obj, layer_path)
+                else:
+                    logging.warning("Model layer has no children: %s", layer.name)
+                    self.import_model_layer_fallback(layer, offset, parent_obj, layer_path)
+                    
+                return
 
             # Group layers are converted to empty objects.
             obj = bpy.data.objects.new(layer.name, None)
@@ -239,10 +254,55 @@ class QuillImporter:
 
         elif layer.type == "Model":
 
-            obj = bpy.data.objects.new(layer.name, None)
-            obj.empty_display_type = 'CUBE'
-            self.setup_obj(obj, layer, parent_obj, layer_path)
-            self.setup_animation(obj, layer, offset, False)
+            # This is for handling Quill model layers that are imported from OBJ or 
+            # from FBX with the option "Single Layer" checked in the importer dialog.
+            # In this case the model is imported as a single layer with "IsModelTopLayer" : true property.
+            # The other case is for FBX files with multiple meshes, these are imported as a group layer,
+            # and are handled in the import_model_layer_group() function.
+            
+            # As for other asset types we have both the original file and the QBIN data to work with.
+            # We give priority to the original file.
+            # Note: Quill importer only supports FBX and OBJ files.
+            file_path = layer.implementation.import_file_path
+            model_data = None
+
+            if file_path and os.path.isfile(file_path):
+                ext = os.path.splitext(file_path)[1].lower()
+    
+                if ext == ".fbx":
+                    bpy.ops.import_scene.fbx(filepath=file_path)
+                    
+                    # It's possible that the FBX file contains multiple meshes but was imported 
+                    # in Quill as a single layer.
+                    # In that case we revert to importing as a group.
+                    if len(bpy.context.selected_objects) > 1:
+                        logging.warning("FBX file contains multiple meshes but was imported as a single layer: %s", file_path)
+                        self.import_model_layer_group(layer, file_path, offset, parent_obj, layer_path)
+                        return
+                    else:
+                        obj = bpy.context.selected_objects[0]
+                        self.setup_obj(obj, layer, parent_obj, layer_path)
+                        self.setup_animation(obj, layer, offset)
+                        return
+                    
+                elif ext == ".obj":
+
+                    # Import an OBJ file as a single mesh.
+                    bpy.ops.wm.obj_import(filepath=file_path)
+                    
+                    obj = bpy.context.selected_objects[0]
+                    self.setup_obj(obj, layer, parent_obj, layer_path)
+                    self.setup_animation(obj, layer, offset)
+                    return
+                else:
+                    logging.warning("Unsupported model file format: %s", ext)
+                    self.import_model_layer_fallback(layer, offset, parent_obj, layer_path)
+                    return
+                    
+            
+            # TODO: handle model data in Qbin if the original file is not available.
+            logging.warning("Model file not found: %s", file_path)
+            self.import_model_layer_fallback(layer, offset, parent_obj, layer_path)
 
         elif layer.type == "Picture":
 
@@ -297,7 +357,10 @@ class QuillImporter:
         Configure the Blender object representing the Quill layer, common to all layer types.
         """
 
-        bpy.context.collection.objects.link(obj)
+        # Verify if the object already exists in the collection,
+        # this can happen when importing model layers.
+        if obj.name not in bpy.context.collection.objects:
+            bpy.context.collection.objects.link(obj)
         obj.parent = parent_obj
         obj.matrix_local = self.get_transform(layer.transform)
         # TODO: pivot.
@@ -412,6 +475,69 @@ class QuillImporter:
     
                 # View transform to standard.
                 bpy.context.scene.view_settings.view_transform = 'Standard'
+
+
+    def import_model_layer_fallback(self, layer, offset, parent_obj, layer_path):
+
+        # Fallback function when importing a model layer for which we couldn't reload the original file.
+        obj = bpy.data.objects.new(layer.name, None)
+        obj.empty_display_type = 'CUBE'
+        self.setup_obj(obj, layer, parent_obj, layer_path)
+        self.setup_animation(obj, layer, offset)
+
+
+    def import_model_layer_group(self, layer, model_file_path, offset, parent_obj, layer_path):
+
+        # Import a group layer that is the root of a multi-mesh model.
+        # We also come here for multi-mesh FBX files that were imported as a single layer in Quill,
+        # so the `layer` variable can be either a group or a model layer.
+        
+        if not os.path.isfile(model_file_path):
+            logging.warning("Model file not found: %s", model_file_path)
+            self.import_model_layer_fallback(layer, offset, parent_obj, layer_path)
+            return
+        
+        # Quill model importer only supports FBX and OBJ files, and only FBX can have multiple meshes.
+        ext = os.path.splitext(model_file_path)[1].lower()
+        if ext != ".fbx":
+            logging.warning("Unsupported model file format: %s", ext)
+            self.import_model_layer_fallback(layer, offset, parent_obj, layer_path)
+            return
+
+        # Import the FBX file to Blender.
+        # This will import it in the collection and select all the sub-objects.
+        # Note that the import scale from the Quill importer dialog is simply stored as 
+        # a scale factor in the transform of the top layer, so we don't need to set it here.
+        bpy.ops.import_scene.fbx(filepath=model_file_path)
+
+        # The Quill importer doesn't support armatures or animations, and the user can also
+        # manually delete sub-meshes inside Quill after import.
+        # Find the mapping between the imported objects and the Quill layers, based on names.
+        mapping = {}
+        for obj in bpy.context.selected_objects:
+            if obj.type == 'MESH':
+                for child in layer.implementation.children:
+                    if child.name == obj.name:
+                        mapping[child] = obj
+                        break
+
+        # Remove anything that doesn't have a corresponding Quill layer.
+        for obj in bpy.context.selected_objects:
+            if obj not in mapping.values():
+                logging.warning("Imported object %s has no corresponding Quill layer, removing it.", obj.name)
+                bpy.data.objects.remove(obj, do_unlink=True)
+        
+        # Create the group object that will be the parent of all the imported meshes.
+        group_obj = bpy.data.objects.new(layer.name, None)
+        self.setup_obj(group_obj, layer, parent_obj, layer_path)
+        self.setup_animation(group_obj, layer, offset)
+        
+        # Set up the imported meshes and their animation.
+        for child_layer, obj in mapping.items():
+            self.setup_obj(obj, child_layer, group_obj, layer_path + "/" + layer.name)
+            self.setup_animation(obj, child_layer, offset)
+
+        return
 
 
 def load(operator, filepath="", **kwargs):

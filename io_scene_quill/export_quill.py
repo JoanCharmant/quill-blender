@@ -288,17 +288,26 @@ class QuillExporter:
         # This could be:
         # - a Keymesh object containing drawings as blocks.
         # - a single mesh extracted or duplicated out of a paint layer group container.
+        # - a mesh imported from a Model layer.
 
+        # Get the original Quill layer.
+        original_quill_scene = self.get_quill_scene(obj)
+        original_layer = quill_utils.get_layer(original_quill_scene, obj.quill.layer_path)
+
+        if (original_layer is None or
+           original_layer.type != "Paint" or
+           original_layer.implementation is None or
+           original_layer.implementation.drawings is None or 
+           len(original_layer.implementation.drawings) == 0):
+            logging.warning("Could not find original Quill layer for object %s", obj.name)
+            return
+        
         # Mark the object as a "paint layer" if it's not already.
         # This is used later to export the transform.
         obj.quill.paint_layer = True
 
         # Create a new paint layer.
         paint_layer = quill_utils.create_paint_layer(obj.name)
-
-        # Get the original Quill layer.
-        original_quill_scene = self.get_quill_scene(obj)
-        original_layer = quill_utils.get_layer(original_quill_scene, obj.quill.layer_path)
 
         if hasattr(obj, "keymesh") and obj.keymesh.active:
 
@@ -365,7 +374,7 @@ class QuillExporter:
                     paint_layer.implementation.frames.append(drawing_index)
 
         else:
-            # A single mesh imported from Quill but is not a Keymesh object.
+            # A single mesh imported from a Quill paint layer but is not a Keymesh object.
             # This happens when the user manually extracts or duplicates a drawing from under a paint layer Empty.
             # Create a paint layer with a single drawing in it.
             original_drawing = original_layer.implementation.drawings[obj.quill.drawing_index]

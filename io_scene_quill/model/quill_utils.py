@@ -274,6 +274,8 @@ def import_scene(path, layer_types, only_visible=False, only_non_empty=False):
         delete_type(scene.sequence.root_layer, "Picture")
     if 'SOUND' not in layer_types:
         delete_type(scene.sequence.root_layer, "Sound")
+    if 'MODEL' not in layer_types:
+        delete_type(scene.sequence.root_layer, "Model")
 
     if only_non_empty:
         delete_empty_groups(scene.sequence.root_layer)

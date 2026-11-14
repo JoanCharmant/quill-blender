@@ -500,6 +500,37 @@ class SoundLayerImplementation:
         return result
 
 
+class ModelLayerImplementation:
+    def __init__(self, data_file_offset, import_file_path, shading_model, render_wire_frame):
+        self.data_file_offset = data_file_offset
+        self.import_file_path = import_file_path
+        self.shading_model = shading_model
+        self.render_wire_frame = render_wire_frame
+        self.data = None
+
+    @staticmethod
+    def from_dict(obj):
+        assert isinstance(obj, dict)
+        data_file_offset = from_str(obj.get("DataFileOffset"))
+        import_file_path = from_str(obj.get("ImportFilePath"))
+        shading_model = from_str(obj.get("ShadingModel"))
+        render_wire_frame = from_bool(obj.get("RenderWireFrame"))
+        return ModelLayerImplementation(data_file_offset, import_file_path, shading_model, render_wire_frame)
+
+    def to_dict(self):
+        result = {}
+        result["DataFileOffset"] = from_str(self.data_file_offset)
+        result["ShadingModel"] = from_str(self.shading_model)
+        result["RenderWireFrame"] = from_bool(self.render_wire_frame)
+
+        filepath = from_str(self.import_file_path)
+        # Quill uses single forward slashes as separator.
+        filepath = filepath.replace("\\", "/")
+        result["ImportFilePath"] = filepath
+
+        return result
+
+
 class LayerImplementation:
     # This is a generic class for unsupported layer types.
     def __init__(self):
@@ -563,6 +594,8 @@ class Layer:
             implementation = PictureLayerImplementation.from_dict(obj.get("Implementation"))
         elif type == "Sound":
             implementation = SoundLayerImplementation.from_dict(obj.get("Implementation"))
+        elif type == "Model":
+            implementation = ModelLayerImplementation.from_dict(obj.get("Implementation"))
         else:
             implementation = LayerImplementation.from_dict(obj.get("Implementation"))
 
@@ -601,6 +634,9 @@ class Layer:
         elif self.type == "Sound" and self.implementation.data != None:
             logging.info("Exporting sound layer: %s", self.name)
             result["Implementation"] = to_class(SoundLayerImplementation, self.implementation)
+        elif self.type == "Model" and self.implementation.data != None:
+            logging.info("Exporting model layer: %s", self.name)
+            result["Implementation"] = to_class(ModelLayerImplementation, self.implementation)
         else:
             logging.error("Exporting unsupported layer type: %s", self.type)
 

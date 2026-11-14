@@ -42,10 +42,11 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
                ('VIEWPOINT', "Viewpoint", ""),
                ('CAMERA', "Camera", ""),
                ('PICTURE', "Picture", ""),
-               ('SOUND', "Sound", "")
+               ('SOUND', "Sound", ""),
+                ('MODEL', "Model", "")
         ),
         description="Which kind of layers to import",
-        default={'PAINT', 'VIEWPOINT', 'CAMERA', 'PICTURE', 'SOUND'},
+        default={'PAINT', 'VIEWPOINT', 'CAMERA', 'PICTURE', 'SOUND', 'MODEL'},
     )
 
     only_visible: BoolProperty(
