@@ -12,15 +12,13 @@ The following key is used:
 ## Scene hierarchy
 Quill files represent the scene as a hierarchy of layers, this hierarchy is imported as a hierarchy of Blender objects.
 
-The following layer types are converted to Blender objects with matching data
+All layer types are converted to Blender objects with matching data
 - Group layer
 - Paint layer
 - Camera layer
 - Viewpoint layer (spawn area)
 - Picture layer
 - Sound layer
-
-The following layer types are converted to Empty objects with no data
 - Model layer
 
 
@@ -39,9 +37,9 @@ Properties shared by all layer types
 | Transform    | ✅ |
 | Pivot    | ❌ |
 
-Visibility is imported but treated differently because Blender objects don't natively support visibility inheritance (hiding the parent doesn't hide the children).
+Visibility is imported but treated differently because Blender objects don't inherit visibility (hiding the parent doesn't hide the children).
 
-By default hidden layers are not imported. You can force their import by checking Include > Hidden layers in the import dialog. In this case hidden layer groups will be imported and forced visible.
+By default hidden layers are not imported. You can force their import by unchecking Limit to > Visible layers in the import dialog. In this case hidden layer groups will be imported and forced visible.
 
 ### Key frame animation data
 
@@ -173,12 +171,12 @@ Quill picture layers are imported as Images.
 | Feature |Status|
 | ------------- |:---:|
 | Import image from file path    | ✅ |
-| Import image from QBIN | ❌ |
+| Import image from QBIN | ✅ |
 | Position, orientation and scale | ✅ |
 | 360° images    | ❌ |
 | Viewer locked    | ❌ |
 
-Quill file format contains both the image data in the QBIN file and the original path the image was loaded from. Only the path is used by the importer, so the file must still be on disk at the same location.
+Quill file format contains both the original path the image was loaded from and the raw image data in the QBIN file. The importer uses the file path in priority. If the file is no longer available it reads the data in the QBin file.
 
 Only type = `2D` is supported. `360 Equirectangular Mono` and `360 Equirectangular Stereo` are not supported.
 
@@ -197,7 +195,7 @@ Quill sound layers are imported as Speaker objects and channels with sound strip
 | Clips in the sound layer | ✅ |
 | Clips in parent layers  | ❌ |
 
-Quill file format contains both the sound data in the QBIN file and the original path the data was loaded from. If the file is not found, the add-on will extract the data from the QBIN file and write it to a new .wav file in the Quill project folder.
+Quill file format contains both the original path the sound was loaded from and the raw sound data in the QBIN file. The importer uses the file path in priority. If the file is no longer available it will read the data from the QBIN file, extract it to a new .wav file in the Quill project folder, and load it from there.
 
 A speaker object is created to match the sound layer position and animation but it is not linked with the audio file.
 
@@ -206,19 +204,52 @@ Clips created in the sound layer itself are recreated as sound strips in Blender
 In Quill making a sound layer invisible does not mute the sound so sound layers are always loaded even if the option to include hidden layers is unchecked. To mute the sound you can mute it from the video sequencer. However, if the sound layer is inside a hidden group it will not be loaded as the group will be excluded.
 
 
+## Quill model layers
+
+Quill model layers are imported as Mesh objects.
+
+| Feature |Status|
+| ------------- |:---:|
+| OBJ    | ✅ |
+| FBX | ✅ |
+| Multi-layer FBX | ✅ |
+| Import scale    | ✅ |
+| Shading model    | ❌ |
+| Render wireframe    | ❌ |
+
+Quill file format contains both the original path the model was loaded from and the raw mesh data in the QBIN file. The importer only uses the file path. If the file is no longer available it will replace the layer with an EMPTY object.
+
+For multi-mesh FBX files the mapping between the layers and the meshes is done by name, meaning you should not rename the layers of the sub-meshes. Deleting a sub-mesh layer is supported.
+
+Animation of sub-mesh layers is supported. 
+
+Shading model and Render wireframe are render-time properties in Quill and are ignored by the importer.
+
+For the import scale in Quill import dialog (meters, centimeter, etc.), Quill bakes it in the transform of the top-level group, so it is automatically imported by the add-on.
+
+
 ## Import dialog
 
 ![](images/import-dialog.png)
 
+
+### General
+
+**Configure Shading**
+
+Whether to configure the shading options in the Blender 3D viewport to match Quill as much as possible.
+
 ### Include
 
-**Hidden layers**
+**Layer Types**
 
-If checked it will import layers that are marked as hidden in Quill, and make them hidden in Blender. If unchecked the Quill hidden layers are not imported at all.
+Select which layer types to import. Unchecked layer types are not imported at all.
 
-**Cameras**
+**Limit to**
 
-Import Quill cameras and viewpoints as Blender Camera objects.
+Visible layers: only import layers that are visible in Quill. Hidden layers are not imported at all.
+
+Non empty: only create Blender objects for group layers that contain content, this is evaluated after the layer type and visible filters are applied.
 
 ### Paint layers
 

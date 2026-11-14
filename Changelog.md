@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.0
+
+Importer
+- Picture layers: import image data from the original file.
+- Picture layers: restore image data from the QBin file if the original file is no longer available.
+- Model layers: import model data from the original file.
+
+Exporter
+- Fix: groups were exported as sequences instead of normal groups.
+
 
 ## 1.6.1
 

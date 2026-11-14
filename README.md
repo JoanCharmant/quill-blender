@@ -35,6 +35,7 @@ The add-on reads and writes native Quill file format.
     - Quill cameras become Camera objects.
     - Quill image layers become Image objects.
     - Quill sound layers become sound strips in the sequencer.
+    - Quill model layers become Mesh objects.
 - Import frame by frame animation as Mesh sequences or Grease Pencil frames.
 - Import transform keyframes.
 
@@ -68,7 +69,9 @@ It is not required but if you also have the [Keymesh add-on](https://extensions.
 
 In this case paint layers will be converted to Keymesh objects and the frame-by-frame animation imported. This is a more natural fit than having the drawings as children of an Empty.
 
-Using this we can manipulate the paint layer as a single object and use the Blender timeline as a proxy for the Quill timeline to move key frames around. This also enables "whole part replacement" workflows.
+Using this we can manipulate the paint layer as a single object and use the Blender timeline as a proxy for the Quill timeline to move key frames around.
+
+This also enables stop motion workflows where a character is animated by swapping parts, for example for lip-sync.
 
 ## Inherent limitations
 
