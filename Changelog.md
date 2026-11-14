@@ -3,9 +3,9 @@
 ## 1.7.0
 
 Importer
-- Picture layers: import image data from the original file.
+- Picture layers: import image from the original file.
 - Picture layers: restore image data from the QBin file if the original file is no longer available.
-- Model layers: import model data from the original file.
+- Model layers: import mesh from the original file.
 
 Exporter
 - Fix: groups were exported as sequences instead of normal groups.

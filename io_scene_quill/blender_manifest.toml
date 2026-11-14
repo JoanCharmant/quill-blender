@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "quill"
-version = "1.6.1"
+version = "1.7.0"
 name = "Quill Import/Export"
 tagline = "Import and export Quill VR illustrations and animations"
 maintainer = "Joan Charmant"
@@ -13,7 +13,7 @@ website = "https://github.com/JoanCharmant/quill-blender"
 tags = ["Import-Export"]
 
 blender_version_min = "4.2.0"
-#blender_version_max = "5.1.0"
+#blender_version_max = "5.2.1"
 
 license = [
   "SPDX:GPL-3.0-or-later",
