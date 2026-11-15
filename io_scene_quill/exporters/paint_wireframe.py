@@ -6,18 +6,15 @@ from ..model import paint, quill_utils, sequence
 from . import utils
 
 
-def convert(obj, config):
-    """Convert a mesh object into a paint layer with its wireframe"""
+def convert(mesh, config):
+    """Convert a mesh object into a Quill drawing of its wireframe"""
 
     # Create a default paint layer and drawing.
-    paint_layer = quill_utils.create_paint_layer(obj.name)
     drawing = sequence.Drawing.from_default()
     drawing.data = paint.DrawingData()
-    paint_layer.implementation.drawings.append(drawing)
 
     # Produce a paint stroke for each edge.
     # https://docs.blender.org/api/current/bpy.types.Mesh.html
-    mesh = obj.data
     stroke_id = 0
     for (v1, v2) in mesh.edge_keys:
         p1 = utils.swizzle_yup_location(mesh.vertices[v1].co)
@@ -29,7 +26,7 @@ def convert(obj, config):
         drawing.bounding_box = quill_utils.bbox_add(drawing.bounding_box, stroke.bounding_box)
         stroke_id += 1
 
-    return paint_layer
+    return drawing
 
 
 def make_edge_stroke(start, end, id, config):

@@ -312,11 +312,11 @@ class QuillExporter:
         if hasattr(obj, "keymesh") and obj.keymesh.active:
 
             # The blocks in Keymesh may have been reordered compared to the original drawings.
-            # Map the Keymesh block indices to the Quill drawings.
+            # This maps the Keymesh blocks to the Quill drawings.
             # This handles the blank drawing case as well.
-            keymesh_to_quill = {}
+            keymesh_to_drawing = {}
 
-            # Export all Keymesh blocks as the original drawings they were imported from.
+            # Swap in the original drawing corresponding to each Keymesh block.
             for block_registry in obj.keymesh.blocks:
                 block = block_registry.block
 
@@ -344,34 +344,10 @@ class QuillExporter:
                 # Note that this is not indexed by the keymesh block index but by the block "data" value
                 # which is the original creation index of the block and what is used in key frames.
                 keymesh_data = block.keymesh["Data"]
-                keymesh_to_quill[keymesh_data] = len(paint_layer.implementation.drawings) - 1
+                keymesh_to_drawing[keymesh_data] = len(paint_layer.implementation.drawings) - 1
 
-            # Recreate the base animation from the Blender keyframes.
-            # Note that this is not a non-descructive round trip, the looping flag and clips
-            # have been collapsed into a single frame list during import.
-            frame_sequence = keymesh_get_frame_sequence(obj)
-
-            if len(frame_sequence) < 2:
-                # No animation.
-                paint_layer.implementation.frames = [0]
-
-            else:
-                # The Keymesh frame sequence is sparse while Quill uses a dense one.
-                last_frame = frame_sequence[-1][0]
-                block_value = frame_sequence[0][1]
-                paint_layer.implementation.frames.clear()
-
-                for frame in range(0, last_frame + 1):
-                    # Update the block value if we have a keyframe at this frame, otherwise hold.
-                    for kf in frame_sequence:
-                        if kf[0] == frame:
-                            block_value = kf[1]
-                            break
-                        if kf[0] > frame:
-                            break
-
-                    drawing_index = keymesh_to_quill[block_value]
-                    paint_layer.implementation.frames.append(drawing_index)
+            keymesh_frame_sequence = keymesh_get_frame_sequence(obj)
+            self.setup_frame_sequence(paint_layer, keymesh_frame_sequence, keymesh_to_drawing)
 
         else:
             # A single mesh imported from a Quill paint layer but is not a Keymesh object.
@@ -388,12 +364,34 @@ class QuillExporter:
 
     def export_mesh_wireframe(self, obj, parent_layer):
 
-        # TODO: if this is a keymesh object we could also export an animated wireframe.
-        layer = paint_wireframe.convert(obj, self.config)
-
-        if layer is not None:
-            self.setup_layer(layer, obj, parent_layer)
-            self.animate_layer(layer, obj)
+        # Export a mesh object as its wireframe.
+        # This is used for meshes that were created in Blender and not imported from Quill.
+        paint_layer = quill_utils.create_paint_layer(obj.name)
+        
+        if hasattr(obj, "keymesh") and obj.keymesh.active:
+            
+            keymesh_to_drawing = {}
+            
+            # Export each keymesh block as its own drawing in the paint layer.
+            for block_registry in obj.keymesh.blocks:
+                block = block_registry.block
+                drawing = paint_wireframe.convert(block, self.config)
+                paint_layer.implementation.drawings.append(drawing)
+                keymesh_data = block.keymesh["Data"]
+                keymesh_to_drawing[keymesh_data] = len(paint_layer.implementation.drawings) - 1
+                
+            # Set up the frame sequence for the paint layer based on the Keymesh frame sequence.
+            keymesh_frame_sequence = keymesh_get_frame_sequence(obj)
+            self.setup_frame_sequence(paint_layer, keymesh_frame_sequence, keymesh_to_drawing)
+            
+        else:
+            drawing = paint_wireframe.convert(obj.data, self.config)
+            paint_layer.implementation.drawings.append(drawing)
+            
+        # Finalize the paint layer.
+        if paint_layer is not None and len(paint_layer.implementation.drawings) > 0:
+            self.setup_layer(paint_layer, obj, parent_layer)
+            self.animate_layer(paint_layer, obj)
 
     def export_speaker_quill(self, obj, parent_layer):
 
@@ -409,6 +407,51 @@ class QuillExporter:
         if sound_layer is not None:
             self.setup_layer(sound_layer, obj, parent_layer)
             self.animate_layer(sound_layer, obj)
+
+    def setup_frame_sequence(self, paint_layer, keymesh_frame_sequence, keymesh_map):
+        
+        #--------------------------------------------------------------------------
+        # This is part of Keymesh export.
+        # The goal is to map each frame to the correct drawing index in the paint layer, 
+        # based on the Keymesh frame sequence and the mapping from Keymesh blocks to Quill drawings.
+        #
+        # The keymesh frame sequence contains a list of (frame, block_value) tuples for each keyframe.
+        # Example value (3, 5) means that at frame 3 the Keymesh block with value 5 is shown.
+        # The keymesh_map maps the Keymesh block values to the drawing indices in the paint layer.
+        #
+        # Note that in the case of Quill -> Blender -> Quill, it is not a non-descructive round trip, 
+        # the looping flag and clips have been collapsed into a single frame list during the first import.
+        #--------------------------------------------------------------------------
+        
+        if len(keymesh_frame_sequence) < 2:
+            # No animation.
+            paint_layer.implementation.frames = [0]
+
+        else:
+            # The Keymesh frame sequence is sparse while Quill one is dense.
+            # We go through every output (Quill) frame and figure out which 
+            # Keymesh block is visible at that frame.
+            last_frame = keymesh_frame_sequence[-1][0]
+            paint_layer.implementation.frames.clear()
+            
+            # Initial block value is the first keyframe's value, 
+            # in case the first keyframe is not at frame 0.
+            block_value = keymesh_frame_sequence[0][1]
+            
+            for frame in range(0, last_frame + 1):
+                # Update the block value if we have a keyframe at this frame, 
+                # otherwise hold the previous value.
+                for kf in keymesh_frame_sequence:
+                    if kf[0] == frame:
+                        block_value = kf[1]
+                        break
+                    if kf[0] > frame:
+                        break
+
+                # Get the corresponding drawing index in the paint layer for this block value
+                # and append it to the paint layer's frame list.
+                drawing_index = keymesh_map[block_value]
+                paint_layer.implementation.frames.append(drawing_index)
 
     def setup_layer(self, layer, obj, parent_layer):
         """Common setup for all layers."""

@@ -127,9 +127,9 @@ def keymesh_keyframe(parent_obj, frame, index):
 def keymesh_get_frame_sequence(obj):
     """
     Returns a list of (frame, value) tuples for each keyframe in the Keymesh object `obj`.
-
+    
     Note that the values refers to Keymesh block values, not indices in the block list,
-    and they may have been reordered compared to the Quill drawing indices.
+    and they may have been reordered compared to the imported list.
     """
 
     frame_sequence = []
