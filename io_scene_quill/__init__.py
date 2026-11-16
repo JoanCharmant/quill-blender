@@ -81,6 +81,14 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
             default=False,
             )
 
+    transform_keys: EnumProperty(
+        name="Transform Keys",
+        items=(("KEYFRAMES", "Keyframes", "Import Quill transform key frames as editable Blender key frames. Loops of parent sequences use a Cycles modifier, layers under clips or offsets are baked"),
+               ("BAKE", "Bake", "Sample the Quill transform animation on every frame of the Blender timeline. Follows looping, clips and offsets of parent sequences"),
+               ("NONE", "None", "Ignore transform key frames, only import the base transform")),
+        description="How layer transform key frames are imported",
+        default="KEYFRAMES")
+
     def draw(self, context):
         pass
 
@@ -168,6 +176,29 @@ class QUILL_PT_import_paint(bpy.types.Panel):
         # Hide the extra attributes option for now.
         # It will only make sense when we can actually round trip the data.
         #layout.prop(operator, "extra_attributes")
+
+
+class QUILL_PT_import_animation(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Animation"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+        return operator.bl_idname == "IMPORT_SCENE_OT_quill"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "transform_keys")
 
 
 class ExportQuill(bpy.types.Operator, ExportHelper):
@@ -406,6 +437,7 @@ classes = (
     QUILL_PT_import_general,
     QUILL_PT_import_include,
     QUILL_PT_import_paint,
+    QUILL_PT_import_animation,
     ExportQuill,
     QUILL_PT_export_include,
     QUILL_PT_export_greasepencil,
