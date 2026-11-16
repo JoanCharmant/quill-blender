@@ -43,3 +43,16 @@ def get_fcurve(obj, path: str):
         for fcurve in obj.animation_data.action.fcurves:
             if fcurve.data_path == path:
                 return fcurve
+
+
+def get_fcurves(obj):
+    """Returns all the f-curves of the object's action, or an empty list."""
+
+    if not obj.animation_data or not obj.animation_data.action:
+        return []
+
+    if bpy.app.version >= (5, 0, 0):
+        channelbag = ensure_channelbag(obj)
+        return list(channelbag.fcurves) if channelbag else []
+    else:
+        return list(obj.animation_data.action.fcurves)
