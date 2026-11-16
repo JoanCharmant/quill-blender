@@ -46,7 +46,7 @@ By default hidden layers are not imported. You can force their import by uncheck
 | Feature |Status|
 | ------------- |:---:|
 | Transform  key frames  | ✅ |
-| Opacity key frames  | ❌ |
+| Opacity key frames  | ✅ |
 | Visibility key frames    | ⚠️ |
 | Offset key frames  | ⚠️ |
 | Looping  | ⚠️ |
@@ -67,6 +67,14 @@ Rotations are keyed as quaternions (rotation mode `Quaternion`), to avoid flips 
 The scene frame rate is set to the Quill frame rate before importing, so key frames land on the right frames. Animation beyond the end of the Blender timeline is not baked, extend the frame range before importing if needed.
 
 Key frame interpolation (None, Linear, Ease in, Ease out, Ease in/out) is generally supported but may not be an exact mathematical match on the intermediate frames.
+
+Layer opacity and opacity key frames are imported when Animation > Opacity is checked. Blender objects don't inherit opacity, so the opacity of all parent groups is multiplied in and the result is baked on every frame of the Blender timeline (holds are collapsed), following looping and clips of parent sequences. It is stored in:
+- Mesh: the object color alpha (Object Properties > Viewport Display > Color) of each drawing, or of the Keymesh object. The shared material multiplies it with the vertex alpha through an Object Info node. Visible in Material Preview and Rendered modes, not in Solid mode.
+- Grease Pencil: the layer opacity.
+- Picture: the object color alpha, with "Use Alpha" enabled on the image empty.
+- Curve and Model: not supported.
+
+When a layer has opacity key frames, the static layer opacity stored in the file is ignored: it's only a snapshot of the opacity at the playhead when the file was saved.
 
 
 ## Quill paint layers
