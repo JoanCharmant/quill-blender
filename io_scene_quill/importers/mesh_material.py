@@ -26,8 +26,13 @@ def create_diffuse(name):
     return material
 
 
-def create_principled(name):
-    """Creates a Principled BSDF and bind vertex colors"""
+def create_principled(name, blended=False):
+    """
+    Creates a Principled BSDF and bind vertex colors.
+
+    :param blended: use true alpha blending instead of dithering. This gives smooth fades
+    but transparent objects are sorted per object, so it's only used for faded layers.
+    """
 
     material = bpy.data.materials.new(name=name)
     material.use_nodes = True
@@ -70,12 +75,17 @@ def create_principled(name):
     # Note: using "Blended" (old: "Alpha Blended") looks better on singular surfaces
     # but it breaks everything with multiple objects in front of each other.
     if bpy.app.version < (4, 2, 0):
-        # Material > Settings > Blend Mode = "Alpha Hashed".
+        # Material > Settings > Blend Mode = "Alpha Hashed" or "Alpha Blend".
         # Material > Settings > Shadow Mode = "Alpha Hashed".
-        material.blend_method = "HASHED"
+        material.blend_method = "BLEND" if blended else "HASHED"
         material.shadow_method = "HASHED"
+        if blended:
+            material.show_transparent_back = False
     else:
-        # Material > Settings > Render method > Dithered.
-        material.surface_render_method = "DITHERED"
+        # Material > Settings > Render method > Dithered or Blended.
+        material.surface_render_method = "BLENDED" if blended else "DITHERED"
+        if blended:
+            # Only render the front-most surface of the object, avoids seeing strokes through each other.
+            material.use_transparency_overlap = False
 
     return material

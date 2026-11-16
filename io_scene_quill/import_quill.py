@@ -15,6 +15,7 @@ class QuillImporter:
         self.config = kwargs
 
         self.material = None
+        self.material_blended = None
         self.next_empty_channel = -1
         self.lipsync_data = None
 
@@ -143,11 +144,19 @@ class QuillImporter:
                 self.setup_animation(obj, layer, offset)
 
                 # Import the drawings and animate them.
-                mesh_paint.convert(self.config, obj, layer, self.material, use_keymesh, self.lipsync_data)
+                mesh_paint.convert(self.config, obj, layer, self.material, use_keymesh, self.lipsync_data, self.get_blended_material)
 
                 # The material reads the opacity from the color of the objects holding the meshes.
                 targets = [obj] if use_keymesh else list(obj.children)
-                self.setup_opacity(layer, [(o, "color", 3, o) for o in targets])
+                transparent = self.setup_opacity(layer, [(o, "color", 3, o) for o in targets])
+
+                # Dithering looks like pixels being eaten away during fades,
+                # switch faded layers to a material with true alpha blending.
+                if transparent:
+                    meshes = [b.block for b in obj.keymesh.blocks] if use_keymesh else [o.data for o in targets]
+                    for mesh in meshes:
+                        if mesh is not None and len(mesh.materials) > 0:
+                            mesh.materials[0] = self.get_blended_material()
 
             elif self.config["convert_paint"] == "GPENCIL" or self.config["convert_paint"] == "GREASEPENCIL":
 
@@ -378,6 +387,12 @@ class QuillImporter:
 
         else:
             logging.warning("Unsupported Quill layer type: %s", layer.type)
+
+    def get_blended_material(self):
+        """Material with true alpha blending for faded layers and translucent strokes, created on demand."""
+        if self.material_blended is None:
+            self.material_blended = mesh_material.create_principled("vertex.colors.blended", blended=True)
+        return self.material_blended
 
     def setup_obj(self, obj, layer, parent_obj=None, layer_path=""):
         """
