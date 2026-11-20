@@ -59,8 +59,6 @@ Visibility and Offset key frames are used to define "clips". They are only suppo
 
 Looping sequences containing transform key frames are not properly supported, only the first iteration is honored. Similarly, clips of sequences where the base iteration or nested layers have transform key frames are not correctly imported.
 
-Rotations are keyed as quaternions (rotation mode `Quaternion`), to avoid flips when a rotation goes past 180°.
-
 The scene frame rate is set to the Quill frame rate before importing, so key frames land on the right frames.
 
 Key frame interpolation (None, Linear, Ease in, Ease out, Ease in/out) is generally supported but may not be an exact mathematical match on the intermediate frames.
