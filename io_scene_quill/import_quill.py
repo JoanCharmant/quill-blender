@@ -49,6 +49,15 @@ class QuillImporter:
         #     logging.info("Extending Blender timeline to frame %d.", frame_end)
         #     bpy.context.scene.frame_end = frame_end
 
+        # Transform key frames are converted using the scene frame rate, so it must match Quill
+        # before any layer is imported. Paint layer importers would otherwise only change it
+        # after their parent groups are animated.
+        scn = bpy.context.scene
+        framerate = quill_scene.sequence.framerate
+        if framerate and int(framerate) != scn.render.fps:
+            scn.render.fps = int(framerate)
+            scn.render.fps_base = 1.0
+
         # Create the shared material.
         self.material = None
         if self.config["convert_paint"] == "MESH":
@@ -86,7 +95,13 @@ class QuillImporter:
             # Group layers are converted to empty objects.
             obj = bpy.data.objects.new(layer.name, None)
             self.setup_obj(obj, layer, parent_obj, layer_path)
-            self.setup_animation(obj, layer, offset)
+
+            # Rotate the root object by 90° to match the Blender coordinate system.
+            # If the root is animated the rotation is baked into its key frames.
+            correction = None
+            if parent_layer is None:
+                correction = mathutils.Matrix.Rotation(radians(90.0), 4, 'X')
+            animated = self.setup_animation(obj, layer, offset, correction=correction)
 
             # If we are a sequence the times of children are relative to our start point.
             # FIXME: it's more complicated than that. Clips and loops in parent sequence layers
@@ -104,10 +119,8 @@ class QuillImporter:
                 child_layer_path = layer_path + "/" + layer.name
                 self.import_layer(child, offset, layer, obj, child_layer_path)
 
-            # Apply a 90° rotation on the root object to match Blender coordinate system.
-            if parent_layer is None:
-                mat_rot = mathutils.Matrix.Rotation(radians(90.0), 4, 'X')
-                obj.matrix_local = mat_rot @ obj.matrix_local
+            if correction is not None and not animated:
+                obj.matrix_local = correction @ obj.matrix_local
 
         elif layer.type == "Paint":
 
@@ -391,60 +404,83 @@ class QuillImporter:
             else:
                 return mat
 
-    def setup_animation(self, obj, layer, offset, do_scale=True):
-        """Setup the animation of the object."""
+    def setup_animation(self, obj, layer, offset, do_scale=True, correction=None):
+        """
+        Setup the animation of the object.
+        Returns True if transform key frames were created.
+        """
 
         # Quill has several types of key frames.
         # Visibility and Offset key frames are used for clips and spans.
         # Opacity key frames are used for fading layers in and out, not supported.
         # Transform key frames are supported.
-        self.animate_transform(obj, layer, offset, do_scale)
+        return self.animate_transform(obj, layer, offset, do_scale, correction)
 
-    def animate_transform(self, obj, layer, offset=0, do_scale=True):
+    def animate_transform(self, obj, layer, offset=0, do_scale=True, correction=None):
 
         # Transform key frames.
         # This is set up on all layer types, including groups.
         # This only handles the base animation for now, not looping and clips.
         kktt = layer.animation.keys.transform
         if kktt == None or len(kktt) == 0:
-            return
+            return False
+
+        # Quill stores rotations as quaternions. Keying them directly avoids
+        # the flips we get when converting each key to Euler angles independently.
+        obj.rotation_mode = 'QUATERNION'
 
         fps = bpy.context.scene.render.fps
         time_base = 1/12600
 
         # First pass, create the key frames with default interpolation.
+        frame_interpolation = {}
+        previous_rot = None
         for key in kktt:
             time = key.time + offset
             frame = floor(time * time_base * fps + 0.5)
 
-            # Set the object transform for this key frame.
-            obj.matrix_local = self.get_transform(key.value)
+            # Keep the quaternions in the same hemisphere so Blender interpolates the short way.
+            loc, rot, scale = self.get_key_transform(key.value, do_scale, correction)
+            if previous_rot is not None and rot.dot(previous_rot) < 0:
+                rot = -rot
+            previous_rot = rot
 
-            # Insert the key frame.
-            # Name of the channels is from the F-Curve panel in the Graph Editor.
-            obj.keyframe_insert(data_path="location", frame=frame)
-            obj.keyframe_insert(data_path="rotation_euler", frame=frame)
-            if do_scale:
-                obj.keyframe_insert(data_path="scale", frame=frame)
+            self.insert_transform_key(obj, frame, loc, rot, scale, do_scale)
+            frame_interpolation[frame] = self.get_interpolation(key.interpolation)
 
         # Second pass, set the interpolation.
-        # Note that we change the interpolation of every f-curve on the object.
-        # This will work as long as these are the first key frames set on the object.
-        # This approach makes it simpler to find all the axes at once and avoid
-        # scanning all the previous key frame for each key frame.
-        fcurves = None
-        if bpy.app.version < (5, 0, 0):
-            fcurves = obj.animation_data.action.fcurves
-        else:
-            channelbag = timeline.ensure_channelbag(obj)
-            fcurves = channelbag.fcurves
+        # Match Blender key frames to Quill keys by frame, two Quill keys may land on the same frame.
+        for fcurve in timeline.get_fcurves(obj):
+            if fcurve.data_path not in ("location", "rotation_quaternion", "scale"):
+                continue
+            for kp in fcurve.keyframe_points:
+                interp = frame_interpolation.get(int(round(kp.co.x)))
+                if interp is not None:
+                    kp.interpolation, kp.easing = interp
 
-        for fcurve in fcurves:
-            for i in range(len(fcurve.keyframe_points)):
-                kp = fcurve.keyframe_points[i]
-                interp, easing = self.get_interpolation(kktt[i].interpolation)
-                kp.interpolation = interp
-                kp.easing = easing
+        return True
+
+    def get_key_transform(self, transform, do_scale, correction):
+        """Convert a Quill key frame transform to Blender location, rotation and scale."""
+        mat = self.get_transform(transform)
+        if correction is not None:
+            mat = correction @ mat
+        loc, rot, scale = mat.decompose()
+        if not do_scale:
+            scale = mathutils.Vector((1.0, 1.0, 1.0))
+        return loc, rot, scale
+
+    def insert_transform_key(self, obj, frame, loc, rot, scale, do_scale):
+        # Name of the channels is from the F-Curve panel in the Graph Editor.
+        obj.location = loc
+        obj.rotation_quaternion = rot
+        obj.keyframe_insert(data_path="location", frame=frame)
+        obj.keyframe_insert(data_path="rotation_quaternion", frame=frame)
+        if do_scale:
+            obj.scale = scale
+            obj.keyframe_insert(data_path="scale", frame=frame)
+        else:
+            obj.scale = (1.0, 1.0, 1.0)
 
     def get_interpolation(self, interpolation):
         """Convert Quill interpolation to Blender f-curve interpolation"""
