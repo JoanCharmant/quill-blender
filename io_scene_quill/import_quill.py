@@ -54,7 +54,7 @@ class QuillImporter:
         # after their parent groups are animated.
         scn = bpy.context.scene
         framerate = quill_scene.sequence.framerate
-        if framerate and int(framerate) != scn.render.fps:
+        if framerate:
             scn.render.fps = int(framerate)
             scn.render.fps_base = 1.0
 
@@ -433,6 +433,8 @@ class QuillImporter:
         time_base = 1/12600
 
         # First pass, create the key frames with default interpolation.
+        # The following dict stores the Blender interpolation type for the Blender frame, to be applied in a second pass.
+        # It keeps the last value in case multiple Quill keys land on the same Blender frame.
         frame_interpolation = {}
         previous_rot = None
         for key in kktt:
@@ -449,7 +451,7 @@ class QuillImporter:
             frame_interpolation[frame] = self.get_interpolation(key.interpolation)
 
         # Second pass, set the interpolation.
-        # Match Blender key frames to Quill keys by frame, two Quill keys may land on the same frame.
+        # Match Blender key frames to Quill keys by frame.
         for fcurve in timeline.get_fcurves(obj):
             if fcurve.data_path not in ("location", "rotation_quaternion", "scale"):
                 continue
