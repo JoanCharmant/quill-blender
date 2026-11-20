@@ -39,20 +39,30 @@ def create_principled(name):
     node_vc.location = 0, 0
 
     node_bsdf = nodes.new(type="ShaderNodeBsdfPrincipled")
-    node_bsdf.location = 200, 0
+    node_bsdf.location = 400, 0
     node_bsdf.inputs["IOR"].default_value = 1.0
 
     node_output = nodes.new(type="ShaderNodeOutputMaterial")
-    node_output.location = 500, 0
+    node_output.location = 700, 0
 
     # Force all normals to be fixed to a single direction to "flatten" the paint strokes.
     node_normal = nodes.new(type="ShaderNodeNormal")
     node_normal.location = 0, -200
     node_normal.outputs[0].default_value = (0, 0, 1)
 
+    # Layer opacity, including inherited and animated opacity, is stored in the object color alpha.
+    node_info = nodes.new(type="ShaderNodeObjectInfo")
+    node_info.location = 0, 200
+
+    node_alpha = nodes.new(type="ShaderNodeMath")
+    node_alpha.operation = 'MULTIPLY'
+    node_alpha.location = 200, 200
+
     # Noodles connecting everything.
     material.node_tree.links.new(node_vc.outputs["Color"], node_bsdf.inputs["Base Color"])
-    material.node_tree.links.new(node_vc.outputs["Alpha"], node_bsdf.inputs["Alpha"])
+    material.node_tree.links.new(node_vc.outputs["Alpha"], node_alpha.inputs[0])
+    material.node_tree.links.new(node_info.outputs["Alpha"], node_alpha.inputs[1])
+    material.node_tree.links.new(node_alpha.outputs["Value"], node_bsdf.inputs["Alpha"])
     material.node_tree.links.new(node_bsdf.outputs["BSDF"], node_output.inputs["Surface"])
     material.node_tree.links.new(node_normal.outputs["Normal"], node_bsdf.inputs["Normal"])
 

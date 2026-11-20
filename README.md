@@ -86,6 +86,6 @@ Here are the main pain points.
 
 ⚠️ Quill sequence hierarchy with looping and clips. The resulting visibility for any given drawing is baked into the created mesh object.
 
-⚠️ Opacity keyframes and layer-level opacity. This is not supported.
+⚠️ Opacity keyframes and layer-level opacity are imported (baked into the object color alpha or Grease Pencil layer opacity) but not exported.
 
 ⚠️ Animation types on export. Aside from transform key frames and frame by frame animation Blender also supports armature based animation and shape keys. These will have to be baked on export (not currently supported).
