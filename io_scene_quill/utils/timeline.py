@@ -56,3 +56,25 @@ def get_fcurves(obj):
         return list(channelbag.fcurves) if channelbag else []
     else:
         return list(obj.animation_data.action.fcurves)
+
+
+def setup_frame_range(scn):
+    """
+    Remap the Blender frame range so the Quill timeline starts at frame 0.
+    Returns (import_start, import_end). Calling this more than once is harmless.
+    See `importers/animation.py` for the rationale.
+    """
+    import_end = scn.frame_end
+    if scn.frame_start <= 0:
+        import_start = 0
+    elif scn.frame_start == 1:
+        scn.frame_start = 0
+        import_start = 0
+    else:
+        count_frames = scn.frame_end - scn.frame_start
+        scn.frame_start = 0
+        import_start = 0
+        import_end = count_frames
+        scn.frame_end = count_frames
+
+    return import_start, import_end

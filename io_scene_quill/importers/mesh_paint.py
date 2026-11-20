@@ -7,8 +7,12 @@ from ..model.paint import BrushType
 from ..utils.keymesh import keymesh_init, keymesh_import
 
 
-def convert(config, parent_obj, layer, material, use_keymesh, lipsync_data):
-    """Converts a Quill paint layer to Blender mesh objects and animates it."""
+def convert(config, parent_obj, layer, material, use_keymesh, lipsync_data, get_blended_material=None):
+    """
+    Converts a Quill paint layer to Blender mesh objects and animates it.
+
+    :param get_blended_material: returns the alpha blended material used for translucent strokes.
+    """
 
     drawings = layer.implementation.drawings
     if drawings is None or len(drawings) == 0:
@@ -62,14 +66,28 @@ def convert(config, parent_obj, layer, material, use_keymesh, lipsync_data):
             "w": [],        # Width of the vertex in Quill.
         }
 
+        # Strokes that are see-through along their whole length (faded, glows) are rendered
+        # with true alpha blending, dithering makes them look like pixels being eaten away.
+        # Strokes that are only transparent at their tapered tips stay on the main material.
         base_vertex = 0
+        translucent_faces = []
         for stroke in drawing.data.strokes:
+            face_start = len(faces)
             count = convert_stroke(stroke, vertices, edges, faces, attributes, base_vertex)
             base_vertex += count
+            if get_blended_material is not None and is_translucent(stroke):
+                translucent_faces.extend(range(face_start, len(faces)))
 
         mesh.from_pydata(vertices, edges, faces)
         assign_attributes(config, mesh, attributes)
         mesh.materials.append(material)
+
+        if translucent_faces and len(mesh.polygons) == len(faces):
+            mesh.materials.append(get_blended_material())
+            material_index = [0] * len(faces)
+            for f in translucent_faces:
+                material_index[f] = 1
+            mesh.polygons.foreach_set("material_index", material_index)
 
         # Run Smart UV project on the mesh.
         if config["smart_project"]:
@@ -94,6 +112,11 @@ def convert(config, parent_obj, layer, material, use_keymesh, lipsync_data):
         if layer.name in lipsync_data:
             layer_lipsync_data = lipsync_data[layer.name]
             apply_lipsync(drawing_to_obj, layer, parent_obj, layer_lipsync_data)
+
+
+def is_translucent(stroke):
+    """True if no vertex of the stroke is fully opaque."""
+    return len(stroke.vertices) > 0 and max(v.opacity for v in stroke.vertices) < 0.99
 
 
 def convert_stroke(stroke, vertices, edges, faces, attributes, base_vertex):

@@ -26,8 +26,13 @@ def create_diffuse(name):
     return material
 
 
-def create_principled(name):
-    """Creates a Principled BSDF and bind vertex colors"""
+def create_principled(name, blended=False):
+    """
+    Creates a Principled BSDF and bind vertex colors.
+
+    :param blended: use true alpha blending instead of dithering. This gives smooth fades
+    but transparent objects are sorted per object, so it's only used for faded layers.
+    """
 
     material = bpy.data.materials.new(name=name)
     material.use_nodes = True
@@ -39,20 +44,30 @@ def create_principled(name):
     node_vc.location = 0, 0
 
     node_bsdf = nodes.new(type="ShaderNodeBsdfPrincipled")
-    node_bsdf.location = 200, 0
+    node_bsdf.location = 400, 0
     node_bsdf.inputs["IOR"].default_value = 1.0
 
     node_output = nodes.new(type="ShaderNodeOutputMaterial")
-    node_output.location = 500, 0
+    node_output.location = 700, 0
 
     # Force all normals to be fixed to a single direction to "flatten" the paint strokes.
     node_normal = nodes.new(type="ShaderNodeNormal")
     node_normal.location = 0, -200
     node_normal.outputs[0].default_value = (0, 0, 1)
 
+    # Layer opacity, including inherited and animated opacity, is stored in the object color alpha.
+    node_info = nodes.new(type="ShaderNodeObjectInfo")
+    node_info.location = 0, 200
+
+    node_alpha = nodes.new(type="ShaderNodeMath")
+    node_alpha.operation = 'MULTIPLY'
+    node_alpha.location = 200, 200
+
     # Noodles connecting everything.
     material.node_tree.links.new(node_vc.outputs["Color"], node_bsdf.inputs["Base Color"])
-    material.node_tree.links.new(node_vc.outputs["Alpha"], node_bsdf.inputs["Alpha"])
+    material.node_tree.links.new(node_vc.outputs["Alpha"], node_alpha.inputs[0])
+    material.node_tree.links.new(node_info.outputs["Alpha"], node_alpha.inputs[1])
+    material.node_tree.links.new(node_alpha.outputs["Value"], node_bsdf.inputs["Alpha"])
     material.node_tree.links.new(node_bsdf.outputs["BSDF"], node_output.inputs["Surface"])
     material.node_tree.links.new(node_normal.outputs["Normal"], node_bsdf.inputs["Normal"])
 
@@ -60,12 +75,17 @@ def create_principled(name):
     # Note: using "Blended" (old: "Alpha Blended") looks better on singular surfaces
     # but it breaks everything with multiple objects in front of each other.
     if bpy.app.version < (4, 2, 0):
-        # Material > Settings > Blend Mode = "Alpha Hashed".
+        # Material > Settings > Blend Mode = "Alpha Hashed" or "Alpha Blend".
         # Material > Settings > Shadow Mode = "Alpha Hashed".
-        material.blend_method = "HASHED"
+        material.blend_method = "BLEND" if blended else "HASHED"
         material.shadow_method = "HASHED"
+        if blended:
+            material.show_transparent_back = False
     else:
-        # Material > Settings > Render method > Dithered.
-        material.surface_render_method = "DITHERED"
+        # Material > Settings > Render method > Dithered or Blended.
+        material.surface_render_method = "BLENDED" if blended else "DITHERED"
+        if blended:
+            # Only render the front-most surface of the object, avoids seeing strokes through each other.
+            material.use_transparency_overlap = False
 
     return material
