@@ -62,9 +62,7 @@ How transform key frames are imported is configured under Animation > Transform 
 - **Bake**: the Quill animation is sampled on every frame of the Blender timeline, taking looping, clips and offsets of parent sequences into account. Frame holds are collapsed. Use this to play back looping or clipped animations as they appear in Quill.
 - **None**: only the base transform is imported.
 
-Rotations are keyed as quaternions (rotation mode `Quaternion`), to avoid flips when a rotation goes past 180°.
-
-The scene frame rate is set to the Quill frame rate before importing, so key frames land on the right frames. Animation beyond the end of the Blender timeline is not baked, extend the frame range before importing if needed.
+The scene frame rate is set to the Quill frame rate before importing, so key frames land on the right frames.
 
 Key frame interpolation (None, Linear, Ease in, Ease out, Ease in/out) is generally supported but may not be an exact mathematical match on the intermediate frames.
 
