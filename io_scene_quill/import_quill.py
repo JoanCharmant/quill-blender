@@ -592,6 +592,9 @@ class QuillImporter:
             stack.append(parent)
             parent = parent.parent
 
+        pivot = layer.pivot.translation if layer.pivot is not None else (0.0, 0.0, 0.0)
+        pivot_loc = mathutils.Vector(pivot)
+        
         # Sample the transform at every frame.
         # When a parent is hidden (between clips) hold the last value.
         samples = []
@@ -600,7 +603,7 @@ class QuillImporter:
             visible, local_time = animation.get_local_time(stack, frame * ticks_per_frame, ticks_per_frame)
             if visible or current is None:
                 time = local_time if visible else kktt[0].time
-                loc, rot, scale = self.evaluate_transform(kktt, time, do_scale, correction)
+                loc, rot, scale = self.evaluate_transform(kktt, time, do_scale, pivot_loc, correction)
                 if current is not None and rot.dot(current[1]) < 0:
                     rot.negate()
                 current = (loc, rot, scale)
@@ -621,23 +624,49 @@ class QuillImporter:
                 for kp in fcurve.keyframe_points:
                     kp.interpolation = 'LINEAR'
 
-    def evaluate_transform(self, kktt, time, do_scale, correction):
+    def evaluate_transform(self, kktt, time, do_scale, pivot, correction):
         """Evaluate Quill transform key frames at `time` (in ticks)."""
 
         if time <= kktt[0].time:
             return self.get_key_transform(kktt[0].value, do_scale, correction)
 
+        # Note: the static transform at the layer level is always the same as the first key frame,
+        # we can safely ignore it.
+        
         for i in range(len(kktt) - 1):
             a = kktt[i]
             b = kktt[i + 1]
             if a.time <= time < b.time:
-                # The interpolation of a key applies to the segment leaving it.
+                
+                # The interpolation of a key applies to the segment leaving it (same in Quill and Blender).
                 u = self.ease(a.interpolation, (time - a.time) / (b.time - a.time))
                 loc_a, rot_a, scale_a = self.get_key_transform(a.value, do_scale, correction)
                 loc_b, rot_b, scale_b = self.get_key_transform(b.value, do_scale, correction)
-                return loc_a.lerp(loc_b, u), rot_a.slerp(rot_b, u), scale_a.lerp(scale_b, u)
+
+                # Quill already accounts for the pivot in each key's translation.
+                # However, interpolating these translations directly would cause
+                # the layer to drift away from its pivot during rotation or scaling.
+                # Instead, interpolate the transformed pivot position and reconstruct
+                # the translation from the interpolated rotation and scale.
+                # The pivot moves through space as the layer translation is animated.
+                pivot_a = self.transformed_pivot(loc_a, rot_a, scale_a, pivot)
+                pivot_b = self.transformed_pivot(loc_b, rot_b, scale_b, pivot)
+
+                pivot_loc = pivot_a.lerp(pivot_b, u)
+                rot = rot_a.slerp(rot_b, u)
+                scale = scale_a.lerp(scale_b, u)
+
+                # pivot is the static pivot position in the layer's local coordinates. It never changes.
+                # pivot_loc is the interpolated position of that pivot in the parent's coordinate system, after applying the animated transform.
+                # Find a translation loc that places the original pivot at pivot_loc, given the interpolated rotation and scale.
+                loc = pivot_loc - rot @ (scale * pivot)
+                
+                return loc, rot, scale
 
         return self.get_key_transform(kktt[-1].value, do_scale, correction)
+
+    def transformed_pivot(self, loc, rot, scale, pivot):
+        return loc + rot @ (scale * pivot)
 
     def ease(self, interpolation, u):
         """Remap the normalized time `u` according to the Quill interpolation."""
