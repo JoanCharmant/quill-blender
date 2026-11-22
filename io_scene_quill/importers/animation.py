@@ -1,4 +1,5 @@
 import bpy
+from ..utils import timeline
 from ..utils.keymesh import keymesh_keyframe, keymesh_get_blank
 
 
@@ -20,33 +21,9 @@ def animate(drawing_to_obj, layer, use_keymesh, parent_obj):
     # For non-keymesh we animate the visibility of the child objects directly.
     # For Keymesh we animate the blocks visibility inside the parent keymesh object.
     #--------------------------------------------------------------
-
-    #--------------------------------------------------------------
-    # Blender frame range vs Quill animation range.
-    # We will loop through Blender frames and show the corresponding drawing.
-    # Heuristic:
-    # - if the Blender scene starts before 0, we import from 0 until the end.
-    # - if the Blender scene starts at 0, we import from 0 until the end.
-    # - if the Blender scene starts at 1 (blender default), we change it to start at 0, then import from 0 to the end.
-    # - if the Blender scene starts after 1, we change it to start at 0, import from 0 to how many frames the original range was,
-    # and change the end to match the number of frames.
-    # We do this to cope with Blender scenes set up between say 1000 and 1249, which is done to create a buffer for simulations.
-    # Instead of importing from 0 to 1249 we import from 0 to 249. We don't try to import from 1000 to 1249.
-    # Bottom line: if a buffer is needed for simulation, start the frame range in the negative instead of 1000.
-    #--------------------------------------------------------------
+    
     scn = bpy.context.scene
-    import_end = scn.frame_end
-    if scn.frame_start <= 0:
-        import_start = 0
-    elif scn.frame_start == 1:
-        scn.frame_start = 0
-        import_start = 0
-    else:
-        count_frames = scn.frame_end - scn.frame_start
-        scn.frame_start = 0
-        import_start = 0
-        import_end = count_frames
-        scn.frame_end = count_frames
+    import_start, import_end = timeline.setup_frame_range(scn)
 
     # Force frame rate to match Quill scene.
     # Normally all layers should have the same framerate.

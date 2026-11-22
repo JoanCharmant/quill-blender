@@ -51,7 +51,6 @@ class QuillImporter:
 
         # Transform key frames are converted using the scene frame rate and frame range,
         # so these must match Quill before any layer is imported.
-        # Paint layer importers would otherwise only change them after their parent groups are animated.
         scn = bpy.context.scene
         framerate = quill_scene.sequence.framerate
         if framerate:
@@ -594,12 +593,14 @@ class QuillImporter:
 
         pivot = layer.pivot.translation if layer.pivot is not None else (0.0, 0.0, 0.0)
         pivot_loc = mathutils.Vector(pivot)
+
+        import_start, import_end = timeline.setup_frame_range(scn)
         
         # Sample the transform at every frame.
         # When a parent is hidden (between clips) hold the last value.
         samples = []
         current = None
-        for frame in range(scn.frame_start, scn.frame_end + 1):
+        for frame in range(import_start, import_end + 1):
             visible, local_time = animation.get_local_time(stack, frame * ticks_per_frame, ticks_per_frame)
             if visible or current is None:
                 time = local_time if visible else kktt[0].time
@@ -705,6 +706,8 @@ class QuillImporter:
 
     def get_interpolation(self, interpolation):
         """Convert Quill interpolation to Blender f-curve interpolation"""
+        # Note that these do not exactly match the Quill interpolation,
+        # the one in ease() function for the "bake" path does match Quill.
         if interpolation == "None":
             return 'CONSTANT', 'AUTO'
         elif interpolation == "Linear":
