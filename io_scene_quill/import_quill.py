@@ -719,20 +719,19 @@ class QuillImporter:
             return 'LINEAR', 'AUTO'
 
     def configure_viewport_shading(self, quill_scene):
-            # Configure 3D viewport solid shading to match Quill.
-            if self.config["configure_shading"]:
-                # Solid shading
-                for area in bpy.context.screen.areas:
-                    if area.type == 'VIEW_3D':
-                        area.spaces[0].shading.light = 'FLAT'
-                        area.spaces[0].shading.color_type = 'VERTEX'
-                        area.spaces[0].shading.background_type = 'VIEWPORT'
-                        area.spaces[0].shading.background_color = quill_scene.sequence.background_color
-                        area.spaces[0].shading.show_object_outline = False
-    
-                # View transform to standard.
-                bpy.context.scene.view_settings.view_transform = 'Standard'
+        # Configure 3D viewport solid shading to match Quill.
+        if self.config["configure_shading"]:
+            # Solid shading
+            for area in bpy.context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.spaces[0].shading.light = 'FLAT'
+                    area.spaces[0].shading.color_type = 'VERTEX'
+                    area.spaces[0].shading.background_type = 'VIEWPORT'
+                    area.spaces[0].shading.background_color = quill_scene.sequence.background_color
+                    area.spaces[0].shading.show_object_outline = False
 
+            # View transform to standard.
+            bpy.context.scene.view_settings.view_transform = 'Standard'
 
     def import_model_layer_fallback(self, layer, offset, parent_obj, layer_path):
 
@@ -741,7 +740,6 @@ class QuillImporter:
         obj.empty_display_type = 'CUBE'
         self.setup_obj(obj, layer, parent_obj, layer_path)
         self.setup_animation(obj, layer, offset)
-
 
     def import_model_layer_group(self, layer, model_file_path, offset, parent_obj, layer_path):
 
