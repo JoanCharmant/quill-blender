@@ -35,7 +35,7 @@ Properties shared by all layer types
 | Locked    | ❌ |
 | Collapsed    | ❌ |
 | Transform    | ✅ |
-| Pivot    | ❌ |
+| Pivot    | ⚠️ |
 
 Visibility is imported but treated differently because Blender objects don't inherit visibility (hiding the parent doesn't hide the children).
 
@@ -47,29 +47,40 @@ By default hidden layers are not imported. You can force their import by uncheck
 | ------------- |:---:|
 | Transform  key frames  | ✅ |
 | Opacity key frames  | ❌ |
-| Visibility key frames    | ⚠️ |
-| Offset key frames  | ⚠️ |
-| Looping  | ⚠️ |
-| Clips  | ⚠️ |
+| Visibility key frames    | ✅ |
+| Offset key frames  | ✅ |
+| Looping  | ✅ |
+| Clips  | ✅ |
 | Key frame interpolation  | ✅ |
 
-Base transforms and transform keys are imported and inherited between the parent group and children.
+The Blender scene frame rate is set to the Quill scene frame rate before importing.
 
-Visibility and Offset key frames are used to define "clips". They are only supported in the Mesh importer for frame by frame animation, not in the Grease Pencil or Curve importers.
+Key frame animation beyond the end of the Blender timeline is not baked, you should extend the frame range before importing if needed.
+
+**Loops and clips over transform key frames**
 
 How transform key frames are imported is configured under Animation > Transform Keys in the import dialog:
-- **Keyframes** (default): each Quill key becomes a Blender key frame, with matching interpolation. This is the easiest to edit afterwards. When a parent sequence loops, one iteration is keyed and a Cycles F-curve modifier repeats it indefinitely, even past the end of the Blender timeline. Layers that can't be represented this way (clips or offsets on parent sequences, loops inside loops, or a loop cutting a segment in the middle of an interpolation) are baked automatically.
-- **Bake**: the Quill animation is sampled on every frame of the Blender timeline, taking looping, clips and offsets of parent sequences into account. Frame holds are collapsed. Use this to play back looping or clipped animations as they appear in Quill.
-- **None**: only the base transform is imported.
+- **Keyframes** (default): 
+    - This is the easiest to edit afterwards.
+    - Each Quill key becomes a Blender key frame, with matching interpolation. 
+    - When a parent sequence loops, one iteration is keyed and a cyclic modifier repeats it indefinitely.
+    - Layers that can't be represented this way (clips on parent sequences, loops inside loops, or a loop or clip cutting in the middle of an interpolation) are baked automatically.
+    - The easing interpolation modes `Ease in`, `Ease out`, and `Ease in/out` are supported with the equivalent Blender modes but may not be an exact match on intermediate frames.
+    - Having a non-default transform pivot is not currently supported.
 
-The scene frame rate is set to the Quill frame rate before importing, so key frames land on the right frames.
-
-Key frame interpolation (None, Linear, Ease in, Ease out, Ease in/out) is generally supported but may not be an exact mathematical match on the intermediate frames.
+- **Bake**: 
+    - Use this to play back looping or clipped animations as they appear in Quill.
+    - the Quill animation is sampled on every frame of the Blender timeline, taking looping, clips and offsets of parent sequences into account.
+    - Frame holds are collapsed.
+    - All key frame interpolation modes are supported and should match Quill exactly.
+    - Custom transform pivot is supported.
+- **None**: 
+    - only the base transform is imported.
 
 
 ## Quill paint layers
 
-Paint layers contain one or more drawings made of paint strokes. On import the drawings are converted to Mesh, Grease pencil or Curve objects, this can be configured in the import dialog.
+Paint layers contain one or more drawings made of paint strokes. During import the drawings are converted to Mesh, Grease pencil or Curve objects, depending on the configuration in the import dialog.
 
 ### Import as Mesh
 
@@ -100,7 +111,8 @@ To preview the scene with colors that match Quill as much as possible:
 
 
 #### Mesh animation
-When importing, the Quill timeline is remapped to the Blender frame range. Quill frames outside that range are discarded.
+
+Animation beyond the end of the Blender timeline is not imported, you should extend the frame range before importing if needed.
 
 For the base frame by frame animation the addon creates a separate mesh object for each drawing and animate the visibility of these objects so that only one object is visible on a particular frame.
 
@@ -115,10 +127,10 @@ The following features are supported when importing paint layers as Grease Penci
 
 | Feature |Status|
 | ------------- |:---:|
-| Ribbon brush    | ❌ |
+| Ribbon brush    | ⚠️ |
 | Cylinder brush    | ✅ |
-| Ellipse brush    | ❌ |
-| Cube brush  | ❌ |
+| Ellipse brush    | ⚠️ |
+| Cube brush  | ⚠️ |
 | Width  | ✅ |
 | Color  | ✅ |
 | Opacity  | ✅ |
@@ -127,7 +139,7 @@ The following features are supported when importing paint layers as Grease Penci
 | Looping  | ✅ |
 | Clips  | ❌ |
 
-All brushes are converted to the Grease Pencil line.
+All brushes are imported but they are converted to the Grease Pencil line which is round.
 
 ⚠️ Warning: if your Quill artwork uses the Ribbon brush it will look completely bloated when imported, because Grease Pencil is like a billboard always facing the viewer. It will not respect the orientation of the Ribbon, or of any other Quill brush. This is why the Cylinder brush, with its quasi-radial symmetry, is the only visually compatible brush.
 
@@ -149,9 +161,6 @@ The base animation is imported into Grease Pencil frames.
 💡 The frame range in the Blender timeline is used to generate the drawings at the corresponding frames so if looping is enabled on the Quill layer it will generate the drawings over the entire Blender timeline.
 
 Only the base animation is supported. Clips are not supported.
-
-### Grease Pencil v2 and v3
-Grease Pencil v2 (Blender 4.2 and below) and v3 (Blender 4.3 and above) are supported. If you find any anomalous behavior please report the problem.
 
 ### Import as Curve
 

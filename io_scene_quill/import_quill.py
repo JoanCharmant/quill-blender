@@ -457,6 +457,7 @@ class QuillImporter:
         time_base = 1/12600
 
         # First pass, create the key frames with default interpolation.
+        # Loops keep fractional frames so the period of the cycle is exact.
         # The following dict stores the Blender interpolation type for the Blender frame, to be applied in a second pass.
         # It keeps the last value in case multiple Quill keys land on the same Blender frame.
         frame_interpolation = {}
