@@ -57,7 +57,10 @@ Base transforms and transform keys are imported and inherited between the parent
 
 Visibility and Offset key frames are used to define "clips". They are only supported in the Mesh importer for frame by frame animation, not in the Grease Pencil or Curve importers.
 
-Looping sequences containing transform key frames are not properly supported, only the first iteration is honored. Similarly, clips of sequences where the base iteration or nested layers have transform key frames are not correctly imported.
+How transform key frames are imported is configured under Animation > Transform Keys in the import dialog:
+- **Keyframes** (default): each Quill key becomes a Blender key frame, with matching interpolation. This is the easiest to edit afterwards. When a parent sequence loops, one iteration is keyed and a Cycles F-curve modifier repeats it indefinitely, even past the end of the Blender timeline. Layers that can't be represented this way (clips or offsets on parent sequences, loops inside loops, or a loop cutting a segment in the middle of an interpolation) are baked automatically.
+- **Bake**: the Quill animation is sampled on every frame of the Blender timeline, taking looping, clips and offsets of parent sequences into account. Frame holds are collapsed. Use this to play back looping or clipped animations as they appear in Quill.
+- **None**: only the base transform is imported.
 
 The scene frame rate is set to the Quill frame rate before importing, so key frames land on the right frames.
 
@@ -103,7 +106,7 @@ For the base frame by frame animation the addon creates a separate mesh object f
 
 Looping of the base frame by frame animation is supported, as well as clips, both on the paint layer itself and on parent sequences. Clip offsets (left-trim) are also supported.
 
-Note that currently the looping and clipping of transform key frames is not supported.
+Looping and clips of parent sequences also apply to transform key frames, see the Transform Keys option above.
 
 
 ### Import as Grease Pencil
