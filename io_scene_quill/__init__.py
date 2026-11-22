@@ -89,6 +89,13 @@ class ImportQuill(bpy.types.Operator, ImportHelper):
         description="How layer transform key frames are imported",
         default="KEYFRAMES")
 
+    import_opacity: BoolProperty(
+        name="Opacity",
+        description="Import layer opacity and opacity key frames, including opacity inherited from parent groups. "
+                    "Stored in the object color alpha of meshes and pictures, and the layer opacity of Grease Pencil",
+        default=True,
+    )
+
     def draw(self, context):
         pass
 
@@ -199,6 +206,7 @@ class QUILL_PT_import_animation(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "transform_keys")
+        layout.prop(operator, "import_opacity")
 
 
 class ExportQuill(bpy.types.Operator, ExportHelper):

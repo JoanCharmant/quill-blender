@@ -145,6 +145,10 @@ class QuillImporter:
                 # Import the drawings and animate them.
                 mesh_paint.convert(self.config, obj, layer, self.material, use_keymesh, self.lipsync_data)
 
+                # The material reads the opacity from the color of the objects holding the meshes.
+                targets = [obj] if use_keymesh else list(obj.children)
+                self.setup_opacity(layer, [(o, "color", 3, o) for o in targets])
+
             elif self.config["convert_paint"] == "GPENCIL" or self.config["convert_paint"] == "GREASEPENCIL":
 
                 data = None
@@ -160,6 +164,10 @@ class QuillImporter:
                 self.setup_animation(obj, layer, offset)
 
                 gpencil_paint.convert(obj, layer)
+
+                if len(data.layers) > 0:
+                    gpencil_layer = data.layers[len(data.layers) - 1]
+                    self.setup_opacity(layer, [(gpencil_layer, "opacity", -1, data)])
 
             elif self.config["convert_paint"] == "CURVE":
 
@@ -356,6 +364,10 @@ class QuillImporter:
 
             obj.data = image_data
 
+            # Image empties use the object color alpha as opacity.
+            obj.use_empty_image_alpha = True
+            self.setup_opacity(layer, [(obj, "color", 3, obj)])
+
             # To get the correct size we need to do some shenanigans.
             # This was found by trial and error with images of various aspect ratio.
             # The correct size is twice the aspect ratio for landscape images,
@@ -414,7 +426,7 @@ class QuillImporter:
 
         # Quill has several types of key frames.
         # Visibility and Offset key frames are used for clips and spans.
-        # Opacity key frames are used for fading layers in and out, not supported.
+        # Opacity key frames are handled in `setup_opacity` since they need the converted data.
         # Transform key frames are imported as sparse key frames or baked on every frame.
         kktt = layer.animation.keys.transform
         if kktt is None or len(kktt) == 0:
@@ -563,6 +575,104 @@ class QuillImporter:
 
         keys.append((duration, first_value, "None"))
         return keys
+
+    def setup_opacity(self, layer, targets):
+        """
+        Apply the opacity of the layer to the Blender data that renders it.
+
+        Blender objects don't inherit opacity, so the opacity of all the parent groups is multiplied in.
+        When a layer has opacity key frames they define its opacity, the static value is just a snapshot
+        at the time the file was saved. Each key frame lives in the timeline of the layer's parent.
+        Animated opacity is sampled on every frame of the Blender timeline, holds are collapsed.
+
+        :param targets: list of (struct, property, index, id) to write the opacity to.
+        Index is -1 for scalar properties. `id` is the data-block owning the animation.
+        :return: True if the layer is ever partially transparent.
+        """
+
+        if not self.config["import_opacity"] or len(targets) == 0:
+            return False
+
+        # Lineage from the root down to the layer.
+        lineage = []
+        current = layer
+        while current is not None:
+            lineage.append(current)
+            current = current.parent
+        lineage.reverse()
+
+        if not any(l.animation.keys.opacity for l in lineage):
+            value = 1.0
+            for l in lineage:
+                value *= l.opacity
+            if value < 1.0:
+                for struct, prop, index, _ in targets:
+                    self.set_property(struct, prop, index, value)
+            return value < 1.0
+
+        scn = bpy.context.scene
+        ticks_per_frame = int(12600 / scn.render.fps)
+
+        # Sample the combined opacity at every frame.
+        # When a level is hidden (between clips) hold the last value.
+        samples = []
+        current = None
+        for frame in range(scn.frame_start, scn.frame_end + 1):
+            global_time = frame * ticks_per_frame
+            value = 1.0
+            visible = True
+            for i, l in enumerate(lineage):
+                kkoo = l.animation.keys.opacity
+                if not kkoo:
+                    value *= l.opacity
+                    continue
+
+                ancestors = list(reversed(lineage[:i]))
+                level_visible, local_time = animation.get_local_time(ancestors, global_time, ticks_per_frame)
+                visible = visible and level_visible
+                value *= self.evaluate_scalar(kkoo, local_time)
+
+            if visible or current is None:
+                current = value
+            samples.append((frame, current))
+
+        last = len(samples) - 1
+        for i, (frame, value) in enumerate(samples):
+            if 0 < i < last and abs(samples[i - 1][1] - value) < 1e-5 and abs(value - samples[i + 1][1]) < 1e-5:
+                continue
+            for struct, prop, index, _ in targets:
+                self.set_property(struct, prop, index, value)
+                struct.keyframe_insert(data_path=prop, index=index, frame=frame)
+
+        # Linear between samples, Bezier would overshoot around the holds.
+        for id in {t[3] for t in targets}:
+            for fcurve in timeline.get_fcurves(id):
+                if fcurve.data_path.endswith("color") or fcurve.data_path.endswith("opacity"):
+                    for kp in fcurve.keyframe_points:
+                        kp.interpolation = 'LINEAR'
+
+        return any(value < 1.0 - 1e-5 for _, value in samples)
+
+    def set_property(self, struct, prop, index, value):
+        if index < 0:
+            setattr(struct, prop, value)
+        else:
+            getattr(struct, prop)[index] = value
+
+    def evaluate_scalar(self, keys, time):
+        """Evaluate Quill scalar key frames (opacity) at `time` (in ticks)."""
+
+        if time <= keys[0].time:
+            return float(keys[0].value)
+
+        for i in range(len(keys) - 1):
+            a = keys[i]
+            b = keys[i + 1]
+            if a.time <= time < b.time:
+                u = self.ease(a.interpolation, (time - a.time) / (b.time - a.time))
+                return float(a.value) + (float(b.value) - float(a.value)) * u
+
+        return float(keys[-1].value)
 
     def transform_equals(self, a, b, epsilon=1e-6):
         """Compare two (location, rotation, scale) tuples. Opposite quaternions are the same rotation."""
