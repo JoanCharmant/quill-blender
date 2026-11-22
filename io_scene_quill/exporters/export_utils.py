@@ -1,5 +1,5 @@
 import bpy
-from mathutils import Matrix, Vector, Quaternion, Euler
+from mathutils import Matrix, Vector, Quaternion
 
 # Functions to convert from Blender coordinate system to Quill’s.
 # Some functions taken from the glTF addon.
@@ -44,7 +44,8 @@ def convert_transform_raw(m: Matrix):
     
 
 def transform_equals(m1: Matrix, m2: Matrix, epsilon=1e-6):
-    """Compare two matrices for equality, with a tolerance."""
+    """Compare two matrices for equality, with a tolerance.
+    This checks if two Blender transforms are equal."""
     if m1 == m2:
         return True
 

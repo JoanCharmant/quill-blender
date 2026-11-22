@@ -1,5 +1,8 @@
 import bpy
 
+#------------------------------
+# Functions related to the Blender timeline.
+#------------------------------
 
 def ensure_channelbag(data_block):
     """
@@ -95,3 +98,5 @@ def setup_frame_range(scn):
         scn.frame_end = count_frames
 
     return import_start, import_end
+
+

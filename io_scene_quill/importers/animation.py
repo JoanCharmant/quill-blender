@@ -1,5 +1,5 @@
 import bpy
-from ..utils import timeline
+from . import timeline
 from ..utils.keymesh import keymesh_keyframe, keymesh_get_blank
 
 

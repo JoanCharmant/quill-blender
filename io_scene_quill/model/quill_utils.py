@@ -5,6 +5,10 @@ import struct
 
 from . import paint, picture, sound, sequence, state, lipsync
 
+#-------------------------------
+# Functions related to creating and manipulating Quill scene graphs.
+# These functions are not dependant on Blender and can be used in other contexts.
+#-------------------------------
 
 def create_scene():
     """Create a default Quill scene with a root layer and an initial viewpoint."""

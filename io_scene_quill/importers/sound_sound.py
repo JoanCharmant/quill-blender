@@ -1,5 +1,6 @@
 import bpy
 
+
 def convert(layer, path, scn, channel):
     """Convert a Quill Sound layer to Blender sound strips."""
 

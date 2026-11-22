@@ -1,6 +1,4 @@
 import bpy
-import math
-import mathutils
 
 def create_diffuse(name):
     """Creates a basic Diffuse BSDF and bind vertex colors"""
