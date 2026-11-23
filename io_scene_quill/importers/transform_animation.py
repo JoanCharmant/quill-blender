@@ -4,6 +4,7 @@ import mathutils
 from math import floor
 from .animation import get_local_time
 from . import import_utils, timeline
+from ..utils import fcurves
 
 #-------------------------------
 # Functions related to importing the transform keys
@@ -83,7 +84,7 @@ def animate_transform(obj, layer, kktt, offset=0, do_scale=True, correction=None
 
     # Second pass, set the interpolation.
     # Match Blender key frames to Quill keys by frame.
-    for fcurve in timeline.get_fcurves(obj):
+    for fcurve in fcurves.get_fcurves(obj):
         if fcurve.data_path not in ("location", "rotation_quaternion", "scale"):
             continue
         for kp in fcurve.keyframe_points:
@@ -98,60 +99,64 @@ def animate_transform(obj, layer, kktt, offset=0, do_scale=True, correction=None
 
 
 def bake_transform(obj, layer, kktt, do_scale=True, correction=None):
-        """
-        Sample the Quill transform animation on every frame of the Blender timeline.
-        Used for the "Bake" import mode.
+    """
+    Sample the Quill transform animation on every frame of the Blender timeline.
+    Used for the "Bake" import mode.
+    
+    The transform key frames of a layer live in the timeline of its parent,
+    so we resolve looping, clips and offsets of all the ancestors at each frame.
+    Frame holds are collapsed to their first and last frames.
+    """
+
+    obj.rotation_mode = 'QUATERNION'
+
+    scn = bpy.context.scene
+    ticks_per_frame = int(12600 / scn.render.fps)
+
+    # Lineage of ancestors, from the parent up to the root.
+    stack = []
+    parent = layer.parent
+    while parent is not None:
+        stack.append(parent)
+        parent = parent.parent
+
+    pivot = layer.pivot.translation if layer.pivot is not None else (0.0, 0.0, 0.0)
+    pivot_loc = mathutils.Vector(pivot)
+
+    import_start, import_end = timeline.setup_frame_range(scn)
+    
+    # Sample the transform at every frame.
+    # When a parent is hidden (between clips) hold the last value.
+    samples = []
+    current = None
+    for frame in range(import_start, import_end + 1):
+        visible, local_time = get_local_time(stack, frame * ticks_per_frame, ticks_per_frame)
+        if visible or current is None:
+            time = local_time if visible else kktt[0].time
+            loc, rot, scale = evaluate_transform(kktt, time, do_scale, pivot_loc, correction)
+            if current is not None and rot.dot(current[1]) < 0:
+                rot.negate()
+            current = (loc, rot, scale)
+        samples.append((frame, current))
+
+    last = len(samples) - 1
+    
+    for i, (frame, value) in enumerate(samples):
         
-        The transform key frames of a layer live in the timeline of its parent,
-        so we resolve looping, clips and offsets of all the ancestors at each frame.
-        Frame holds are collapsed to their first and last frames.
-        """
-
-        obj.rotation_mode = 'QUATERNION'
-
-        scn = bpy.context.scene
-        ticks_per_frame = int(12600 / scn.render.fps)
-
-        # Lineage of ancestors, from the parent up to the root.
-        stack = []
-        parent = layer.parent
-        while parent is not None:
-            stack.append(parent)
-            parent = parent.parent
-
-        pivot = layer.pivot.translation if layer.pivot is not None else (0.0, 0.0, 0.0)
-        pivot_loc = mathutils.Vector(pivot)
-
-        import_start, import_end = timeline.setup_frame_range(scn)
-        
-        # Sample the transform at every frame.
-        # When a parent is hidden (between clips) hold the last value.
-        samples = []
-        current = None
-        for frame in range(import_start, import_end + 1):
-            visible, local_time = get_local_time(stack, frame * ticks_per_frame, ticks_per_frame)
-            if visible or current is None:
-                time = local_time if visible else kktt[0].time
-                loc, rot, scale = evaluate_transform(kktt, time, do_scale, pivot_loc, correction)
-                if current is not None and rot.dot(current[1]) < 0:
-                    rot.negate()
-                current = (loc, rot, scale)
-            samples.append((frame, current))
-
-        def same(a, b):
-            return all(abs(x - y) < 1e-6 for va, vb in zip(a, b) for x, y in zip(va, vb))
-
-        last = len(samples) - 1
-        for i, (frame, value) in enumerate(samples):
-            if 0 < i < last and same(samples[i - 1][1], value) and same(value, samples[i + 1][1]):
+        if 0 < i < last:
+            prev = samples[i - 1][1]
+            next = samples[i + 1][1]
+            if (import_utils.transform_equals(value, prev) and 
+                import_utils.transform_equals(value, next)):
                 continue
-            loc, rot, scale = value
-            insert_transform_key(obj, frame, loc, rot, scale, do_scale)
+        
+        loc, rot, scale = value
+        insert_transform_key(obj, frame, loc, rot, scale, do_scale)
 
-        for fcurve in timeline.get_fcurves(obj):
-            if fcurve.data_path in ("location", "rotation_quaternion", "scale"):
-                for kp in fcurve.keyframe_points:
-                    kp.interpolation = 'LINEAR'
+    for fcurve in fcurves.get_fcurves(obj):
+        if fcurve.data_path in ("location", "rotation_quaternion", "scale"):
+            for kp in fcurve.keyframe_points:
+                kp.interpolation = 'LINEAR'
 
 
 #-------------------------------

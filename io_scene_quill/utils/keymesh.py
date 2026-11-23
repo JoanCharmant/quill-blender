@@ -1,6 +1,6 @@
 import bpy
 import random
-from ..importers.timeline import get_fcurve
+from .fcurves import get_fcurve
 
 
 # Helper functions for Keymesh objects.

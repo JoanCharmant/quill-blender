@@ -1,4 +1,3 @@
-import bpy
 from mathutils import Matrix, Vector, Quaternion
 
 def convert_transform(t):
@@ -24,8 +23,7 @@ def convert_transform(t):
 
 
 def transform_equals(a, b, epsilon=1e-6):
-    """Compare two (location, rotation, scale) tuples. 
-    This checks if two Quill transforms are equal."""
+    """Compare two (location, rotation, scale) tuples."""
     
     loc_a, rot_a, scale_a = a
     loc_b, rot_b, scale_b = b
