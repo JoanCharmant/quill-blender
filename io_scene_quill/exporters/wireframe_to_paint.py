@@ -3,7 +3,7 @@ import bpy
 import math
 import mathutils
 from ..model import paint, quill_utils, sequence
-from . import export_utils
+from . import transforms
 
 
 def convert(mesh, config):
@@ -17,8 +17,8 @@ def convert(mesh, config):
     # https://docs.blender.org/api/current/bpy.types.Mesh.html
     stroke_id = 0
     for (v1, v2) in mesh.edge_keys:
-        p1 = export_utils.swizzle_yup_location(mesh.vertices[v1].co)
-        p2 = export_utils.swizzle_yup_location(mesh.vertices[v2].co)
+        p1 = transforms.swizzle_yup_location(mesh.vertices[v1].co)
+        p2 = transforms.swizzle_yup_location(mesh.vertices[v2].co)
         stroke = make_edge_stroke(p1, p2, stroke_id, config)
         if stroke is None:
             continue
@@ -54,7 +54,7 @@ def make_edge_stroke(start, end, id, config):
     camera = bpy.context.scene.camera
     if camera is not None:
         camera_position = bpy.context.scene.camera.matrix_world.to_translation()
-        camera_position = export_utils.swizzle_yup_location(camera_position)
+        camera_position = transforms.swizzle_yup_location(camera_position)
 
     # The stroke is straight so all points have the same tangent.
     tangent = (end - start).normalized()

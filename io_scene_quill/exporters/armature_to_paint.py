@@ -4,7 +4,7 @@ import mathutils
 import random
 
 from ..model import paint, quill_utils, sequence
-from . import export_utils
+from . import transforms
 
 def convert(obj, config):
     """Converts a Blender armature object to a hierarchy of groups and layers.
@@ -135,7 +135,7 @@ def set_pose(pose_bone, bone_group_layers, previous_poses, time, config):
     pose_in_parent = rest_pose_in_parent @ pose_bone.matrix_basis
 
     # Convert the transform.
-    translation, rotation, scale, flip = export_utils.convert_transform_raw(pose_in_parent)
+    translation, rotation, scale, flip = transforms.convert_transform_raw(pose_in_parent)
     transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
     
     if not config["armature_animation"]:
@@ -144,7 +144,7 @@ def set_pose(pose_bone, bone_group_layers, previous_poses, time, config):
     
     # Only add a keyframe if the pose has changed since the last frame.
     epsilon = 1e-5
-    if pose_bone.name in previous_poses and export_utils.transform_equals(previous_poses[pose_bone.name], pose_in_parent, epsilon):
+    if pose_bone.name in previous_poses and transforms.transform_equals(previous_poses[pose_bone.name], pose_in_parent, epsilon):
         return
 
     previous_poses[pose_bone.name] = pose_in_parent
@@ -173,7 +173,7 @@ def make_bone_stroke(head, tail, color, config):
     camera = bpy.context.scene.camera
     if camera is not None:
         camera_position = bpy.context.scene.camera.matrix_world.to_translation()
-        camera_position = export_utils.swizzle_yup_location(camera_position)
+        camera_position = transforms.swizzle_yup_location(camera_position)
 
     # The stroke is straight so all points have the same tangent.
     tangent = (tail - head).normalized()

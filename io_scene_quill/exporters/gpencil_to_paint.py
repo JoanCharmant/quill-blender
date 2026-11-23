@@ -3,7 +3,7 @@ import logging
 import math
 import mathutils
 from ..model import paint, quill_utils, sequence
-from . import export_utils
+from . import transforms
 
 
 def convert(obj, config):
@@ -87,7 +87,7 @@ def make_paint_layer(gpencil_layer, gpencil_materials, thickness_scale, config):
 
     # Layer-level transform
     gp_layer_transform = gpencil_layer.matrix_local if gpv3 else gpencil_layer.matrix_layer
-    translation, rotation, scale, flip = export_utils.convert_transform(gp_layer_transform)
+    translation, rotation, scale, flip = transforms.convert_transform(gp_layer_transform)
     paint_layer.transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
     # Ajustments > Stroke thickness
@@ -257,9 +257,9 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
             mid_idx = point_count // 2
             mid = gp_stroke.points[mid_idx].position if gpv3 else gp_stroke.points[mid_idx].co
             
-            p = export_utils.swizzle_yup_location(start)
-            p2 = export_utils.swizzle_yup_location(mid)
-            p3 = export_utils.swizzle_yup_location(end)
+            p = transforms.swizzle_yup_location(start)
+            p2 = transforms.swizzle_yup_location(mid)
+            p3 = transforms.swizzle_yup_location(end)
 
             v1 = p2 - p
             v2 = p3 - p
@@ -275,8 +275,8 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
                 
         elif point_count == 2:
             
-            p = export_utils.swizzle_yup_location(start)
-            p2 = export_utils.swizzle_yup_location(end)
+            p = transforms.swizzle_yup_location(start)
+            p2 = transforms.swizzle_yup_location(end)
             direction = p2 - p
             guessed_normal = get_arbitrary_normal(direction)
 
@@ -288,7 +288,7 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
         camera = bpy.context.scene.camera
         if camera is not None:
             camera_position = bpy.context.scene.camera.matrix_world.to_translation()
-            camera_position = export_utils.swizzle_yup_location(camera_position)
+            camera_position = transforms.swizzle_yup_location(camera_position)
 
     bbox = quill_utils.bbox_empty()
     vertices = []
@@ -298,7 +298,7 @@ def make_normal_stroke(gp_stroke, material, thickness_scale, thickness_offset, c
 
         gp_point = gp_stroke.points[i]
         location = gp_point.position if gpv3 else gp_point.co
-        p = export_utils.swizzle_yup_location(location)
+        p = transforms.swizzle_yup_location(location)
 
         if guess_drawing_plane:
             normal = guessed_normal
@@ -396,7 +396,7 @@ def compute_tangent(gp_stroke, i, p):
     forward = mathutils.Vector((0, 0, 0))
     for j in range(i + 1, len(gp_stroke.points)):
         location = gp_stroke.points[j].position if gpv3 else gp_stroke.points[j].co
-        p2 = export_utils.swizzle_yup_location(location)
+        p2 = transforms.swizzle_yup_location(location)
         delta = p2 - p
         if delta.length >= epsilon:
             forward = delta.normalized()
@@ -406,7 +406,7 @@ def compute_tangent(gp_stroke, i, p):
     backward = mathutils.Vector((0, 0, 0))
     for j in range(i - 1, -1, -1):
         location = gp_stroke.points[j].position if gpv3 else gp_stroke.points[j].co
-        p2 = export_utils.swizzle_yup_location(location)
+        p2 = transforms.swizzle_yup_location(location)
         delta = p - p2
         if delta.length >= epsilon:
             backward = delta.normalized()
@@ -420,8 +420,8 @@ def compute_tangent(gp_stroke, i, p):
     # If that's still zero, go for a desperate solution - overal stroke direction + noise.
     last_location = gp_stroke.points[-1].position if gpv3 else gp_stroke.points[-1].co
     first_location = gp_stroke.points[0].position if gpv3 else gp_stroke.points[0].co
-    last = export_utils.swizzle_yup_location(last_location)
-    first = export_utils.swizzle_yup_location(first_location)
+    last = transforms.swizzle_yup_location(last_location)
+    first = transforms.swizzle_yup_location(first_location)
     yaxis = (last - first + mathutils.Vector((0.000001, 0.000002, 0.000003))).normalized()
     return yaxis
 

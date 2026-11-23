@@ -3,7 +3,7 @@ import logging
 import mathutils
 from math import floor
 from .animation import get_local_time
-from . import import_utils, timeline
+from . import timeline, transforms
 from ..utils import fcurves
 
 #-------------------------------
@@ -146,8 +146,8 @@ def bake_transform(obj, layer, kktt, do_scale=True, correction=None):
         if 0 < i < last:
             prev = samples[i - 1][1]
             next = samples[i + 1][1]
-            if (import_utils.transform_equals(value, prev) and 
-                import_utils.transform_equals(value, next)):
+            if (transforms.transform_equals(value, prev) and 
+                transforms.transform_equals(value, next)):
                 continue
         
         loc, rot, scale = value
@@ -233,7 +233,7 @@ def get_loop_keys(kktt, duration, do_scale, correction):
         keys[-1] = (keys[-1][0], keys[-1][1], "None")
     elif last.interpolation != "None":
         following_value = get_key_transform(following.value, do_scale, correction)
-        if following.time != duration or not import_utils.transform_equals(following_value, first_value):
+        if following.time != duration or not transforms.transform_equals(following_value, first_value):
             return None
 
     keys.append((duration, first_value, "None"))
@@ -295,7 +295,7 @@ def transformed_pivot(loc, rot, scale, pivot):
 def get_key_transform(transform, do_scale, correction):
     """Convert a Quill key frame transform to Blender location, rotation and scale."""
     
-    mat = import_utils.convert_transform(transform)
+    mat = transforms.convert_transform(transform)
     
     if correction is not None:
         mat = correction @ mat

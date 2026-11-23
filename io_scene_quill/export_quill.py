@@ -5,7 +5,7 @@ import logging
 import mathutils
 from math import degrees, radians
 from .model import quill_utils, sequence
-from .exporters import export_utils, paint_armature, paint_gpencil, paint_wireframe, picture
+from .exporters import armature_to_paint, gpencil_to_paint, image_to_picture, transforms, wireframe_to_paint
 from .utils.keymesh import keymesh_get_frame_sequence
 
 class QuillExporter:
@@ -152,13 +152,13 @@ class QuillExporter:
             self.animate_layer(layer, obj)
 
         elif obj.type == "GPENCIL" or obj.type == "GREASEPENCIL":
-            layer = paint_gpencil.convert(obj, self.config)
+            layer = gpencil_to_paint.convert(obj, self.config)
             self.setup_layer(layer, obj, parent_layer)
             self.animate_layer(layer, obj)
 
         elif obj.type == "ARMATURE":
             # Export the armature hierarchy.
-            layer = paint_armature.convert(obj, self.config)
+            layer = armature_to_paint.convert(obj, self.config)
             self.setup_layer(layer, obj, parent_layer)
             self.animate_layer(layer, obj)
             
@@ -175,7 +175,7 @@ class QuillExporter:
         if obj.data == None or obj.data.size[1] == 0:
             return
 
-        layer = picture.convert(obj, self.config)
+        layer = image_to_picture.convert(obj, self.config)
         self.setup_layer(layer, obj, parent_layer)
 
     def export_empty(self, obj, parent_layer):
@@ -375,7 +375,7 @@ class QuillExporter:
             # Export each keymesh block as its own drawing in the paint layer.
             for block_registry in obj.keymesh.blocks:
                 block = block_registry.block
-                drawing = paint_wireframe.convert(block, self.config)
+                drawing = wireframe_to_paint.convert(block, self.config)
                 paint_layer.implementation.drawings.append(drawing)
                 keymesh_data = block.keymesh["Data"]
                 keymesh_to_drawing[keymesh_data] = len(paint_layer.implementation.drawings) - 1
@@ -385,7 +385,7 @@ class QuillExporter:
             self.setup_frame_sequence(paint_layer, keymesh_frame_sequence, keymesh_to_drawing)
             
         else:
-            drawing = paint_wireframe.convert(obj.data, self.config)
+            drawing = wireframe_to_paint.convert(obj.data, self.config)
             paint_layer.implementation.drawings.append(drawing)
             
         # Finalize the paint layer.
@@ -497,7 +497,7 @@ class QuillExporter:
             # matrix of an object parented to a moving empty. The local matrix keeps changing when it shouldn't.
             # Using 1e-5 seems to work.
             epsilon = 1e-5
-            if previous_matrix_local == None or not export_utils.transform_equals(obj.matrix_local, previous_matrix_local, epsilon):
+            if previous_matrix_local == None or not transforms.transform_equals(obj.matrix_local, previous_matrix_local, epsilon):
 
                 transform = self.get_transform(obj)
 
@@ -526,7 +526,7 @@ class QuillExporter:
 
             # Blender identity pose for images is on the front plane.
             mat = obj.matrix_local @ mathutils.Matrix.Rotation(radians(90), 4, 'X')
-            translation, rotation, scale, flip = export_utils.convert_transform(mat)
+            translation, rotation, scale, flip = transforms.convert_transform(mat)
 
             # On Blender side, images have a display size independent of the scale.
             # For landscape the unit quad is mapped to the width, for portrait to the height.
@@ -553,7 +553,7 @@ class QuillExporter:
             # Blender identity pose for cameras looks down.
             # Rotate by 90° around X axis to match Quill.
             mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
-            translation, rotation, scale, flip = export_utils.convert_transform(mat)
+            translation, rotation, scale, flip = transforms.convert_transform(mat)
 
             # Apply extra scale based on the "display size" of the camera
             # Camera > Viewport Display > Size (cm).
@@ -570,20 +570,20 @@ class QuillExporter:
             # The other approach would be to modify the original drawing data on the fly at the vertex level
             # just to counter the rotation done in `convert_transform`.
             mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
-            translation, rotation, scale, flip = export_utils.convert_transform(mat)
+            translation, rotation, scale, flip = transforms.convert_transform(mat)
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
         elif obj.type == "ARMATURE":
             # The hierarchy of bones is set up in Blender space
             # and we apply a single transform at the top level.
             mat = obj.matrix_local @ mathutils.Matrix.Rotation(- radians(90), 4, 'X')
-            translation, rotation, scale, flip = export_utils.convert_transform(mat)
+            translation, rotation, scale, flip = transforms.convert_transform(mat)
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
         else:
             # Normal case for groups and leaf objects created in Blender.
             # This does the normal conversion from Blender to Quill space.
-            translation, rotation, scale, flip = export_utils.convert_transform(obj.matrix_local)
+            translation, rotation, scale, flip = transforms.convert_transform(obj.matrix_local)
             transform = sequence.Transform(flip, list(rotation), scale[0], list(translation))
 
         return transform

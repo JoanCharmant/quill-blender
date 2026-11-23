@@ -4,7 +4,7 @@ import logging
 import mathutils
 from math import radians
 
-from .importers import curve_paint, gpencil_paint, image_picture, import_utils, mesh_material, mesh_paint, sound_sound, timeline, transform_animation
+from .importers import materials, paint_to_curve, paint_to_gpencil, paint_to_mesh, picture_to_image, sound_to_strip, timeline, transform_animation, transforms
 from .model import quill_utils
 
 
@@ -62,7 +62,7 @@ class QuillImporter:
         # Create the shared material.
         self.material = None
         if self.config["convert_paint"] == "MESH":
-            self.material = mesh_material.create_principled("vertex.colors")
+            self.material = materials.create_principled("vertex.colors")
 
         # Import/convert layers to Blender objects.
         root_layer = quill_scene.sequence.root_layer
@@ -135,7 +135,7 @@ class QuillImporter:
                 self.setup_animation(obj, layer, offset)
 
                 # Import the drawings and animate them.
-                mesh_paint.convert(self.config, obj, layer, self.material, use_keymesh, self.lipsync_data)
+                paint_to_mesh.convert(self.config, obj, layer, self.material, use_keymesh, self.lipsync_data)
 
             elif self.config["convert_paint"] == "GPENCIL" or self.config["convert_paint"] == "GREASEPENCIL":
 
@@ -151,7 +151,7 @@ class QuillImporter:
                 self.setup_obj(obj, layer, parent_obj, layer_path)
                 self.setup_animation(obj, layer, offset)
 
-                gpencil_paint.convert(obj, layer)
+                paint_to_gpencil.convert(obj, layer)
 
             elif self.config["convert_paint"] == "CURVE":
 
@@ -160,7 +160,7 @@ class QuillImporter:
                 self.setup_obj(obj, layer, parent_obj, layer_path)
                 self.setup_animation(obj, layer, offset)
 
-                curve_paint.convert(obj, layer)
+                paint_to_curve.convert(obj, layer)
 
         elif layer.type == "Viewpoint":
 
@@ -257,7 +257,7 @@ class QuillImporter:
             else:
                 self.next_empty_channel += 1
 
-            sound_sound.convert(layer, file_path, sequencer_scene, self.next_empty_channel)
+            sound_to_strip.convert(layer, file_path, sequencer_scene, self.next_empty_channel)
 
         elif layer.type == "Model":
 
@@ -337,7 +337,7 @@ class QuillImporter:
             # If the original file is not available, try to recover the picture from the Qbin data.
             if image_data is None and layer.implementation.data is not None:
                 try:
-                    image_data = image_picture.convert(layer.name, layer.implementation.data)
+                    image_data = picture_to_image.convert(layer.name, layer.implementation.data)
                 except (ValueError, RuntimeError, TypeError, MemoryError) as e:
                     logging.warning("Cannot decode Qbin picture %s: %s", layer.name, e)
 
@@ -369,7 +369,7 @@ class QuillImporter:
         if obj.name not in bpy.context.collection.objects:
             bpy.context.collection.objects.link(obj)
         obj.parent = parent_obj
-        obj.matrix_local = import_utils.convert_transform(layer.transform)
+        obj.matrix_local = transforms.convert_transform(layer.transform)
 
         # Store a reference to the original Quill project and layer.
         # This is used during export, to swap back the original Quill data.
